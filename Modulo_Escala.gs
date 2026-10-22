@@ -411,47 +411,87 @@ function pintarAfast_(A, alvos, d1, d2, tipo, nomes, semSubst) {
   if (rl.length) sh.getRangeList(rl).setBackground(cor.bg).setFontColor(cor.fg);
 }
 
+function alvosAfast_(A, rec) {
+  var alvos = [], nomes = {};
+  rec.keys.forEach(function (k) {
+    A.blocos.forEach(function (B, bi) {
+      if (!rec.todas && B.titulo !== rec.titulo) return;
+      B.rows.forEach(function (R, ri) { if (R.key === k) { alvos.push({ bi: bi, ri: ri }); nomes[k] = R.nome; } });
+    });
+  });
+  return { alvos: alvos, nomes: nomes };
+}
+
+function guardarPendencia_(rec, tipoAba, mes, ano) {
+  var props = PropertiesService.getDocumentProperties(), l = JSON.parse(props.getProperty('AFAST_PEND') || '[]');
+  var novo = { rec: rec, tipoAba: tipoAba, mes: mes, ano: ano };
+  if (l.some(function (e) { return JSON.stringify(e) === JSON.stringify(novo); })) return;
+  l.push(novo);
+  props.setProperty('AFAST_PEND', JSON.stringify(l));
+}
+
+function listarPendencias_() { return JSON.parse(PropertiesService.getDocumentProperties().getProperty('AFAST_PEND') || '[]'); }
+
+/**
+ * Pinta o afastamento (rec) a partir da aba A e segue pelos meses seguintes enquanto o período continuar.
+ * Se a aba do mês seguinte não existir, guarda a pendência para ser aplicada quando ela for criada.
+ */
+function propagarAfast_(A, rec, aplicar, linhas, semSubst) {
+  var cur = A, ate = parseIso_(rec.ate), de = parseIso_(rec.de), guard = 0;
+  while (cur && guard++ < 14) {
+    var fimMes = dataDia_(cur, cur.nDias);
+    var d1 = Math.max(1, diaDeData_(cur, rec.de, true)), d2 = Math.min(cur.nDias, diaDeData_(cur, rec.ate, false));
+    if (de <= fimMes && d2 >= d1) {
+      var t = alvosAfast_(cur, rec);
+      if (t.alvos.length) {
+        linhas.push((TIPOS_AFAST[rec.tipo] || 'Apresentação') + ': ' + Object.keys(t.nomes).length + ' militar(es), ' + t.alvos.length +
+          ' linha(s), dias ' + d1 + '–' + d2 + ' de ' + cur.nome);
+        if (aplicar) pintarAfast_(cur, t.alvos, d1, d2, rec.tipo, t.nomes, semSubst);
+      } else linhas.push('⚠ Militar(es) não encontrado(s) em ' + cur.nome + ' (escala "' + rec.titulo + '").');
+    }
+    if (ate <= fimMes) return;
+    var m = cur.mes + 1, ano = cur.ano;
+    if (m > 11) { m = 0; ano++; }
+    var nx = ss_().getSheetByName(CFG.MESES[m] + ' ' + cur.tipo);
+    if (!nx) {
+      linhas.push('🕓 O período continua até ' + fmtData_(ate) + ' e a aba "' + CFG.MESES[m] + ' ' + cur.tipo +
+        '" ainda não existe: o afastamento ' + (aplicar ? 'FICOU PENDENTE e' : 'ficará pendente e') + ' será lançado automaticamente quando a aba for criada.');
+      if (aplicar) guardarPendencia_(rec, cur.tipo, m, ano);
+      return;
+    }
+    cur = lerAba_(nx, m, ano);
+  }
+}
+
+/** Aplica nas abas recém-criadas os afastamentos que ficaram pendentes para aquele mês. */
+function aplicarPendencias_(sheets, mes, ano) {
+  var props = PropertiesService.getDocumentProperties(), todas = listarPendencias_(), resto = [], minhas = [], linhas = [];
+  todas.forEach(function (e) { (e.mes === mes && e.ano === ano ? minhas : resto).push(e); });
+  if (!minhas.length) return linhas;
+  props.setProperty('AFAST_PEND', JSON.stringify(resto));
+  minhas.forEach(function (e) {
+    var sh = sheets.filter(function (x) { var n = nomeAba_(x.getName()); return n && n.tipo === e.tipoAba; })[0];
+    if (!sh) { guardarPendencia_(e.rec, e.tipoAba, e.mes, e.ano); return; }
+    try { propagarAfast_(lerAba_(sh, mes, ano), e.rec, true, linhas, []); }
+    catch (x) { linhas.push('ERRO ao lançar afastamento pendente: ' + x.message); }
+  });
+  return linhas;
+}
+
 function apiAfastamento(p, aplicar) {
   var sh = ss_().getSheetByName(p.aba);
   if (!sh) throw new Error('Aba "' + p.aba + '" não encontrada.');
   if (!p.keys || !p.keys.length) throw new Error('Selecione ao menos um militar.');
   if (!p.apres && (!p.de || !p.ate)) throw new Error('Informe início e término.');
-  var A = lerAba_(sh), semSubst = [], alvos = [], nomes = {};
-  p.keys.forEach(function (k) {
-    A.blocos.forEach(function (B, bi) {
-      if (!p.todas && B.hdr !== p.hdr) return;
-      B.rows.forEach(function (R, ri) { if (R.key === k) { alvos.push({ bi: bi, ri: ri }); nomes[k] = R.nome; } });
-    });
-  });
-  if (!alvos.length) throw new Error('Militar(es) não encontrado(s) na aba.');
-  var linhas = [];
-  if (p.de && p.ate) {
-    var d1 = Math.max(1, diaDeData_(A, p.de, true)), d2 = Math.min(A.nDias, diaDeData_(A, p.ate, false));
-    linhas.push(TIPOS_AFAST[p.tipo] + ': ' + Object.keys(nomes).length + ' militar(es), ' + alvos.length + ' linha(s), dias ' + d1 + '–' + d2 + ' de ' + A.nome);
-    if (aplicar) pintarAfast_(A, alvos, d1, d2, p.tipo, nomes, semSubst);
-    if (parseIso_(p.ate) > dataDia_(A, A.nDias)) {
-      var nx = abaMesVizinho_(A, 1), prox = nx ? lerAba_(nx) : null;
-      if (prox) {
-        var d2n = Math.min(prox.nDias, diaDeData_(prox, p.ate, false)), alv2 = [];
-        alvos.forEach(function (o) {
-          var pl = proxLinha_(prox, A.blocos[o.bi], A.blocos[o.bi].rows[o.ri]);
-          if (pl) alv2.push({ bi: prox.blocos.indexOf(pl.B), ri: pl.B.rows.indexOf(pl.R) });
-        });
-        linhas.push('Também em ' + prox.nome + ': dias 1–' + d2n + ' (' + alv2.length + ' linha(s)).');
-        if (aplicar) pintarAfast_(prox, alv2, 1, d2n, p.tipo, nomes, semSubst);
-      } else linhas.push('⚠ O período passa do mês e a aba do mês seguinte não existe: repita depois de criá-la.');
-    }
-  }
-  if (p.apres) {
-    var da = diaDeData_(A, p.apres, true);
-    if (da >= 1 && da <= A.nDias) {
-      linhas.push('Apresentação: dia ' + da + ' em cinza.');
-      if (aplicar) pintarAfast_(A, alvos, da, da, 'apres', nomes, []);
-    }
-  }
+  if (p.de && p.ate && parseIso_(p.ate) < parseIso_(p.de)) throw new Error('O término é anterior ao início.');
+  var A = lerAba_(sh), semSubst = [], linhas = [], titulo = '';
+  A.blocos.forEach(function (B) { if (B.hdr === p.hdr) titulo = B.titulo; });
+  var base = { keys: p.keys, titulo: titulo, todas: !!p.todas };
+  if (p.de && p.ate) propagarAfast_(A, Object.assign({ tipo: p.tipo, de: p.de, ate: p.ate }, base), aplicar, linhas, semSubst);
+  if (p.apres) propagarAfast_(A, Object.assign({ tipo: 'apres', de: p.apres, ate: p.apres }, base), aplicar, linhas, []);
   if (semSubst.length) linhas.push('\n⚠ "0" substituído(s) pela fórmula de folga — falta substituto (use "Adicionar serviços"):\n' + semSubst.join('\n'));
   SpreadsheetApp.flush();
-  return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO\n\n') + linhas.join('\n');
+  return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + linhas.join('\n');
 }
 
 /* ============================================================ ADICIONAR MILITAR */
@@ -560,7 +600,8 @@ function inserirMilitar_(A, pl, p, E) {
 /* ============================================================ ABAS MENSAIS */
 function apiCriarAbas(mm, aaaa) {
   var nomes = criarAbasMes_(Number(mm) - 1, Number(aaaa));
-  return 'Criadas: ' + nomes.join(' e ') + '.\nDigite os zeros/impedimentos do mês, depois use "Adicionar serviços".';
+  return 'Criadas: ' + nomes.join(' e ') + '.' + (INFO_PEND_.length ? '\n\nAfastamentos pendentes lançados:\n' + INFO_PEND_.join('\n') : '') +
+    '\nDigite os zeros/impedimentos do mês, depois use "Adicionar serviços".';
 }
 
 function mnuCriarAbasProximoMes() {
@@ -575,6 +616,8 @@ function mnuCriarAbasProximoMes() {
   try { ui.alert('Módulo Brigada', apiCriarAbas(m[1], m[2]), ui.ButtonSet.OK); }
   catch (e) { ui.alert('Não foi possível criar as abas', e.message, ui.ButtonSet.OK); }
 }
+
+var INFO_PEND_ = [];
 
 function criarAbasMes_(mes, ano) {
   var ss = ss_(), tipos = [CFG.TIPO_GRAD, CFG.TIPO_CNDT], criadas = [];
@@ -598,6 +641,9 @@ function criarAbasMes_(mes, ano) {
     criadas.forEach(function (s) { try { ss.deleteSheet(s); } catch (x) { /* ignora */ } });
     throw e;
   }
+  SpreadsheetApp.flush();
+  INFO_PEND_ = [];
+  try { INFO_PEND_ = aplicarPendencias_(criadas, mes, ano); } catch (e) { INFO_PEND_ = ['ERRO nas pendências: ' + e.message]; }
   SpreadsheetApp.flush();
   return criadas.map(function (s) { return s.getName(); });
 }
@@ -735,7 +781,7 @@ function gatilhoCriarAbas() {
     var jaExiste = ss_().getSheetByName(CFG.MESES[alvo.getMonth()] + ' ' + CFG.TIPO_GRAD) ||
       ss_().getSheetByName(CFG.MESES[alvo.getMonth()] + ' ' + CFG.TIPO_CNDT);
     if (jaExiste) msg = 'Abas de ' + CFG.MESES[alvo.getMonth()] + ' já existiam — nada feito.';
-    else { criarAbasMes_(alvo.getMonth(), alvo.getFullYear()); msg = 'Abas de ' + CFG.MESES[alvo.getMonth()] + '/' + alvo.getFullYear() + ' criadas.'; }
+    else { criarAbasMes_(alvo.getMonth(), alvo.getFullYear()); msg = 'Abas de ' + CFG.MESES[alvo.getMonth()] + '/' + alvo.getFullYear() + ' criadas.' + (INFO_PEND_.length ? ' Pendências: ' + INFO_PEND_.join(' | ') : ''); }
   } catch (e) { msg = 'ERRO: ' + e.message; }
   cfg.ultima = fmtData_(hoje) + ' — ' + msg;
   if (cfg.tipo === 'DATA') { cfg.texto += ' (já executado)'; removerGatilhos_(); }

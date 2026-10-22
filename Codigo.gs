@@ -385,7 +385,7 @@ function mnuVerificarSistema() {
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
-    'lerAba_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
+    'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });
   var linhas = [];
@@ -416,6 +416,10 @@ function mnuVerificarSistema() {
     linhas.push('<p>Legenda: ' + (ok ? '<span class="ok">lida da aba ' + esc_(g.getName()) + '</span>' : '<span class="erro">não encontrada — usando cores padrão</span>') +
       ' · férias ' + L.ferias.bg + ' · missão ' + L.missao.bg + ' · licença ' + L.licenca.bg + '</p>');
   }
+  var pend = JSON.parse(PropertiesService.getDocumentProperties().getProperty('AFAST_PEND') || '[]');
+  linhas.push('<p>Afastamentos pendentes (aguardando a aba do mês): <b>' + (pend.length ? pend.map(function (e) {
+    return esc_(CFG.MESES[e.mes] + '/' + e.ano + ' ' + e.tipoAba + ' — ' + e.rec.keys.length + ' militar(es), ' + e.rec.tipo + ' até ' + e.rec.ate);
+  }).join('; ') : 'nenhum') + '</b></p>');
   var gat = PropertiesService.getDocumentProperties().getProperty('GATILHO');
   linhas.push('<p>Gatilho de criação de abas: <b>' + (gat ? esc_(JSON.parse(gat).texto) : 'nenhum') + '</b></p>');
   mostrarHtml_('<h3>Verificação do sistema — Módulo Brigada ' + CFG.VERSAO + '</h3>' + linhas.join(''), 'Verificação do sistema', 560, 480);
