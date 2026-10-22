@@ -395,7 +395,7 @@ var TIPOS_AFAST = {
 };
 
 function pintarAfast_(A, alvos, d1, d2, tipo, nomes, semSubst) {
-  if (d2 < d1) return;
+  if (d2 < d1) return null;
   var sh = A.sh, cor = A.leg[tipo], rl = [], zeros = [];
   alvos.forEach(function (o) {
     var B = A.blocos[o.bi], R = B.rows[o.ri];
@@ -409,6 +409,10 @@ function pintarAfast_(A, alvos, d1, d2, tipo, nomes, semSubst) {
   });
   if (zeros.length) escreverMarcas_(A, zeros);
   if (rl.length) sh.getRangeList(rl).setBackground(cor.bg).setFontColor(cor.fg);
+  if (!rl.length) return null;
+  SpreadsheetApp.flush();
+  var lido = sh.getRange(rl[0]).getBackground();
+  return { cor: cor.bg, primeira: rl[0], ultima: rl[rl.length - 1], ok: String(lido).toLowerCase() === String(cor.bg).toLowerCase(), lido: lido };
 }
 
 function alvosAfast_(A, rec) {
@@ -446,7 +450,11 @@ function propagarAfast_(A, rec, aplicar, linhas, semSubst) {
       if (t.alvos.length) {
         linhas.push((TIPOS_AFAST[rec.tipo] || 'Apresentação') + ': ' + Object.keys(t.nomes).length + ' militar(es), ' + t.alvos.length +
           ' linha(s), dias ' + d1 + '–' + d2 + ' de ' + cur.nome);
-        if (aplicar) pintarAfast_(cur, t.alvos, d1, d2, rec.tipo, t.nomes, semSubst);
+        if (aplicar) {
+          var rs = pintarAfast_(cur, t.alvos, d1, d2, rec.tipo, t.nomes, semSubst);
+          if (rs) linhas.push(rs.ok ? '🎨 Cor ' + rs.cor + ' aplicada (de ' + rs.primeira + ' a ' + rs.ultima + ').' :
+            '⚠ A cor ' + rs.cor + ' foi enviada, mas a célula ' + rs.primeira + ' continua ' + rs.lido + ' (regra de formatação condicional ou proteção?).');
+        }
       } else linhas.push('⚠ Militar(es) não encontrado(s) em ' + cur.nome + ' (escala "' + rec.titulo + '").');
     }
     if (ate <= fimMes) return;
