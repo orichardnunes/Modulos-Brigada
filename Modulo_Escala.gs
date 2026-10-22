@@ -39,12 +39,7 @@ function vagasSugeridas_(A, B) {
   if (B.kind === 'par3') return 2;
   if (B.kind === 'par1') return 1;
   var ehCb = semAcento_(B.titulo).indexOf('CB DIA') >= 0;
-  if (ehCb && B.hdr > 0) { /* "2 CB DIA" escrito na linha acima do cabeçalho */
-    for (var c = 0; c < A.vals[B.hdr - 1].length; c++) {
-      var m = /(\d+)\s*CB\s*DIA/i.exec(String(A.vals[B.hdr - 1][c]));
-      if (m) return Number(m[1]);
-    }
-  }
+  if (ehCb) return CFG.CB_DIA_PADRAO;
   var freq = {}, melhor = 0, mf = 0;
   for (var d = 1; d <= A.nDias; d++) {
     var k = 0;
@@ -54,7 +49,7 @@ function vagasSugeridas_(A, B) {
     if (k > 0) { freq[k] = (freq[k] || 0) + 1; if (freq[k] > mf) { mf = freq[k]; melhor = k; } }
   }
   if (melhor) return melhor;
-  return ehCb ? CFG.CB_DIA_PADRAO : 1;
+  return 1;
 }
 
 function diaDeData_(A, iso, ehInicio) {
@@ -79,7 +74,7 @@ function apiServicos(modo, p, aplicar) {
     var A = lerAba_(sh);
     var pr = {
       dIni: diaDeData_(A, p.de, true), dFim: diaDeData_(A, p.ate, false), folgaH: Number(p.folgaH) || CFG.FOLGA_MIN_H,
-      evOutra: !!p.evOutra, evAdj: !!p.evAdj, verdes: !!p.verdes, notas: p.notas !== false,
+      evOutra: !!p.evOutra, evAdj: !!p.evAdj, relaxar: !!p.relaxar, verdes: !!p.verdes, notas: p.notas !== false,
       blocos: g.blocos.map(function (b) { return { hdr: b.hdr, vagas: Number(b.vagas) || 0 }; })
     };
     txt.push('══ ' + A.nome + ' ══');
@@ -183,7 +178,9 @@ function planejarServicos_(A, pr, proxA) {
       if (sel && (!par || ehCabecaPar_(A, B, d))) {
         var exist = 0;
         B.rows.forEach(function (R, ri) { if (V[ri] === 0 && !VERDE[ri]) exist++; });
-        var need = vagasDe[B.hdr] - exist;
+        var vd = vagasDiaBloco_(A, B), vagasHoje = vd[d] != null ? vd[d] : vagasDe[B.hdr];
+        if (exist > vagasHoje) plano.avisos.push(('0' + d).slice(-2) + '/' + ('0' + (A.mes + 1)).slice(-2) + ' ' + B.titulo + ': já há ' + exist + ' serviço(s), acima do título (' + vagasHoje + '); ninguém foi retirado.');
+        var need = vagasHoje - exist;
         if (need > 0) {
           var escolhidos = par ? escolherPar_() : escolherDia_();
           escolhidos.forEach(function (x) {
@@ -225,12 +222,12 @@ function planejarServicos_(A, pr, proxA) {
           var s = svc[R.key] || {};
           if (pr.evOutra && s[d]) return;
           if (pr.evAdj && (s[d - 1] || s[d + 1])) return;
-          var x = { ri: ri, v: V[ri], md: minDist(svcB[bi + '|' + R.key], d) };
+          var x = { ri: ri, v: V[ri], md: minDist(Object.keys(svc[R.key] || {}).map(Number), d) };
           (x.md >= gapMin ? elig : rel).push(x);
         });
         elig.sort(function (a, b) { return b.v - a.v || b.ri - a.ri; });
         var out = elig.slice(0, need);
-        if (out.length < need) {
+        if (out.length < need && pr.relaxar) {
           rel.sort(function (a, b) { return b.md - a.md || b.v - a.v || b.ri - a.ri; });
           rel.slice(0, need - out.length).forEach(function (x) {
             out.push(x);
@@ -773,7 +770,8 @@ function htmlServicos_(modo) {
     '<h3>Opções</h3>' +
     (add ? '<label>Folga mínima (horas): <input type="number" id="folga" value="' + CFG.FOLGA_MIN_H + '" style="width:70px"></label>' +
       '<label><input type="checkbox" id="evOutra" checked> Não escalar quem já está de serviço em outra escala no dia</label>' +
-      '<label><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>' :
+      '<label><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>' +
+      '<label><input type="checkbox" id="relaxar"> Se faltar militar, aceitar intervalo menor que a folga mínima (avisa no resumo)</label>' :
       '<label><input type="checkbox" id="verdes" checked> Retirar também os "0" verdes (serviço em outra escala)</label>' +
       '<label><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>' +
       '<small>Cores de afastamento nunca são apagadas. A retirada vale de hoje em diante.</small>') +
@@ -785,12 +783,12 @@ function htmlServicos_(modo) {
     'google.script.run.withSuccessHandler(render).withFailureHandler(falha).apiBlocos($("mes").value,t)}' +
     'function render(r){D=r;var h=r.hoje,i=r.ini,f=r.fim;var ini=(h>=i&&h<=f)?h:i;' +
     'if(MODO==="add"&&h>=i&&h<f){var a=new Date(h+"T12:00:00");a.setDate(a.getDate()+1);ini=a.toISOString().substring(0,10)}' +
-    '$("de").value=ini;$("ate").value=f;var x="<table><tr><th></th><th>Aba</th><th>Escala</th>"+(MODO==="add"?"<th>Vagas/dia</th>":"")+"</tr>";' +
+    '$("de").value=ini;$("ate").value=f;var x="<table><tr><th></th><th>Aba</th><th>Escala</th>"+(MODO==="add"?"<th>Militar(es) por dia</th>":"")+"</tr>";' +
     'r.blocos.forEach(function(b,k){x+="<tr><td><input type=checkbox id=b"+k+(MODO==="add"?" checked":"")+"></td><td>"+esc(b.tipo)+"</td><td>"+esc(b.titulo)+' +
     '(b.kind==="par3"||b.kind==="par1"?" <small>(par de 2 dias)</small>":"")+(b.kind==="qg"?" <small>(só dias laranja)</small>":"")+"</td>"+' +
     '(MODO==="add"?"<td><input type=number min=0 id=v"+k+" value="+b.vagas+" style=\\"width:55px\\"></td>":"")+"</tr>"});$("blocos").innerHTML=x+"</table>"}' +
     'function run(ap){var p={mesId:$("mes").value,de:$("de").value,ate:$("ate").value,blocos:[]};' +
-    'if(MODO==="add"){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}' +
+    'if(MODO==="add"){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked;p.relaxar=$("relaxar").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}' +
     'D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:MODO==="add"?$("v"+k).value:0})});' +
     'if(!p.blocos.length){falha("Marque ao menos uma escala.");return}' +
     'if(ap&&!confirm(MODO==="add"?"Aplicar os serviços na planilha?":"Retirar os serviços marcados?"))return;' +

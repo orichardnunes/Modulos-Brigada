@@ -272,10 +272,38 @@ function participa_(A, B, R, d) {
 function classeCel_(A, r, c) {
   var bg = String(A.bgs[r][c]).toLowerCase(), fg = String(A.fgs[r][c]).toLowerCase(), L = A.leg;
   if (bg === L.exame.bg && fg === L.exame.fg) return 'afast';
-  var af = ['ferias', 'missao', 'licenca', 'baixado', 'concurso', 'fora'];
-  for (var i = 0; i < af.length; i++) if (bg === L[af[i]].bg) return 'afast';
   if (bg === L.outra.bg) return 'verde';
-  return 'normal';
+  /* cores neutras (dia útil, dia vermelho, serviço, Gragoatá, apresentação, cabeçalho) */
+  var neutras = [CFG.COR.BRANCO, CFG.COR.VERMELHO, CFG.COR.CINZA_DIA, CFG.COR.CINZA_CAB, L.servico.bg, L.gragoata.bg, L.apres.bg, '#ffffff'];
+  if (neutras.indexOf(bg) >= 0) return 'normal';
+  /* qualquer outra cor de fundo (férias, licença, missão, baixado... mesmo fora da legenda) = afastamento */
+  return 'afast';
+}
+
+/**
+ * Vagas por dia escritas no título do bloco (linha acima do cabeçalho), ex.: "2 CB DIA" mesclado sobre os dias.
+ * Retorna {dia: n}.
+ */
+function vagasDiaBloco_(A, B) {
+  if (B._vd) return B._vd;
+  var out = {};
+  B._vd = out;
+  if (B.hdr < 1) return out;
+  var rx = new RegExp('^(\\d+)\\s+' + B.titulo.replace(/[.*+?^${}()|[\]\\\/]/g, '\\$&'));
+  var F1 = colDia_(1) + 1, ocupados = {};
+  try {
+    A.sh.getRange(B.hdr, F1, 1, A.nDias).getMergedRanges().forEach(function (m) {
+      var col = m.getColumn() - 5, v = norm_(A.vals[B.hdr - 1][m.getColumn() - 1]), mm = rx.exec(v);
+      for (var k = 0; k < m.getNumColumns(); k++) ocupados[col + k] = true;
+      if (mm) for (var j = 0; j < m.getNumColumns(); j++) out[col + j] = Number(mm[1]);
+    });
+  } catch (e) { /* sem mesclagem */ }
+  for (var d = 1; d <= A.nDias; d++) {
+    if (ocupados[d]) continue;
+    var mm2 = rx.exec(norm_(A.vals[B.hdr - 1][colDia_(d)]));
+    if (mm2) out[d] = Number(mm2[1]);
+  }
+  return out;
 }
 
 /** -1 = mês futuro, 0 = mês corrente, 1 = mês passado */
