@@ -1,0 +1,310 @@
+/**
+ * MÓDULO BRIGADA 1.0 — Modulo_Importar.gs
+ * Importar a escala da Guarnição (AD/1) para a aba "<Mês> Grad":
+ *  - linhas-resumo do topo (OF DIA / CMT GD / CB GD / GD GRAGOATÁ, MOTORISTA À POMN): laranja = 21º GAC, azul = outra unidade;
+ *  - blocos "QG AD/1": fórmulas de folga só nos dias laranja;
+ *  - tipo do dia (PRETA/VERM) conferido com a aba.
+ * Depende de Codigo.gs e Modulo_Escala.gs.
+ */
+
+/* ordem fixa das 5 colunas de OM da escala da Guarnição */
+var GUARNICAO_MAPA = [
+  { rotulo: 'OF DIA GRAGOATA', fonte: 'OF DE DIA' },
+  { rotulo: 'CMT GD GRAGOATA', fonte: 'CMT GD' },
+  { rotulo: 'CB GD GRAGOATA', fonte: 'CB GD' },
+  { rotulo: 'GD GRAGOATA', fonte: 'SENTINELA' },
+  { rotulo: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' }
+];
+
+// ============================================================ MENU
+function destinoImportacao_() {
+  var at = SpreadsheetApp.getActiveSheet(), n = nomeAba_(at.getName());
+  if (n && n.tipo === CFG.TIPO_GRAD) return at;
+  var salvo = PropertiesService.getDocumentProperties().getProperty('ABA_DESTINO');
+  var sh = salvo ? ss_().getSheetByName(salvo) : null;
+  if (!sh) throw new Error('Escolha a aba de destino (menu Importar Escala → Aba de destino) ou deixe aberta uma aba "<Mês> Grad".');
+  return sh;
+}
+
+function mnuAbaDestino() {
+  var abas = ss_().getSheets().map(function (s) { return s.getName(); }).filter(function (n) {
+    var x = nomeAba_(n); return x && x.tipo === CFG.TIPO_GRAD;
+  });
+  var atual = PropertiesService.getDocumentProperties().getProperty('ABA_DESTINO') || '';
+  var h = '<h3>Aba de destino da importação</h3><p>Escolha a aba mensal que receberá a escala da Guarnição. ' +
+    'Se uma aba "&lt;Mês&gt; Grad" estiver aberta ao importar, ela é usada no lugar desta.</p><select id="a">' +
+    abas.map(function (n) { return '<option' + (n === atual ? ' selected' : '') + '>' + esc_(n) + '</option>'; }).join('') + '</select>' +
+    '<br><button class="p" onclick="google.script.run.withSuccessHandler(function(){google.script.host.close()}).apiAbaDestino(document.getElementById(\'a\').value)">Salvar</button>';
+  mostrarHtml_(h, 'Aba de destino', 460, 260);
+}
+function apiAbaDestino(nome) { PropertiesService.getDocumentProperties().setProperty('ABA_DESTINO', nome); }
+
+function mnuImportarDrive() { abrirImportacao_('drive'); }
+function mnuImportarDocumento() { abrirImportacao_('doc'); }
+
+function abrirImportacao_(modo) {
+  var sh;
+  try { sh = destinoImportacao_(); } catch (e) { SpreadsheetApp.getUi().alert(e.message); return; }
+  mostrarHtml_(htmlImportacao_(modo, sh.getName()), modo === 'drive' ? 'Importar via Google Drive' : 'Importar via documento', 760, 680);
+}
+
+// ============================================================ LEITURA DA FONTE (Drive)
+function mesDoTitulo_(txt) {
+  var u = semAcento_(txt), m = /ESCALAS? DE SERVICO\s*[-–—]?\s*(?:DO MES DE\s*)?(JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(\d{4})/.exec(u);
+  if (!m) return null;
+  var nomes = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
+  return { mes: nomes.indexOf(m[1]), ano: Number(m[2]) };
+}
+
+function dataParaDMA_(v) {
+  if (v instanceof Date) return { dia: v.getDate(), mes: v.getMonth(), ano: v.getFullYear() };
+  var m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(String(v).trim());
+  if (!m) return null;
+  var a = Number(m[3]); if (a < 100) a += 2000;
+  return { dia: Number(m[1]), mes: Number(m[2]) - 1, ano: a };
+}
+
+function lerGuarnicaoDrive_(url, mes, ano) {
+  var src = SpreadsheetApp.openByUrl(url), sheets = src.getSheets(), alvo = null, vistas = [];
+  sheets.sort(function (a, b) { return (a.isSheetHidden() ? 1 : 0) - (b.isSheetHidden() ? 1 : 0); });
+  for (var i = 0; i < sheets.length && !alvo; i++) {
+    var sh = sheets[i];
+    if (sh.getLastRow() < 5) continue;
+    var topo = sh.getRange(1, 1, Math.min(6, sh.getLastRow()), Math.min(6, sh.getLastColumn())).getDisplayValues();
+    var txt = topo.map(function (r) { return r.join(' '); }).join(' ');
+    var t = mesDoTitulo_(txt);
+    if (t) vistas.push(sh.getName() + ' = ' + CFG.MESES[t.mes] + '/' + t.ano);
+    if (t && t.mes === mes && t.ano === ano) alvo = sh;
+  }
+  if (!alvo) throw new Error('A planilha da Guarnição ainda não tem a escala de ' + CFG.MESES_EXT[mes] + '/' + ano +
+    '. Abas lidas: ' + (vistas.join('; ') || 'nenhuma com título "ESCALAS DE SERVIÇO – MÊS DE ANO"') + '.');
+  var vals = alvo.getRange(1, 1, alvo.getLastRow(), alvo.getLastColumn()).getValues();
+  var hdr = -1;
+  for (var r = 0; r < vals.length && hdr < 0; r++) if (vals[r].some(function (c) { return /DATA DO SERVI/i.test(semAcento_(c)); })) hdr = r;
+  if (hdr < 0) throw new Error('Cabeçalho "DATA DO SERVIÇO" não encontrado na aba "' + alvo.getName() + '".');
+  var colFonte = [];
+  GUARNICAO_MAPA.forEach(function (m, k) {
+    var idx = -1;
+    vals[hdr].forEach(function (c, j) { if (idx < 0 && semAcento_(c).indexOf(m.fonte) >= 0) idx = j; });
+    colFonte[k] = idx;
+  });
+  var colTipo = -1, colData = -1;
+  vals[hdr].forEach(function (c, j) {
+    var u = semAcento_(c);
+    if (colData < 0 && u.indexOf('DATA DO SERVI') >= 0) colData = j;
+    if (colTipo < 0 && u.indexOf('PRETA') >= 0) colTipo = j;
+  });
+  var faltam = [];
+  colFonte.forEach(function (c, k) { if (c < 0) faltam.push(GUARNICAO_MAPA[k].fonte); });
+  if (faltam.length) throw new Error('Colunas não encontradas na Guarnição: ' + faltam.join(', ') + '.');
+  var linhas = [];
+  for (var x = hdr + 1; x < vals.length; x++) {
+    var d = dataParaDMA_(vals[x][colData]);
+    if (!d) continue;
+    var tipo = /VERM/i.test(String(vals[x][colTipo])) ? 'VERM' : 'PRETA';
+    linhas.push({ dia: d.dia, mes: d.mes, ano: d.ano, tipo: tipo, cols: colFonte.map(function (c) { return String(vals[x][c]).trim(); }) });
+  }
+  return { linhas: linhas, fonte: alvo.getName() };
+}
+
+function apiImportarDrive(destNome, url, opcoes, aplicar) {
+  var sh = ss_().getSheetByName(destNome);
+  if (!sh) throw new Error('Aba "' + destNome + '" não encontrada.');
+  var A = lerAba_(sh);
+  var lido = lerGuarnicaoDrive_(url || CFG.URL_GUARNICAO, A.mes, A.ano);
+  var r = apiImportarLinhas(destNome, lido.linhas, opcoes, aplicar);
+  r.fonte = lido.fonte;
+  r.linhas = lido.linhas;
+  r.texto = 'Fonte: aba "' + lido.fonte + '" da planilha da Guarnição.\n\n' + r.texto;
+  return r;
+}
+
+// ============================================================ APLICAÇÃO
+function ehProprio_(txt) { return /(^|[^0-9])21\W{0,3}GAC/i.test(semAcento_(txt)); }
+
+/** linhas: [{dia, mes?, ano?, tipo:'PRETA'|'VERM', cols:[5 textos]}]. opcoes: { tipos:'manter'|'refazer' } */
+function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
+  opcoes = opcoes || {};
+  var sh = ss_().getSheetByName(destNome);
+  if (!sh) throw new Error('Aba "' + destNome + '" não encontrada.');
+  var n0 = nomeAba_(destNome);
+  if (!n0 || n0.tipo !== CFG.TIPO_GRAD) throw new Error('A aba de destino precisa ser "<Mês> Grad".');
+  var A = lerAba_(sh), n = A.nDias, porDia = {}, avisos = [];
+  (linhas || []).forEach(function (l) {
+    if (l.mes != null && l.mes !== A.mes) return;
+    if (l.ano != null && l.ano !== A.ano) return;
+    if (l.dia < 1 || l.dia > n) return;
+    if (porDia[l.dia]) avisos.push('Dia ' + l.dia + ' aparece mais de uma vez na fonte; vale a última linha.');
+    porDia[l.dia] = l;
+  });
+  var dias = Object.keys(porDia).map(Number).sort(function (a, b) { return a - b; });
+  if (!dias.length) throw new Error('Nenhum dia de ' + CFG.MESES_EXT[A.mes] + '/' + A.ano + ' encontrado na fonte.');
+  var ausentes = [];
+  for (var d = 1; d <= n; d++) if (!porDia[d]) ausentes.push(d);
+  if (ausentes.length) avisos.push('Dias sem dado na fonte (ficam como estão): ' + ausentes.join(', ') + '.');
+
+  /* linhas-resumo do topo */
+  var resumoPorRotulo = {};
+  A.resumo.forEach(function (S) { resumoPorRotulo[semAcento_(S.label)] = S; });
+  var plano = [], texto = [];
+  GUARNICAO_MAPA.forEach(function (m, k) {
+    var S = resumoPorRotulo[m.rotulo];
+    if (!S) { avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
+    var laranja = [], azul = [];
+    dias.forEach(function (dd) {
+      var om = (porDia[dd].cols[k] || '');
+      if (ehProprio_(om)) laranja.push(dd); else azul.push(dd);
+      plano.push({ r: S.r, d: dd, cor: ehProprio_(om) ? CFG.COR.LARANJA : CFG.COR.AZUL });
+    });
+    texto.push('▸ ' + m.rotulo + ': 21º GAC em ' + laranja.length + ' dia(s)' + (laranja.length ? ' (' + laranja.join(', ') + ')' : '') + ' · outra unidade em ' + azul.length + '.');
+  });
+
+  /* tipo do dia (PRETA/VERM) x aba */
+  var diverge = [];
+  if (A.topo != null) {
+    dias.forEach(function (dd) {
+      var vermAba = String(A.bgs[A.topo + 1][colDia_(dd)]).toLowerCase() === CFG.COR.VERMELHO;
+      var vermFonte = porDia[dd].tipo === 'VERM';
+      if (vermAba !== vermFonte) diverge.push({ d: dd, fonte: vermFonte });
+    });
+  }
+  if (diverge.length) {
+    texto.push('\n⚠ TIPO DO DIA DIVERGENTE (' + diverge.length + '): ' + diverge.map(function (x) {
+      return x.d + ' (Guarnição: ' + (x.fonte ? 'VERM' : 'PRETA') + ', aba: ' + (x.fonte ? 'preta' : 'vermelha') + ')';
+    }).join('; ') +
+      '\nEscolha "refazer fórmulas" (ajusta as colunas e recalcula as folgas) ou "manter os tipos atuais".');
+  }
+
+  var qgInfo = A.blocos.filter(function (B) { return B.kind === 'qg'; }).map(function (B) { return B.titulo; });
+  if (qgInfo.length) texto.push('\nBlocos QG AD/1 que serão ajustados: ' + qgInfo.join(', ') + '.');
+  if (avisos.length) texto.push('\n⚠ ' + avisos.join('\n⚠ '));
+
+  if (aplicar) {
+    if (diverge.length && opcoes.tipos !== 'refazer' && opcoes.tipos !== 'manter') {
+      throw new Error('Há dias com tipo divergente. Escolha "refazer fórmulas" ou "manter os tipos atuais" e aplique de novo.');
+    }
+    var porCor = {};
+    plano.forEach(function (p) { (porCor[p.cor] = porCor[p.cor] || []).push(a1_(p.r, colDia_(p.d))); });
+    Object.keys(porCor).forEach(function (cor) { sh.getRangeList(porCor[cor]).setBackground(cor).setFontColor(CFG.COR.BRANCO); });
+    if (A.topo != null) {
+      var topo = dias.map(function (dd) { return a1_(A.topo, colDia_(dd)); });
+      sh.getRangeList(topo).setBackground(CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
+    }
+    SpreadsheetApp.flush();
+    if (diverge.length && opcoes.tipos === 'refazer') refazerTipos_(sh, A, diverge);
+    var qg = ajustarBlocosQG_(sh);
+    texto.push('\n✅ APLICADO' + (qg ? ' — ' + qg : '') + '.');
+  } else texto.unshift('🔎 VERIFICAÇÃO (nada foi alterado)\n');
+  SpreadsheetApp.flush();
+  return { texto: texto.join('\n'), divergencias: diverge.length };
+}
+
+/** Ajusta cabeçalhos de dia (vermelho/cinza) e recalcula as fórmulas de folga com os novos tipos. */
+function refazerTipos_(sh, A, diverge) {
+  var F1 = colDia_(1) + 1;
+  var linhasSemana = [];
+  if (A.topo != null) linhasSemana.push(A.topo + 1);
+  A.blocos.forEach(function (B) { linhasSemana.push(B.wk); });
+  var verm = [], cinza = [];
+  diverge.forEach(function (x) {
+    linhasSemana.forEach(function (r) { (x.fonte ? verm : cinza).push(a1_(r, colDia_(x.d))); });
+  });
+  if (verm.length) sh.getRangeList(verm).setBackground(CFG.COR.VERMELHO);
+  if (cinza.length) sh.getRangeList(cinza).setBackground(CFG.COR.CINZA_DIA);
+  /* fundo neutro das células do corpo acompanha o novo tipo */
+  var vr = [], br = [];
+  A.blocos.forEach(function (B) {
+    B.rows.forEach(function (R) {
+      diverge.forEach(function (x) {
+        var c = colDia_(x.d), bg = String(A.bgs[R.r][c]).toLowerCase();
+        if (bg === CFG.COR.BRANCO || bg === CFG.COR.VERMELHO) (x.fonte ? vr : br).push(a1_(R.r, c));
+      });
+    });
+  });
+  if (vr.length) sh.getRangeList(vr).setBackground(CFG.COR.VERMELHO);
+  if (br.length) sh.getRangeList(br).setBackground(CFG.COR.BRANCO);
+  SpreadsheetApp.flush();
+  var A2 = lerAba_(sh, A.mes, A.ano), grupos = {}, avulsas = [];
+  A2.blocos.forEach(function (B, bi) {
+    B.rows.forEach(function (R, ri) {
+      for (var d = 1; d <= A2.nDias; d++) {
+        var c = colDia_(d);
+        if (A2.forms[R.r][c] === '' || num_(A2.vals[R.r][c]) === 0 || ehTexto_(A2, R.r, c)) continue;
+        var f = formulaFolga_(A2, B, R, d);
+        if (!f) continue;
+        if (f.r1c1) (grupos[f.r1c1] = grupos[f.r1c1] || []).push(a1_(R.r, c)); else avulsas.push({ a1: a1_(R.r, c), f: f.a1 });
+      }
+    });
+  });
+  Object.keys(grupos).forEach(function (f) { sh.getRangeList(grupos[f]).setFormulaR1C1(f); });
+  avulsas.forEach(function (x) { sh.getRange(x.a1).setFormula(x.f); });
+}
+
+/** Blocos QG AD/1: fórmula de folga nos dias laranja da escala correspondente; some nos dias azuis. */
+function ajustarBlocosQG_(sh) {
+  var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], novos = 0, removidos = 0, preservados = 0;
+  A.blocos.forEach(function (B) {
+    if (B.kind !== 'qg') return;
+    B.rows.forEach(function (R) {
+      for (var d = 1; d <= A.nDias; d++) {
+        var c = colDia_(d), forma = A.forms[R.r][c], val = A.vals[R.r][c], a1 = a1_(R.r, c);
+        if (B.gac[d]) {
+          if (forma === '' && val === '') {
+            var f = formulaFolga_(A, B, R, d);
+            if (!f) f = { a1: '=1' };
+            if (f.r1c1) (grupos[f.r1c1] = grupos[f.r1c1] || []).push(a1); else avulsas.push({ a1: a1, f: f.a1 });
+            novos++;
+          }
+        } else if (forma !== '' && num_(val) !== 0) { limpar.push(a1); removidos++; }
+        else if (val === 0 || num_(val) === 0) preservados++;
+      }
+    });
+  });
+  Object.keys(grupos).forEach(function (f) { sh.getRangeList(grupos[f]).setFormulaR1C1(f); });
+  avulsas.forEach(function (x) { sh.getRange(x.a1).setFormula(x.f); });
+  if (limpar.length) sh.getRangeList(limpar).clearContent();
+  SpreadsheetApp.flush();
+  return 'QG AD/1: ' + novos + ' célula(s) de folga criada(s), ' + removidos + ' limpa(s) em dia de outra unidade' +
+    (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '');
+}
+
+// ============================================================ CAIXA
+function htmlImportacao_(modo, destino) {
+  var drive = modo === 'drive';
+  var cab = '<h3>Importar escala da Guarnição</h3><p>Aba de destino: <b>' + esc_(destino) + '</b></p>';
+  var origem = drive ?
+    '<label>Planilha da Guarnição (URL):<br><input type="text" id="url" style="width:100%" value="' + esc_(CFG.URL_GUARNICAO) + '"></label>' :
+    '<label>Arquivo (PDF, xlsx, xls, ods ou csv): <input type="file" id="arq" accept=".pdf,.xlsx,.xls,.ods,.csv" onchange="leArquivo(this.files[0])"></label>' +
+    '<small>O arquivo é lido no navegador; só o texto lido vai para a planilha. PDF escaneado (imagem) não funciona.</small>' +
+    '<div id="tab" class="lista" style="max-height:280px"></div>';
+  var scripts = drive ? '' :
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>' +
+    '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>';
+  var corpo = cab + origem +
+    '<div id="opt" style="display:none"><b>Tipo do dia divergente:</b> <label style="display:inline"><input type="radio" name="tp" value="manter"> manter os tipos atuais</label> ' +
+    '<label style="display:inline"><input type="radio" name="tp" value="refazer"> refazer fórmulas</label></div>' +
+    '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><pre id="out"></pre>' + JS_COMUM_ + scripts +
+    '<script>var MODO="' + modo + '",DEST=' + JSON.stringify(destino) + ',LINHAS=[];' +
+    'function opts(){var r=document.querySelector("input[name=tp]:checked");return{tipos:r?r.value:""}}' +
+    'function resp(r){$("out").className="";$("out").textContent=r.texto;$("opt").style.display=r.divergencias?"block":"none";if(r.linhas){LINHAS=r.linhas}}' +
+    (drive ?
+      'function run(ap){$("out").textContent="Lendo a planilha da Guarnição…";google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiImportarDrive(DEST,$("url").value,opts(),ap)}' :
+      'function run(ap){var l=coleta();if(!l.length){falha("Carregue um arquivo primeiro.");return}$("out").textContent="Processando…";google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiImportarLinhas(DEST,l,opts(),ap)}' +
+      'function leArquivo(f){if(!f)return;$("out").textContent="Lendo arquivo…";var n=f.name.toLowerCase();' +
+      'if(n.slice(-4)===".pdf"){lePdf(f)}else{var rd=new FileReader();rd.onload=function(e){try{var wb=XLSX.read(e.target.result,{type:"array",cellDates:false});' +
+      'var ws=wb.Sheets[wb.SheetNames[0]];monta(parse(XLSX.utils.sheet_to_json(ws,{header:1,raw:false,defval:""})))}catch(x){falha(x)}};rd.readAsArrayBuffer(f)}}' +
+      'function lePdf(f){pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";var rd=new FileReader();' +
+      'rd.onload=function(e){pdfjsLib.getDocument({data:new Uint8Array(e.target.result)}).promise.then(function(pdf){var ps=[];for(var i=1;i<=pdf.numPages;i++)ps.push(pdf.getPage(i).then(function(p){return p.getTextContent()}));' +
+      'return Promise.all(ps)}).then(function(pgs){var aoa=[];pgs.forEach(function(tc){var ls={};tc.items.forEach(function(it){if(!it.str.trim())return;var y=Math.round(it.transform[5]/3);(ls[y]=ls[y]||[]).push({x:it.transform[4],w:it.width,s:it.str})});' +
+      'Object.keys(ls).sort(function(a,b){return b-a}).forEach(function(y){var it=ls[y].sort(function(a,b){return a.x-b.x}),seg=[],cur=null;it.forEach(function(t){if(cur&&t.x-(cur.x+cur.w)<6){cur.s+=(t.x-(cur.x+cur.w)>1?" ":"")+t.s;cur.w=t.x+t.w-cur.x}else{cur={x:t.x,w:t.w,s:t.s};seg.push(cur)}});aoa.push(seg.map(function(g){return g.s.trim()}))})});monta(parse(aoa))}).catch(falha)};rd.readAsArrayBuffer(f)}' +
+      'function parse(aoa){var out=[];aoa.forEach(function(r){r=r.map(function(x){return x==null?"":String(x).trim()});var di=-1;for(var i=0;i<r.length;i++)if(/^\\d{1,2}\\/\\d{1,2}\\/\\d{2,4}$/.test(r[i])){di=i;break}if(di<0)return;' +
+      'var ti=-1;for(var j=di+1;j<r.length;j++)if(/PRETA|VERM/i.test(r[j])){ti=j;break}if(ti<0)return;var p=r[di].split("/"),a=parseInt(p[2],10);if(a<100)a+=2000;' +
+      'out.push({dia:parseInt(p[0],10),mes:parseInt(p[1],10)-1,ano:a,tipo:/VERM/i.test(r[ti])?"VERM":"PRETA",cols:[0,1,2,3,4].map(function(k){return r[ti+1+k]||""})})});return out}' +
+      'function monta(l){LINHAS=l;if(!l.length){falha("Nenhuma linha com data e PRETA/VERM foi reconhecida. Se for PDF escaneado, use a planilha.");return}' +
+      'var h="<table><tr><th>Data</th><th>Tipo</th><th>OF DIA</th><th>CMT GD</th><th>CB GD</th><th>SENTINELAS</th><th>MOT AMB</th></tr>";' +
+      'l.forEach(function(x,i){h+="<tr><td>"+("0"+x.dia).slice(-2)+"/"+("0"+(x.mes+1)).slice(-2)+"</td><td><select id=t"+i+"><option"+(x.tipo==="PRETA"?" selected":"")+">PRETA</option><option"+(x.tipo==="VERM"?" selected":"")+">VERM</option></select></td>";' +
+      'x.cols.forEach(function(c,k){h+="<td><input type=text id=c"+i+"_"+k+" style=\\"width:110px;"+(/21\\W{0,3}GAC/i.test(c)?"background:#ffd699":"")+"\\" value=\\""+esc(c).replace(/\\"/g,"&quot;")+"\\"></td>"});h+="</tr>"});$("tab").innerHTML=h+"</table>";$("out").textContent=l.length+" dia(s) lido(s). Corrija o que precisar e clique em Verificar."}' +
+      'function coleta(){return LINHAS.map(function(x,i){var c=[0,1,2,3,4].map(function(k){return $("c"+i+"_"+k)?$("c"+i+"_"+k).value:""});return{dia:x.dia,mes:x.mes,ano:x.ano,tipo:$("t"+i)?$("t"+i).value:x.tipo,cols:c}})}') +
+    '</script>';
+  return corpo;
+}

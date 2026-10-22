@@ -82,9 +82,6 @@ function emDesenvolvimento_(nome) {
 }
 function mnuAtualizarPrevia() { emDesenvolvimento_('Atualizar prévia'); }
 function mnuAdicionarPrevia() { emDesenvolvimento_('Adicionar prévia'); }
-function mnuAbaDestino() { emDesenvolvimento_('Aba de destino'); }
-function mnuImportarDrive() { emDesenvolvimento_('Importar via Google Drive'); }
-function mnuImportarDocumento() { emDesenvolvimento_('Importar via documento'); }
 
 /* ============================================================ UTILITÁRIOS */
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -208,6 +205,30 @@ function lerAba_(sh, mes, ano) {
   for (var d = 1; d <= A.nDias; d++) {
     A.gac[d] = A.topo != null && String(A.bgs[A.topo][CFG.COL_DIA1 + d - 1]).toLowerCase() === CFG.COR.LARANJA;
   }
+  /* linhas-resumo do topo (OF DIA GRAGOATÁ, CMT GD GRAGOATÁ...): laranja = dia do 21º GAC na escala da Guarnição */
+  A.resumo = [];
+  var pb = A.blocos.length ? A.blocos[0].hdr : A.vals.length;
+  if (A.topo != null) {
+    for (var i = A.topo + 2; i < pb; i++) {
+      if (diaDe_(A.vals[i][CFG.COL_DIA1]) == null) continue;
+      var lab = '';
+      for (var cc = 0; cc <= 4 && !lab; cc++) lab = norm_(A.vals[i][cc]);
+      if (lab) A.resumo.push({ r: i, label: lab });
+    }
+  }
+  A.blocos.forEach(function (B) {
+    if (B.kind !== 'qg') return;
+    var base = semAcento_(B.titulo).replace(/\s*QG AD\/1\s*/, '').trim();
+    B.gacRow = null;
+    A.resumo.forEach(function (S) {
+      var lab = semAcento_(S.label).replace(/\s*GRAGOATA\s*$/, '').trim();
+      if (B.gacRow == null && (lab === base || 'SD ' + lab === base)) B.gacRow = S.r;
+    });
+    B.gac = {};
+    for (var dd = 1; dd <= A.nDias; dd++) {
+      B.gac[dd] = B.gacRow != null ? String(A.bgs[B.gacRow][colDia_(dd)]).toLowerCase() === CFG.COR.LARANJA : !!A.gac[dd];
+    }
+  });
   return A;
 }
 
@@ -271,7 +292,7 @@ function ehTexto_(A, r, c) { /* célula com texto não numérico, ex.: "***" */
 }
 
 function participa_(A, B, R, d) {
-  if (B.kind === 'qg') return !!A.gac[d];
+  if (B.kind === 'qg') return B.gac ? !!B.gac[d] : !!A.gac[d];
   var c = colDia_(d);
   return !(A.vals[R.r][c] === '' && A.forms[R.r][c] === '');
 }
@@ -384,7 +405,12 @@ function mnuSobre() {
     '<p>Conta quantos serviços cada militar tirou em uma ou várias escalas, em meses inteiros ou num período (por padrão até hoje; “Incluir dias futuros” conta o planejado) e mostra o ranking, a média, o máximo e o mínimo. Só LÊ a planilha. ' +
     'Conta cada “0” (amarelo, laranja, azuis, sem cor); “0” verde (serviço em outra escala) entra só se o militar não tiver “0” próprio no mesmo dia nas escalas marcadas; “0” com cor de afastamento não conta. ' +
     '“Considerar trocas” usa a nota da célula (Total = próprios − passados + pegos). Exporte para Planilha Google, PDF ou Word: o arquivo novo é salvo na pasta da planilha (o Google pede autorização na primeira exportação).</p>' +
-    '<h2>📅 Prévia · 📥 Importar</h2><p>Em desenvolvimento (fase 2): prévia semanal e importação da escala da Guarnição.</p>' +
+    '<h2>📥 Importar escala da Guarnição</h2>' +
+    '<p><b>Aba de destino:</b> a aba “&lt;Mês&gt; Grad” aberta (ou a escolhida no menu). <b>Via Google Drive:</b> lê direto a planilha da Guarnição (acha a aba pelo título “ESCALAS DE SERVIÇO – MÊS DE ANO”, mesmo que o nome da aba esteja desatualizado). ' +
+    '<b>Via documento:</b> PDF, xlsx, xls, ods ou csv; mostra a tabela lida, onde você corrige qualquer célula e o tipo (PRETA/VERM) antes de aplicar. ' +
+    'A importação pinta as linhas OF DIA / CMT GD / CB GD / GD GRAGOATÁ / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
+    'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
+    '<h2>📅 Prévia</h2><p>Em desenvolvimento (fase 2).</p>' +
     '<h2>✅ Verificação do sistema</h2><p>Confere se todas as funções estão instaladas no projeto, se a legenda foi lida e quais abas mensais existem. Use depois de colar/atualizar o código.</p>';
   mostrarHtml_(h, 'Sobre o Módulo Brigada', 700, 620);
 }
@@ -395,6 +421,7 @@ function mnuVerificarSistema() {
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
+    'mnuAbaDestino', 'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'

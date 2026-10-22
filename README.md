@@ -15,8 +15,10 @@ Teste primeiro numa **cópia** da planilha.
 - 🗂️ Abas mensais: criar abas do mês + gatilho automático (dia 1–28, data única ou PDU).
 - ℹ️ Sobre (manual) e ✅ Verificação do sistema.
 
-## Fase 2 (menu pronto, funções "em desenvolvimento")
-Prévia semanal, Importar escala da Guarnição, Verificação de serviços tirados.
+## Fase 2
+- ✅ Auditagem: verificação de serviços tirados (`Modulo_Auditagem.gs`).
+- ✅ Importar escala da Guarnição via Drive ou documento (`Modulo_Importar.gs`).
+- ⏳ Prévia semanal (próxima etapa).
 
 ## Como o script lê a planilha
 - Blocos: linha com dia 1 em `F` e dia da semana na linha de baixo; título em C/D/E. Militares = linhas seguintes até `E` vazio.
