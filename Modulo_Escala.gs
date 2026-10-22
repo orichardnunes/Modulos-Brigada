@@ -588,6 +588,11 @@ function inserirMilitar_(A, pl, p, E) {
   var sh = A.sh, B = A.blocos[pl.bi], R0 = B.rows[0], n = A.nDias;
   sh.insertRowAfter(pl.apos + 1);
   var nr = pl.apos + 2; /* nº da nova linha (1-based) */
+  /* formatação da linha inteira (contornos, fontes, alinhamento) copiada da linha vizinha da escala */
+  var vizFmt = null;
+  B.rows.forEach(function (R) { if (R.r <= pl.apos) vizFmt = R; });
+  var refFmt = vizFmt || B.rows[0], refLin = refFmt.r <= pl.apos ? refFmt.r + 1 : refFmt.r + 2, ultCol = colDia_(1) + n;
+  sh.getRange(refLin, 1, 1, ultCol).copyTo(sh.getRange(nr, 1, 1, ultCol), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
   sh.getRange(nr, 4).setValue(p.sub);
   sh.getRange(nr, 5).setValue(E);
   /* SU: copia a formatação completa (cor, fonte e contorno) de uma célula da mesma escala */
