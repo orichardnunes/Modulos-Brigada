@@ -85,7 +85,6 @@ function mnuAdicionarPrevia() { emDesenvolvimento_('Adicionar prévia'); }
 function mnuAbaDestino() { emDesenvolvimento_('Aba de destino'); }
 function mnuImportarDrive() { emDesenvolvimento_('Importar via Google Drive'); }
 function mnuImportarDocumento() { emDesenvolvimento_('Importar via documento'); }
-function mnuQuantitativo() { emDesenvolvimento_('Verificação de serviços tirados'); }
 
 /* ============================================================ UTILITÁRIOS */
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
@@ -381,7 +380,11 @@ function mnuSobre() {
     '<p><b>Criar abas do próximo mês:</b> cria “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia” a partir das abas do mês atual, com folgas ligadas ao mês anterior e corpo limpo. Meses de 28 a 31 dias são ajustados sozinhos; se algo falhar, as abas criadas na tentativa são removidas.<br>' +
     '<b>Definir gatilho:</b> número de 1 a 28 (todo mês, nesse dia), data dd/mm/aaaa (uma vez) ou PDU (primeiro dia útil). Roda às ' + CFG.HORA_GATILHO + 'h e só cria se as abas ainda não existirem.<br>' +
     '<b>Ver / Desativar gatilho:</b> mostra a configuração e a última criação automática.</p>' +
-    '<h2>📅 Prévia · 📥 Importar · 📊 Auditagem</h2><p>Em desenvolvimento (fase 2): prévia semanal, importação da escala da Guarnição e verificação de serviços tirados.</p>' +
+    '<h2>📊 Auditagem — Verificação de serviços tirados</h2>' +
+    '<p>Conta quantos serviços cada militar tirou em uma ou várias escalas, em meses inteiros ou num período (por padrão até hoje; “Incluir dias futuros” conta o planejado) e mostra o ranking, a média, o máximo e o mínimo. Só LÊ a planilha. ' +
+    'Conta cada “0” (amarelo, laranja, azuis, sem cor); “0” verde (serviço em outra escala) entra só se o militar não tiver “0” próprio no mesmo dia nas escalas marcadas; “0” com cor de afastamento não conta. ' +
+    '“Considerar trocas” usa a nota da célula (Total = próprios − passados + pegos). Exporte para Planilha Google, PDF ou Word: o arquivo novo é salvo na pasta da planilha (o Google pede autorização na primeira exportação).</p>' +
+    '<h2>📅 Prévia · 📥 Importar</h2><p>Em desenvolvimento (fase 2): prévia semanal e importação da escala da Guarnição.</p>' +
     '<h2>✅ Verificação do sistema</h2><p>Confere se todas as funções estão instaladas no projeto, se a legenda foi lida e quais abas mensais existem. Use depois de colar/atualizar o código.</p>';
   mostrarHtml_(h, 'Sobre o Módulo Brigada', 700, 620);
 }
@@ -392,6 +395,7 @@ function mnuVerificarSistema() {
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
+    'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
