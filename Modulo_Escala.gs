@@ -879,20 +879,20 @@ var JS_COMUM_ = '<script>' +
 function htmlServicos_(modo) {
   var add = modo === 'add';
   return '<h3>' + (add ? 'Adicionar serviços' : 'Retirar serviços') + '</h3>' +
-    '<label>Mês: <select id="mes" onchange="carrega()"></select> ' +
-    '<label style="display:inline"><input type="checkbox" id="tG" checked onchange="carrega()"> Grad</label> ' +
-    '<label style="display:inline"><input type="checkbox" id="tC" checked onchange="carrega()"> Cndt e Praia</label></label>' +
-    '<label>Período: de <input type="date" id="de"> até <input type="date" id="ate"></label>' +
-    '<h3>Escalas</h3><div id="blocos" class="lista">Carregando…</div>' +
-    '<h3>Opções</h3>' +
-    (add ? '<label>Folga mínima (horas): <input type="number" id="folga" value="' + CFG.FOLGA_MIN_H + '" style="width:70px"></label>' +
-      '<label><input type="checkbox" id="evOutra" checked> Não escalar quem já está de serviço em outra escala no dia</label>' +
-      '<label><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>' +
-      '<label><input type="checkbox" id="relaxar"> Se faltar militar, aceitar intervalo menor que a folga mínima (avisa no resumo)</label>' :
-      '<label><input type="checkbox" id="verdes" checked> Retirar também os "0" verdes (serviço em outra escala)</label>' +
-      '<label><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>' +
+    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select>' +
+    '<label class="chip"><input type="checkbox" id="tG" checked onchange="carrega()">Grad</label>' +
+    '<label class="chip"><input type="checkbox" id="tC" checked onchange="carrega()">Cndt e Praia</label></div>' +
+    '<div class="bar"><b class="lb">Período</b>De <input type="date" id="de"> até <input type="date" id="ate"></div>' +
+    '<details open><summary>Escalas</summary><div id="blocos" class="lista" style="max-height:230px">Carregando…</div></details>' +
+    '<details open><summary>Opções</summary>' +
+    (add ? '<div class="bar"><b class="lb" style="min-width:0">Folga mínima</b><input type="number" id="folga" value="' + CFG.FOLGA_MIN_H + '" style="width:70px"> horas</div>' +
+      '<label class="opt"><input type="checkbox" id="evOutra" checked> Não escalar quem já está de serviço em outra escala no dia</label>' +
+      '<label class="opt"><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>' +
+      '<label class="opt"><input type="checkbox" id="relaxar"> Se faltar militar, aceitar intervalo menor que a folga mínima (avisa no resumo)</label>' :
+      '<label class="opt"><input type="checkbox" id="verdes" checked> Retirar também os "0" verdes (serviço em outra escala)</label>' +
+      '<label class="opt"><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>' +
       '<small>Cores de afastamento nunca são apagadas. A retirada vale de hoje em diante.</small>') +
-    '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">' + (add ? 'Aplicar' : 'Retirar') + '</button>' +
+    '</details><button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">' + (add ? 'Aplicar' : 'Retirar') + '</button>' +
     '<pre id="out"></pre>' + JS_COMUM_ +
     '<script>var MODO="' + modo + '",D=null;' +
     'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +
@@ -918,14 +918,16 @@ function htmlAfastamento_() {
   var tipos = Object.keys(TIPOS_AFAST).map(function (k) { return '<option value="' + k + '">' + TIPOS_AFAST[k] + '</option>'; }).join('');
   var subs = CFG.SUBUNIDADES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
   return '<h3>Adicionar afastamento</h3>' +
-    '<label>Mês: <select id="mes" onchange="carrega()"></select> Aba: <select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select> ' +
-    'Escala: <select id="bloco" onchange="lista()"></select></label>' +
-    '<label>Filtrar: subunidade <select id="sub" onchange="lista()"><option value="">todas</option>' + subs + '</select> nome <input type="text" id="busca" oninput="lista()"></label>' +
-    '<div id="mil" class="lista"></div><small>Marque vários para afastamento conjunto.</small>' +
-    '<label>Tipo: <select id="tp">' + tipos + '</select></label>' +
-    '<label>Início <input type="date" id="de"> Término <input type="date" id="ate"></label>' +
-    '<label>Apresentação (opcional, pinta só o dia): <input type="date" id="apres"></label>' +
-    '<label><input type="checkbox" id="todas"> Aplicar em todas as escalas do militar nesta aba</label>' +
+    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select><b class="lb" style="min-width:0">Aba</b>' +
+    '<select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select></div>' +
+    '<div class="bar"><b class="lb">Escala</b><select id="bloco" onchange="lista()"></select></div>' +
+    '<details open><summary>Militares <span class="mu">(marque vários para afastamento conjunto)</span></summary>' +
+    '<div class="bar">Subunidade <select id="sub" onchange="lista()"><option value="">todas</option>' + subs + '</select> Nome <input type="text" id="busca" oninput="lista()" placeholder="buscar"></div>' +
+    '<div id="mil" class="lista"></div></details>' +
+    '<div class="bar"><b class="lb">Tipo</b><select id="tp">' + tipos + '</select></div>' +
+    '<div class="bar"><b class="lb">Período</b>Início <input type="date" id="de"> Término <input type="date" id="ate"></div>' +
+    '<div class="bar"><b class="lb">Apresentação</b><input type="date" id="apres"> <span class="mu">(opcional — pinta só o dia)</span></div>' +
+    '<label class="opt"><input type="checkbox" id="todas"> Aplicar em todas as escalas do militar nesta aba</label>' +
     '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><pre id="out"></pre>' + JS_COMUM_ +
     '<script>var D=null,SEL={};' +
     'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +
@@ -944,11 +946,12 @@ function htmlMilitar_() {
   var subs = CFG.SUBUNIDADES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
   var grads = CFG.GRADUACOES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
   return '<h3>Adicionar militar</h3>' +
-    '<label>Subunidade <select id="sub">' + subs + '</select> Graduação <select id="grad">' + grads + '</select> Nome de guerra <input type="text" id="nome"></label>' +
-    '<label>Mês: <select id="mes" onchange="carrega()"></select> Aba: <select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select></label>' +
-    '<label>Entra na escala a partir de: <input type="date" id="inicio"> <small>(usado em "nunca serviu"; vazio = hoje)</small></label>' +
-    '<div id="blocos" class="lista" style="max-height:300px">Carregando…</div>' +
-    '<small>Data do último serviço: em dia útil (preta) e em dia vermelho (sáb/dom/feriado), ou “nunca serviu” (folga 31).</small><br>' +
+    '<div class="bar"><b class="lb">Militar</b><select id="sub">' + subs + '</select><select id="grad">' + grads + '</select><input type="text" id="nome" placeholder="nome de guerra"></div>' +
+    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select><b class="lb" style="min-width:0">Aba</b>' +
+    '<select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select></div>' +
+    '<div class="bar"><b class="lb">Entra em</b><input type="date" id="inicio"> <span class="mu">(usado em “nunca serviu”; vazio = hoje)</span></div>' +
+    '<details open><summary>Escalas <span class="mu">— data do último serviço em dia útil e em dia vermelho, ou “nunca serviu” (folga 31)</span></summary>' +
+    '<div id="blocos" class="lista" style="max-height:300px">Carregando…</div></details>' +
     '<button onclick="run(false)">Verificar</button><button class="p" id="bad" disabled onclick="run(true)">Adicionar</button><pre id="out"></pre>' + JS_COMUM_ +
     '<script>var D=null;' +
     'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +

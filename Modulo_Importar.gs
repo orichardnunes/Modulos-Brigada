@@ -281,8 +281,8 @@ function htmlImportacao_(modo, destino) {
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>' +
     '<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>';
   var corpo = cab + origem +
-    '<div id="opt" style="display:none"><b>Tipo do dia divergente:</b> <label style="display:inline"><input type="radio" name="tp" value="manter"> manter os tipos atuais</label> ' +
-    '<label style="display:inline"><input type="radio" name="tp" value="refazer"> refazer fórmulas</label></div>' +
+    '<div id="opt" class="bar" style="display:none"><b class="lb" style="min-width:0">Tipo do dia divergente:</b><label class="chip"><input type="radio" name="tp" value="manter">manter os tipos atuais</label> ' +
+    '<label class="chip"><input type="radio" name="tp" value="refazer">refazer fórmulas</label></div>' +
     '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><pre id="out"></pre>' + JS_COMUM_ + scripts +
     '<script>var MODO="' + modo + '",DEST=' + JSON.stringify(destino) + ',LINHAS=[];' +
     'function opts(){var r=document.querySelector("input[name=tp]:checked");return{tipos:r?r.value:""}}' +

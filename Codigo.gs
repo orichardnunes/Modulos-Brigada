@@ -347,12 +347,26 @@ function abaMesVizinho_(A, delta) { /* devolve a aba do mês anterior/seguinte d
 }
 
 /* ============================================================ UI */
-var CSS_ = '<style>*{box-sizing:border-box}body{font:13px Arial,sans-serif;margin:12px;color:#222}' +
-  'h3{margin:12px 0 4px}label{display:block;margin:3px 0}select,input[type=text],input[type=date],input[type=number]{padding:4px;font-size:13px}' +
-  'button{padding:7px 14px;margin:8px 6px 0 0;font-size:13px;cursor:pointer}button.p{background:#1a73e8;color:#fff;border:0;border-radius:4px}' +
-  'table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #ddd;padding:3px 5px;text-align:left}' +
-  'pre{background:#f5f5f5;padding:8px;white-space:pre-wrap;max-height:240px;overflow:auto;font-size:12px}.erro{color:#b00020}.ok{color:#137333}' +
-  '.lista{max-height:180px;overflow:auto;border:1px solid #ccc;padding:4px}small{color:#666}</style>';
+var CSS_ = '<style>*{box-sizing:border-box}body{font:13px/1.45 "Google Sans",Roboto,Arial,sans-serif;margin:14px 16px;color:#202124}' +
+  'h2{font-size:17px;margin:18px 0 6px;color:#174ea6}h3{font-size:16px;margin:0 0 8px;color:#202124}p{margin:6px 0}ul{margin:4px 0 8px;padding-left:20px}li{margin:2px 0}' +
+  'label{display:block;margin:4px 0}b.lb{display:inline-block;min-width:58px;color:#3c4043}' +
+  'select,input[type=text],input[type=date],input[type=number]{padding:5px 8px;font:inherit;border:1px solid #dadce0;border-radius:8px;background:#fff}' +
+  'select:focus,input:focus{outline:2px solid #1a73e8;outline-offset:-1px;border-color:#1a73e8}' +
+  'button{padding:7px 16px;margin:10px 8px 0 0;font:inherit;font-weight:500;cursor:pointer;border:1px solid #dadce0;border-radius:18px;background:#fff;color:#1a73e8}' +
+  'button:hover{background:#f1f6fe}button.p{background:#1a73e8;color:#fff;border-color:#1a73e8}button.p:hover{background:#1765cc}button:disabled{opacity:.5;cursor:default}' +
+  '.bar{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0}' +
+  '.chip{display:inline-flex;align-items:center;gap:5px;border:1px solid #dadce0;border-radius:16px;padding:3px 11px;cursor:pointer;margin:0;font-size:12px;background:#fff}' +
+  '.chip:has(input:checked){background:#e8f0fe;border-color:#1a73e8;color:#174ea6}.chip input{display:none}' +
+  '.opt{display:flex;align-items:flex-start;gap:8px;margin:5px 0;cursor:pointer}.opt input{margin-top:3px;accent-color:#1a73e8}' +
+  'details{border:1px solid #e0e0e0;border-radius:10px;margin:10px 0;padding:6px 12px}summary{cursor:pointer;font-weight:600;color:#3c4043;padding:2px 0}details[open] summary{margin-bottom:6px}' +
+  '.cards{display:flex;gap:8px;margin:10px 0}.card{flex:1;border:1px solid #e0e0e0;border-radius:10px;padding:7px 12px}.card b{display:block;font-size:20px;color:#1a73e8}.card span{font-size:11px;color:#5f6368}.card.bad b{color:#b00020}' +
+  'table{border-collapse:collapse;width:100%}td,th{padding:5px 7px;text-align:left;border-bottom:1px solid #f1f3f4;vertical-align:middle}tr:nth-child(even) td{background:#fafafa}' +
+  'th{font-size:11px;color:#5f6368;text-transform:uppercase;border-bottom:2px solid #e0e0e0;background:#fff!important}' +
+  'pre{background:#f8f9fa;border:1px solid #e8eaed;border-radius:10px;padding:10px 12px;white-space:pre-wrap;max-height:260px;overflow:auto;font:12px/1.5 Consolas,monospace;margin:10px 0 0}' +
+  '.erro{color:#b00020}.ok{color:#137333}.mu{color:#80868b;font-size:11px}small{color:#5f6368}.num{font-weight:600}' +
+  '.tb{height:8px;border-radius:4px;background:#1a73e8;display:inline-block;vertical-align:middle;margin-right:6px}' +
+  '.lk{color:#1a73e8;cursor:pointer;font-size:12px;margin-right:10px}.lista{max-height:200px;overflow:auto;border:1px solid #e8eaed;border-radius:8px;padding:4px 8px}' +
+  '.lista label{margin:3px 0}</style>';
 
 function mostrarHtml_(corpo, titulo, w, h) {
   var html = HtmlService.createHtmlOutput(CSS_ + corpo).setWidth(w || 620).setHeight(h || 560);
@@ -431,39 +445,36 @@ function mnuVerificarSistema() {
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });
-  var linhas = [];
-  if (faltam.length) linhas.push('<p class="erro">❌ Funções ausentes: ' + faltam.join(', ') +
-    '.<br>Cole de novo os arquivos Codigo e Modulo_Escala.</p>');
-  else linhas.push('<p class="ok">✅ Todas as ' + esperadas.length + ' funções estão no projeto.</p>');
-
-  var meses = mesesDasAbas_();
-  linhas.push('<p>Abas mensais encontradas: <b>' + (meses.length ? meses.map(function (m) {
-    return m.id + ' (' + m.tipos.join(' + ') + ')';
-  }).join(', ') : 'nenhuma') + '</b></p>');
-
-  var tabela = [];
+  var meses = mesesDasAbas_(), tabela = [], g = null;
   ss_().getSheets().forEach(function (sh) {
-    if (!nomeAba_(sh.getName()) || sh.isSheetHidden()) return;
+    var nm = nomeAba_(sh.getName());
+    if (nm && nm.tipo === CFG.TIPO_GRAD && !g) g = sh;
+    if (!nm || sh.isSheetHidden()) return;
     try {
       var A = lerAba_(sh);
-      tabela.push('<tr><td>' + esc_(A.nome) + '</td><td>' + A.ano + '</td><td>' + A.nDias + '</td><td>' + A.blocos.length +
-        '</td><td>' + Object.keys(A.gac).filter(function (d) { return A.gac[d]; }).length + '</td></tr>');
-    } catch (e) { tabela.push('<tr><td>' + esc_(sh.getName()) + '</td><td colspan="4" class="erro">' + esc_(e.message) + '</td></tr>'); }
+      tabela.push('<tr><td>' + esc_(A.nome) + '</td><td>' + A.ano + '</td><td>' + A.nDias + '</td><td>' + A.blocos.length + '</td></tr>');
+    } catch (e) { tabela.push('<tr><td>' + esc_(sh.getName()) + '</td><td colspan="3" class="erro">' + esc_(e.message) + '</td></tr>'); }
   });
-  if (tabela.length) linhas.push('<table><tr><th>Aba visível</th><th>Ano</th><th>Dias</th><th>Blocos</th><th>Dias laranja</th></tr>' +
-    tabela.join('') + '</table>');
-
-  var g = ss_().getSheets().filter(function (s) { var n = nomeAba_(s.getName()); return n && n.tipo === CFG.TIPO_GRAD; })[0];
+  var legendaOk = false, cores = '';
   if (g) {
-    var L = lerLegenda_(g), ok = /LEGENDA/i.test(String(g.getRange(1, 4, g.getLastRow(), 1).getValues().join('|')));
-    linhas.push('<p>Legenda: ' + (ok ? '<span class="ok">lida da aba ' + esc_(g.getName()) + '</span>' : '<span class="erro">não encontrada — usando cores padrão</span>') +
-      ' · férias ' + L.ferias.bg + ' · missão ' + L.missao.bg + ' · licença ' + L.licenca.bg + '</p>');
+    var L = lerLegenda_(g);
+    legendaOk = /LEGENDA/i.test(String(g.getRange(1, 4, g.getLastRow(), 1).getValues().join('|')));
+    cores = ['ferias', 'missao', 'licenca', 'baixado'].map(function (k) {
+      return '<span class="chip" style="cursor:default"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + L[k].bg + '"></span>' + k + '</span>';
+    }).join('');
   }
-  var pend = JSON.parse(PropertiesService.getDocumentProperties().getProperty('AFAST_PEND') || '[]');
-  linhas.push('<p>Afastamentos pendentes (aguardando a aba do mês): <b>' + (pend.length ? pend.map(function (e) {
-    return esc_(CFG.MESES[e.mes] + '/' + e.ano + ' ' + e.tipoAba + ' — ' + e.rec.keys.length + ' militar(es), ' + e.rec.tipo + ' até ' + e.rec.ate);
-  }).join('; ') : 'nenhum') + '</b></p>');
-  var gat = PropertiesService.getDocumentProperties().getProperty('GATILHO');
-  linhas.push('<p>Gatilho de criação de abas: <b>' + (gat ? esc_(JSON.parse(gat).texto) : 'nenhum') + '</b></p>');
-  mostrarHtml_('<h3>Verificação do sistema — Módulo Brigada ' + CFG.VERSAO + '</h3>' + linhas.join(''), 'Verificação do sistema', 560, 480);
+  var props = PropertiesService.getDocumentProperties();
+  var gat = props.getProperty('GATILHO'), pend = JSON.parse(props.getProperty('AFAST_PEND') || '[]');
+  var h = '<h3>Verificação do sistema <span class="mu">Módulo Brigada ' + CFG.VERSAO + '</span></h3><div class="cards">' +
+    '<div class="card' + (faltam.length ? ' bad' : '') + '"><b>' + (faltam.length ? faltam.length + ' faltando' : '✔ ' + esperadas.length) + '</b><span>funções no projeto</span></div>' +
+    '<div class="card"><b>' + meses.length + '</b><span>meses com abas</span></div>' +
+    '<div class="card"><b>' + pend.length + '</b><span>afastamentos pendentes</span></div>' +
+    '<div class="card"><b style="font-size:14px">' + (gat ? '✔' : '—') + '</b><span>' + (gat ? esc_(JSON.parse(gat).texto) : 'sem gatilho automático') + '</span></div></div>';
+  if (faltam.length) h += '<p class="erro">❌ Funções ausentes: ' + faltam.join(', ') + '. Cole de novo os arquivos do projeto.</p>';
+  h += '<details open><summary>Abas mensais visíveis</summary>' + (tabela.length ? '<table><tr><th>Aba</th><th>Ano</th><th>Dias</th><th>Blocos</th></tr>' + tabela.join('') + '</table>' : '<span class="mu">nenhuma</span>') + '</details>';
+  h += '<details><summary>Legenda de cores ' + (legendaOk ? '<span class="ok">lida</span>' : '<span class="erro">não encontrada — usando cores padrão</span>') + '</summary><div class="bar">' + cores + '</div></details>';
+  if (pend.length) h += '<details><summary>Afastamentos pendentes</summary><ul>' + pend.map(function (e) {
+    return '<li>' + esc_(CFG.MESES[e.mes] + '/' + e.ano + ' ' + e.tipoAba + ' — ' + e.rec.keys.length + ' militar(es), ' + e.rec.tipo + ' até ' + e.rec.ate) + '</li>';
+  }).join('') + '</ul></details>';
+  mostrarHtml_(h, 'Verificação do sistema', 560, 520);
 }
