@@ -16,7 +16,7 @@ var GUARNICAO_MAPA = [
   { rotulo: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' }
 ];
 
-// ============================================================ MENU
+/* ============================================================ MENU */
 function destinoImportacao_() {
   var at = SpreadsheetApp.getActiveSheet(), n = nomeAba_(at.getName());
   if (n && n.tipo === CFG.TIPO_GRAD) return at;
@@ -48,7 +48,7 @@ function abrirImportacao_(modo) {
   mostrarHtml_(htmlImportacao_(modo, sh.getName()), modo === 'drive' ? 'Importar via Google Drive' : 'Importar via documento', 760, 680);
 }
 
-// ============================================================ LEITURA DA FONTE (Drive)
+/* ============================================================ LEITURA DA FONTE (Drive) */
 function mesDoTitulo_(txt) {
   var u = semAcento_(txt), m = /ESCALAS? DE SERVICO\s*[-–—]?\s*(?:DO MES DE\s*)?(JANEIRO|FEVEREIRO|MARCO|ABRIL|MAIO|JUNHO|JULHO|AGOSTO|SETEMBRO|OUTUBRO|NOVEMBRO|DEZEMBRO)\s+DE\s+(\d{4})/.exec(u);
   if (!m) return null;
@@ -119,7 +119,7 @@ function apiImportarDrive(destNome, url, opcoes, aplicar) {
   return r;
 }
 
-// ============================================================ APLICAÇÃO
+/* ============================================================ APLICAÇÃO */
 function ehProprio_(txt) { return /(^|[^0-9])21\W{0,3}GAC/i.test(semAcento_(txt)); }
 
 /** linhas: [{dia, mes?, ano?, tipo:'PRETA'|'VERM', cols:[5 textos]}]. opcoes: { tipos:'manter'|'refazer' } */
@@ -268,7 +268,7 @@ function ajustarBlocosQG_(sh) {
     (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '');
 }
 
-// ============================================================ CAIXA
+/* ============================================================ CAIXA */
 function htmlImportacao_(modo, destino) {
   var drive = modo === 'drive';
   var cab = '<h3>Importar escala da Guarnição</h3><p>Aba de destino: <b>' + esc_(destino) + '</b></p>';
