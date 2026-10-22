@@ -244,11 +244,9 @@ function fxTroca_(col) { /* aplica a troca anotada (tabela oculta AP:AS) ao nome
   return 'IFERROR(INDEX($' + E.assume + '$2:$' + E.assume + '$300,MATCH(1,ARRAYFORMULA(($' + E.data + '$2:$' + E.data + '$300=' + col + '$2)*($' + E.orig + '$2:$' + E.orig + '$300=nome)),0)),nome)';
 }
 
-function fxSgt_(S, colLetra, grupo) {
-  var sus = grupo === 1 ? ['1ª BO', '2ª BO'] : ['BC', 'DMSF'];
-  var cond = '(((su="' + sus[0] + '")+(su="' + sus[1] + '"))>0)';
-  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh.getName()) + ',v,INDEX(dados,0,' + (S.loc.col + 1) + '),n,INDEX(dados,0,2),su,INDEX(dados,0,1),' +
-    'f,FILTER(n,ISNUMBER(v)*(v=0)*' + cond + '),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + '),"PENDENTE")';
+function fxSgt_(S, colLetra, posicao) { /* os 2 sargentos do dia, em ordem de antiguidade (ordem das linhas), independente da SU */
+  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh.getName()) + ',v,INDEX(dados,0,' + (S.loc.col + 1) + '),n,INDEX(dados,0,2),' +
+    'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,' + posicao + ')),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
 function fxGradNome_(colGrad, colNome) { /* fragmento de LET: define g, gm e n (nomes com graduação padronizada) */
