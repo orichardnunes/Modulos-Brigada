@@ -581,7 +581,7 @@ function apiMilitar(p, aplicar) {
     SpreadsheetApp.flush();
   }
   return (aplicar ? '✅ MILITAR ADICIONADO: ' : '🔎 VERIFICAÇÃO: ') + E + ' (' + p.sub + ')\n\n' + linhas.join('\n') +
-    (aplicar ? '\n\nConfira o nº de ordem (coluna C) das linhas inseridas.' : '');
+    (aplicar ? '\n\nNº de ordem (coluna C) recalculado pelo tamanho do grupo de cada escala.' : '');
 }
 
 function inserirMilitar_(A, pl, p, E) {
@@ -606,7 +606,7 @@ function inserirMilitar_(A, pl, p, E) {
     var t = vermelho_(A, B, d) ? 1 : 0;
     bg.push(t ? CFG.COR.VERMELHO : CFG.COR.BRANCO); fg.push(CFG.COR.PRETO);
     if (B.kind === 'qg' || !participa_(A, B, R0, d)) { f.push(''); continue; }
-    if (pl.nunca && d < pl.inicio) { f.push('***'); continue; }
+    if (pl.nunca && d < pl.inicio) { f.push('***'); bg[bg.length - 1] = CFG.COR.SEM_FOLGA; continue; }
     if (ehPar_(B) && ehSegundoPar_(A, B, d) && f[d - 2] !== '' && f[d - 2] !== '***') { f.push('=' + a1_(nr - 1, colDia_(d - 1))); ultimo[t] = d; continue; }
     if (ultimo[t] < 0) f.push(pl.fi[t] == null ? 0 : pl.fi[t]);
     else f.push('=' + a1_(nr - 1, colDia_(ultimo[t])) + '+1');
@@ -614,6 +614,38 @@ function inserirMilitar_(A, pl, p, E) {
   }
   var rg = sh.getRange(nr, colDia_(1) + 1, 1, n);
   rg.setValues([f]).setBackgrounds([bg]).setFontColors([fg]);
+  renumerarOrdem_(A, pl, nr);
+}
+
+/**
+ * Recalcula o nº de ordem (coluna C) do bloco depois da inclusão.
+ * O tamanho do grupo K é o nº de militares por número já existente na escala
+ * (ex.: CB DIA 4 por dia: 1-1-1-1, 2-2-2-2...). Linhas com C não numérico ("-") são ignoradas.
+ * Onde havia fórmula (=C anterior +1) o padrão de fórmula é mantido.
+ */
+function renumerarOrdem_(A, pl, nr) {
+  var sh = A.sh, B = A.blocos[pl.bi], apos = pl.apos;
+  var linhas = B.rows.map(function (R) {
+    return { r1: R.r <= apos ? R.r + 1 : R.r + 2, n: num_(A.vals[R.r][2]), f: A.forms[R.r][2] !== '' };
+  });
+  var cont = {}, K = 1, mx = 0;
+  linhas.forEach(function (l) { if (l.n != null) cont[l.n] = (cont[l.n] || 0) + 1; });
+  Object.keys(cont).forEach(function (k) { if (cont[k] > mx) { mx = cont[k]; K = cont[k]; } });
+  var viz = null;
+  linhas.forEach(function (l) { if (l.r1 < nr) viz = l; });
+  var vizinha = viz || linhas[0];
+  linhas.push({ r1: nr, n: 0, f: vizinha ? vizinha.f : false });
+  linhas.sort(function (a, b) { return a.r1 - b.r1; });
+  var k = 0, ant = null;
+  linhas.forEach(function (l) {
+    if (l.n == null) return;
+    var alvo = Math.floor(k / K) + 1;
+    k++;
+    var cel = sh.getRange(l.r1, 3);
+    if (l.f && ant) cel.setFormula(alvo === ant.t ? '=C' + ant.r1 : '=C' + ant.r1 + '+1');
+    else cel.setValue(alvo);
+    ant = { r1: l.r1, t: alvo };
+  });
 }
 
 /* ============================================================ ABAS MENSAIS */
