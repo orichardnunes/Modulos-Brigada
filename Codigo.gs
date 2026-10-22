@@ -6,12 +6,12 @@
  * Planilha: "Escala do 21º GAC"  |  Abas: "<Mês> Grad" e "<Mês> Cndt e Praia".
  */
 
-// ============================================================ CONFIGURAÇÃO
+/* ============================================================ CONFIGURAÇÃO */
 var CFG = {
   VERSAO: '1.0',
-  COL_DIA1: 5,                 // índice 0-based da coluna F (dia 1)
-  FOLGA_MIN_H: 48,             // intervalo mínimo entre dois serviços (horas)
-  CB_DIA_PADRAO: 4,            // vagas padrão do bloco "CB DIA"
+  COL_DIA1: 5, /* índice 0-based da coluna F (dia 1) */
+  FOLGA_MIN_H: 48, /* intervalo mínimo entre dois serviços (horas) */
+  CB_DIA_PADRAO: 4, /* vagas padrão do bloco "CB DIA" */
   HORA_GATILHO: 7,
   MESES: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
   MESES_EXT: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
@@ -19,13 +19,13 @@ var CFG = {
   DIAS: ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sab'],
   TIPO_GRAD: 'Grad',
   TIPO_CNDT: 'Cndt e Praia',
-  // Cores fixas (não existem na legenda)
+/* Cores fixas (não existem na legenda) */
   COR: {
     SERVICO: '#ffff00', OUTRA: '#00ff00', LARANJA: '#ff9900', AZUL: '#0000ff',
     CINZA_CAB: '#999999', CINZA_DIA: '#cccccc', VERMELHO: '#ff0000', BRANCO: '#ffffff',
     PRETO: '#000000'
   },
-  // Usadas só se a legenda da aba não for encontrada
+/* Usadas só se a legenda da aba não for encontrada */
   LEGENDA_PADRAO: {
     servico: { bg: '#ffff00', fg: '#000000' },
     outra: { bg: '#00ff00', fg: '#000000' },
@@ -39,7 +39,7 @@ var CFG = {
     fora: { bg: '#000000', fg: '#ffffff' },
     apres: { bg: '#999999', fg: '#000000' }
   },
-  // Feriados nacionais fixos (MM-DD). Móveis/locais: use FERIADOS_EXTRAS (AAAA-MM-DD).
+/* Feriados nacionais fixos (MM-DD). Móveis/locais: use FERIADOS_EXTRAS (AAAA-MM-DD). */
   FERIADOS_FIXOS: ['01-01', '04-21', '05-01', '09-07', '10-12', '11-02', '11-15', '11-20', '12-25'],
   FERIADOS_EXTRAS: [],
   GRADUACOES: ['STEN', '1º SGT', '2º SGT', '3º SGT', 'CB', 'SD EP', 'SD EV'],
@@ -47,7 +47,7 @@ var CFG = {
   URL_GUARNICAO: 'https://docs.google.com/spreadsheets/d/1Cp7rYlV_l4cOC-GnMw2vhQr2pLubqG7xX9YvPRnc6IU/edit'
 };
 
-// ============================================================ MENU
+/* ============================================================ MENU */
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('Módulo Brigada')
@@ -75,7 +75,7 @@ function onOpen() {
     .addToUi();
 }
 
-// Fase 2 (em desenvolvimento)
+/* Fase 2 (em desenvolvimento) */
 function emDesenvolvimento_(nome) {
   SpreadsheetApp.getUi().alert('Módulo Brigada',
     nome + ' ainda está em desenvolvimento (fase 2 do projeto).', SpreadsheetApp.getUi().ButtonSet.OK);
@@ -87,14 +87,14 @@ function mnuImportarDrive() { emDesenvolvimento_('Importar via Google Drive'); }
 function mnuImportarDocumento() { emDesenvolvimento_('Importar via documento'); }
 function mnuQuantitativo() { emDesenvolvimento_('Verificação de serviços tirados'); }
 
-// ============================================================ UTILITÁRIOS
+/* ============================================================ UTILITÁRIOS */
 function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
 
 function norm_(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toUpperCase(); }
 
 function semAcento_(s) { return norm_(s).normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 
-function colLetra_(c) { // c 0-based -> "A", "AJ"
+function colLetra_(c) { /* c 0-based -> "A", "AJ" */
   var s = '';
   c++;
   while (c > 0) { var m = (c - 1) % 26; s = String.fromCharCode(65 + m) + s; c = Math.floor((c - 1) / 26); }
@@ -125,7 +125,7 @@ function ehFeriado_(dt) {
 }
 function ehVermelhoData_(dt) { var w = dt.getDay(); return w === 0 || w === 6 || ehFeriado_(dt); }
 
-function mesesDasAbas_() { // [{mes, tipos:[..]}] na ordem em que aparecem
+function mesesDasAbas_() { /* [{mes, tipos:[..]}] na ordem em que aparecem */
   var vistos = {}, out = [];
   ss_().getSheets().forEach(function (sh) {
     var n = nomeAba_(sh.getName());
@@ -136,7 +136,7 @@ function mesesDasAbas_() { // [{mes, tipos:[..]}] na ordem em que aparecem
   return out;
 }
 
-// ============================================================ LEGENDA
+/* ============================================================ LEGENDA */
 function lerLegenda_(sh) {
   var L = JSON.parse(JSON.stringify(CFG.LEGENDA_PADRAO));
   var lr = sh.getLastRow();
@@ -168,7 +168,7 @@ function lerLegenda_(sh) {
   return L;
 }
 
-// ============================================================ LEITURA DA ABA
+/* ============================================================ LEITURA DA ABA */
 /**
  * Lê uma aba mensal e devolve a estrutura:
  * { sh, nome, tipo, mes, ano, nDias, vals, forms, bgs, fgs, leg, topo, gac[], blocos[] }
@@ -209,7 +209,7 @@ function lerAba_(sh, mes, ano) {
   return A;
 }
 
-function diaDe_(v) { // célula de cabeçalho -> nº do dia (aceita Date)
+function diaDe_(v) { /* célula de cabeçalho -> nº do dia (aceita Date) */
   if (v instanceof Date) return v.getDate();
   return num_(v);
 }
@@ -239,7 +239,7 @@ function inferirAno_(A, hdrs) {
   return melhor;
 }
 
-// ----- helpers de célula / dia
+/* ----- helpers de célula / dia */
 function colDia_(d) { return CFG.COL_DIA1 + d - 1; }
 
 function dataDia_(A, d) { return new Date(A.ano, A.mes, d); }
@@ -286,13 +286,13 @@ function posMes_(A) {
 function primeiroDiaAdicionar_(A) { var p = posMes_(A); return p < 0 ? 1 : p > 0 ? A.nDias + 1 : new Date().getDate() + 1; }
 function primeiroDiaRetirar_(A) { var p = posMes_(A); return p < 0 ? 1 : p > 0 ? A.nDias + 1 : new Date().getDate(); }
 
-function abaMesVizinho_(A, delta) { // devolve a aba do mês anterior/seguinte do mesmo tipo (ou null)
+function abaMesVizinho_(A, delta) { /* devolve a aba do mês anterior/seguinte do mesmo tipo (ou null) */
   var m = A.mes + delta, ano = A.ano;
   if (m < 0) { m = 11; ano--; } else if (m > 11) { m = 0; ano++; }
   return ss_().getSheetByName(CFG.MESES[m] + ' ' + A.tipo);
 }
 
-// ============================================================ UI
+/* ============================================================ UI */
 var CSS_ = '<style>*{box-sizing:border-box}body{font:13px Arial,sans-serif;margin:12px;color:#222}' +
   'h3{margin:12px 0 4px}label{display:block;margin:3px 0}select,input[type=text],input[type=date],input[type=number]{padding:4px;font-size:13px}' +
   'button{padding:7px 14px;margin:8px 6px 0 0;font-size:13px;cursor:pointer}button.p{background:#1a73e8;color:#fff;border:0;border-radius:4px}' +
@@ -307,7 +307,7 @@ function mostrarHtml_(corpo, titulo, w, h) {
 
 function esc_(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
-// ============================================================ SOBRE
+/* ============================================================ SOBRE */
 function mnuSobre() {
   var h = '' +
     '<h2>Módulo Brigada ' + CFG.VERSAO + '</h2>' +
@@ -350,7 +350,7 @@ function mnuSobre() {
   mostrarHtml_(h, 'Sobre o Módulo Brigada', 700, 620);
 }
 
-// ============================================================ VERIFICAÇÃO DO SISTEMA
+/* ============================================================ VERIFICAÇÃO DO SISTEMA */
 function mnuVerificarSistema() {
   var esperadas = [
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',

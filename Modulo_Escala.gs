@@ -4,13 +4,13 @@
  * Depende de Codigo.gs.
  */
 
-// ============================================================ ENTRADAS DO MENU
+/* ============================================================ ENTRADAS DO MENU */
 function mnuAdicionarServicos() { mostrarHtml_(htmlServicos_('add'), 'Adicionar serviços', 700, 640); }
 function mnuRetirarServicos() { mostrarHtml_(htmlServicos_('del'), 'Retirar serviços', 700, 620); }
 function mnuAdicionarAfastamento() { mostrarHtml_(htmlAfastamento_(), 'Adicionar afastamento', 700, 660); }
 function mnuAdicionarMilitar() { mostrarHtml_(htmlMilitar_(), 'Adicionar militar', 720, 680); }
 
-// ============================================================ API (chamada pelas caixas)
+/* ============================================================ API (chamada pelas caixas) */
 function apiAbas() {
   var hoje = new Date();
   return { meses: mesesDasAbas_(), mesAtual: CFG.MESES[hoje.getMonth()], hoje: isoData_(hoje) };
@@ -39,7 +39,7 @@ function vagasSugeridas_(A, B) {
   if (B.kind === 'par3') return 2;
   if (B.kind === 'par1') return 1;
   var ehCb = semAcento_(B.titulo).indexOf('CB DIA') >= 0;
-  if (ehCb && B.hdr > 0) { // "2 CB DIA" escrito na linha acima do cabeçalho
+  if (ehCb && B.hdr > 0) { /* "2 CB DIA" escrito na linha acima do cabeçalho */
     for (var c = 0; c < A.vals[B.hdr - 1].length; c++) {
       var m = /(\d+)\s*CB\s*DIA/i.exec(String(A.vals[B.hdr - 1][c]));
       if (m) return Number(m[1]);
@@ -105,7 +105,7 @@ function apiServicos(modo, p, aplicar) {
   return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + txt.join('\n');
 }
 
-// ============================================================ MOTOR — ADICIONAR SERVIÇOS
+/* ============================================================ MOTOR — ADICIONAR SERVIÇOS */
 function planejarServicos_(A, pr, proxA) {
   var n = A.nDias, hoje1 = primeiroDiaAdicionar_(A);
   var dIni = Math.max(pr.dIni, hoje1), dFim = Math.min(pr.dFim, n);
@@ -216,7 +216,7 @@ function planejarServicos_(A, pr, proxA) {
         if (V[ri] === 0 || INV[ri]) st.dirty[t] = true;
       });
 
-      // ------- escolha: escalas diárias
+/* ------- escolha: escalas diárias */
       /* jshint loopfunc:true */
       function escolherDia_() {
         var elig = [], rel = [];
@@ -241,7 +241,7 @@ function planejarServicos_(A, pr, proxA) {
         return out;
       }
 
-      // ------- escolha: pares de dias (Cndt e Praia)
+/* ------- escolha: pares de dias (Cndt e Praia) */
       function escolherPar_() {
         var d2 = d + 1, cruza = d2 > n;
         if (cruza ? !(d === n && dFim === n) : d2 > dFim) return [];
@@ -305,7 +305,7 @@ function textoPlano_(A, plano) {
   return l.join('\n');
 }
 
-// ============================================================ MOTOR — RETIRAR SERVIÇOS
+/* ============================================================ MOTOR — RETIRAR SERVIÇOS */
 function planejarRetirada_(A, pr) {
   var dIni = Math.max(pr.dIni, primeiroDiaRetirar_(A)), dFim = Math.min(pr.dFim, A.nDias);
   var sel = {};
@@ -329,7 +329,7 @@ function planejarRetirada_(A, pr) {
   return out;
 }
 
-// ============================================================ ESCRITA NA PLANILHA
+/* ============================================================ ESCRITA NA PLANILHA */
 /**
  * Retorna {r1c1:'=RC[-3]+1'} (mesma aba) ou {a1:"='Mês anterior'!X+1"} ou null.
  * Segue a cadeia existente: folga = célula anterior do mesmo tipo (preta/vermelha) + 1;
@@ -391,7 +391,7 @@ function escreverProx_(A, P, lista) {
   if (cels.length) P.sh.getRangeList(cels).setValue(0).setBackground(P.leg.servico.bg).setFontColor(P.leg.servico.fg);
 }
 
-// ============================================================ AFASTAMENTO
+/* ============================================================ AFASTAMENTO */
 var TIPOS_AFAST = {
   ferias: 'Férias', licenca: 'Licença / Dispensa / Curso', missao: 'Missão / Atividade no terreno',
   baixado: 'Baixado', concurso: 'Concurso', exame: 'Exame de pagamento', fora: 'Fora da escala'
@@ -457,14 +457,14 @@ function apiAfastamento(p, aplicar) {
   return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO\n\n') + linhas.join('\n');
 }
 
-// ============================================================ ADICIONAR MILITAR
+/* ============================================================ ADICIONAR MILITAR */
 function rankGrad_(nome) {
   var u = norm_(nome);
   for (var i = 0; i < CFG.GRADUACOES.length; i++) if (u.indexOf(norm_(CFG.GRADUACOES[i]) + ' ') === 0) return i;
   return 99;
 }
 
-function contarTipo_(A, B, de, ate, tipo) { // nº de dias do tipo (0 preta/1 vermelha) em (de, ate]
+function contarTipo_(A, B, de, ate, tipo) { /* nº de dias do tipo (0 preta/1 vermelha) em (de, ate] */
   var n = 0, dt = new Date(de.getFullYear(), de.getMonth(), de.getDate() + 1);
   while (dt <= ate) {
     var v;
@@ -527,7 +527,7 @@ function apiMilitar(p, aplicar) {
   });
 
   if (aplicar) {
-    planos.sort(function (a, b) { return b.apos - a.apos; }); // de baixo para cima mantém os índices válidos
+    planos.sort(function (a, b) { return b.apos - a.apos; }); /* de baixo para cima mantém os índices válidos */
     planos.forEach(function (pl) { inserirMilitar_(A, pl, p, E); });
     SpreadsheetApp.flush();
   }
@@ -538,7 +538,7 @@ function apiMilitar(p, aplicar) {
 function inserirMilitar_(A, pl, p, E) {
   var sh = A.sh, B = A.blocos[pl.bi], R0 = B.rows[0], n = A.nDias;
   sh.insertRowAfter(pl.apos + 1);
-  var nr = pl.apos + 2; // nº da nova linha (1-based)
+  var nr = pl.apos + 2; /* nº da nova linha (1-based) */
   sh.getRange(nr, 4).setValue(p.sub);
   sh.getRange(nr, 5).setValue(E);
   var modelo = null;
@@ -560,7 +560,7 @@ function inserirMilitar_(A, pl, p, E) {
   rg.setValues([f]).setBackgrounds([bg]).setFontColors([fg]);
 }
 
-// ============================================================ ABAS MENSAIS
+/* ============================================================ ABAS MENSAIS */
 function apiCriarAbas(mm, aaaa) {
   var nomes = criarAbasMes_(Number(mm) - 1, Number(aaaa));
   return 'Criadas: ' + nomes.join(' e ') + '.\nDigite os zeros/impedimentos do mês, depois use "Adicionar serviços".';
@@ -640,13 +640,13 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   }
   var N = lerAba_(novo, mes, ano);
 
-  // cabeçalho do topo (cinza = escala da Guarnição ainda não carregada)
+/* cabeçalho do topo (cinza = escala da Guarnição ainda não carregada) */
   var primeiroBloco = N.blocos.length ? N.blocos[0].hdr : N.vals.length;
   if (N.topo != null) {
     var dm = N.vals[N.topo][colDia_(1)] instanceof Date;
     if (N.topo > 0) novo.getRange(N.topo, F1, 1, n).clearContent().setBackground(CFG.COR.BRANCO);
     escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, CFG.COR.CINZA_CAB);
-    // linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá)
+/* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
     for (var i = N.topo + 2; i < primeiroBloco; i++) {
       if (diaDe_(N.vals[i][colDia_(1)]) == null || String(N.vals[i].slice(0, 5).join('')).trim() === '') continue;
       var vals = [];
@@ -689,7 +689,7 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   });
 }
 
-// ----- gatilho
+/* ----- gatilho */
 function mnuDefinirGatilho() {
   var ui = SpreadsheetApp.getUi();
   var r = ui.prompt('Definir gatilho de criação automática',
@@ -753,7 +753,7 @@ function mnuVerGatilho() {
   if (r === ui.Button.YES) { removerGatilhos_(); PropertiesService.getDocumentProperties().deleteProperty('GATILHO'); ui.alert('Gatilho desativado.'); }
 }
 
-// ============================================================ HTML DAS CAIXAS
+/* ============================================================ HTML DAS CAIXAS */
 var JS_COMUM_ = '<script>' +
   'function $(i){return document.getElementById(i)}' +
   'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}' +
