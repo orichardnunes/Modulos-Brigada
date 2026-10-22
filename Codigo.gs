@@ -145,24 +145,27 @@ function lerLegenda_(sh) {
   var ini = -1;
   for (var i = 0; i < colD.length; i++) if (norm_(colD[i][0]) === 'LEGENDA') { ini = i; break; }
   if (ini < 0) return L;
-  var n = Math.min(20, lr - ini - 1);
+  var n = Math.min(20, lr - ini - 1), lidas = {};
   var rg = sh.getRange(ini + 2, 4, n, 2);
   var vals = rg.getValues(), bgs = rg.getBackgrounds(), fgs = rg.getFontColors();
   for (var k = 0; k < n; k++) {
     var rot = semAcento_(vals[k][1]);
     if (!rot) break;
     var key = null;
+    /* início do rótulo (e não "contém"): "INCLUIR NO PLANO DE FÉRIAS" não pode valer como FÉRIAS */
     if (rot === 'SV') key = 'servico';
-    else if (rot.indexOf('OUTRA ESCALA') >= 0) key = 'outra';
-    else if (rot.indexOf('GRAGOATA') >= 0) key = 'gragoata';
-    else if (rot.indexOf('FERIAS') >= 0) key = 'ferias';
-    else if (rot.indexOf('MISSAO') >= 0) key = 'missao';
-    else if (rot.indexOf('LICENCA') >= 0) key = 'licenca';
-    else if (rot.indexOf('BAIXADO') >= 0) key = 'baixado';
-    else if (rot.indexOf('CONCURSO') >= 0) key = 'concurso';
-    else if (rot.indexOf('EXAME') >= 0) key = 'exame';
-    else if (rot.indexOf('FORA DA ESCALA') >= 0) key = 'fora';
-    else if (rot.indexOf('APRESENTA') >= 0) key = 'apres';
+    else if (rot.indexOf('SV EM OUTRA ESCALA') === 0) key = 'outra';
+    else if (rot.indexOf('SV GRAGOATA') === 0) key = 'gragoata';
+    else if (rot.indexOf('FERIAS') === 0) key = 'ferias';
+    else if (rot.indexOf('MISSAO') === 0) key = 'missao';
+    else if (rot.indexOf('LICENCA') === 0) key = 'licenca';
+    else if (rot.indexOf('BAIXADO') === 0) key = 'baixado';
+    else if (rot.indexOf('CONCURSO') === 0) key = 'concurso';
+    else if (rot.indexOf('EXAME') === 0) key = 'exame';
+    else if (rot.indexOf('FORA DA ESCALA') === 0) key = 'fora';
+    else if (rot.indexOf('APRESENTA') === 0) key = 'apres';
+    if (key && lidas[key]) key = null; /* vale a primeira ocorrência */
+    if (key) lidas[key] = true;
     if (key) L[key] = { bg: bgs[k][0].toLowerCase(), fg: fgs[k][0].toLowerCase() };
   }
   return L;
