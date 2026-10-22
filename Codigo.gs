@@ -409,11 +409,11 @@ function mnuSobre() {
     'A importação pinta as linhas OF DIA / CMT GD / CB GD / GD GRAGOATÁ / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
     'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
     '<h2>📅 Prévia semanal</h2>' +
-    '<p><b>Adicionar prévia:</b> informe a quarta-feira inicial; o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +
+    '<p><b>Adicionar prévia:</b> escolha a semana na lista (quarta a terça; a sugerida vem marcada); o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +
     '<b>Atualizar prévia:</b> religa as fórmulas à planilha (sem abas de cache) e ativa o recálculo a cada minuto. ' +
     'As escalas feitas na própria planilha (ADJ OF DIA, CMT GD, CH PI, CB GD, AUX PI, Condutor, Supervisor, QG AD/1…) são lidas direto das abas do mês em tempo real. ' +
     'Cores e anotações — portões (azul-claro 12h / azul-escuro 24h), CB DIA por posição e trocas de serviço (“*”, nota da célula) — vêm das funções PREVIA_CAL e PREVIA_TROCAS, que ficam em colunas ocultas da própria prévia e recalculam a cada minuto. ' +
-    'Em Arquivo → Configurações → Cálculo, deixe “Ao alterar e a cada minuto”. Escalas de arquivos externos (Of Dia, Sgt Dia, Manobreiro, Atendimento) ainda usam as abas *_CACHE (próxima etapa).</p>' +
+    'Em Arquivo → Configurações → Cálculo, deixe “Ao alterar e a cada minuto”. Sgt Dia, Manobreiro e Atendimento vêm por IMPORTRANGE (tempo real; o Google pede “Permitir acesso” uma vez por arquivo). Of Dia (cor da célula) e as trocas anotadas nesses arquivos são lidos por um gatilho a cada 10 min e ficam em colunas ocultas da prévia; as abas *_CACHE podem ser apagadas depois de Atualizar prévia.</p>' +
     '<h2>✅ Verificação do sistema</h2><p>Confere se todas as funções estão instaladas no projeto, se a legenda foi lida e quais abas mensais existem. Use depois de colar/atualizar o código.</p>';
   mostrarHtml_(h, 'Sobre o Módulo Brigada', 700, 620);
 }
@@ -424,7 +424,7 @@ function mnuVerificarSistema() {
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
-    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'PREVIA_CAL', 'PREVIA_TROCAS',
+    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'atualizarExternosTrigger', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuAbaDestino', 'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',

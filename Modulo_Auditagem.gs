@@ -37,11 +37,12 @@ function apiQuantitativoOpcoes(meses, tipos) {
 }
 
 function resolverNomeNota_(nota, chaves) {
-  var n = semAcento_(String(nota).replace(/\*/g, '')).replace(/[^A-Z0-9 .]/g, ' ').replace(/\s+/g, ' ').trim();
+  function limpa(t) { return semAcento_(String(t).replace(/\*/g, '')).replace(/[^A-Z0-9 .]/g, ' ').replace(/\s+/g, ' ').trim(); }
+  var n = limpa(nota);
   if (!n) return null;
   var exato = [], fim = [], contem = [];
   chaves.forEach(function (c) {
-    var k = semAcento_(c.key);
+    var k = limpa(c.key);
     if (k === n) exato.push(c);
     else if (k.slice(-(n.length + 1)) === ' ' + n) fim.push(c);
     else if ((' ' + k + ' ').indexOf(' ' + n + ' ') >= 0) contem.push(c);

@@ -18,7 +18,7 @@ Teste primeiro numa **cópia** da planilha.
 ## Fase 2
 - ✅ Auditagem: verificação de serviços tirados (`Modulo_Auditagem.gs`).
 - ✅ Importar escala da Guarnição via Drive ou documento (`Modulo_Importar.gs`).
-- 🟡 Prévia semanal: escalas da própria planilha sem abas de cache (`Modulo_Previa.gs`); arquivos externos (Of Dia, Sgt Dia, Manobreiro, Atendimento) na próxima etapa.
+- ✅ Prévia semanal sem abas de cache: escalas da própria planilha (`Modulo_Previa.gs`) e arquivos externos por IMPORTRANGE + gatilho de 10 min para Of Dia/trocas (`Modulo_PreviaExt.gs`).
 
 ## Como o script lê a planilha
 - Blocos: linha com dia 1 em `F` e dia da semana na linha de baixo; título em C/D/E. Militares = linhas seguintes até `E` vazio.
