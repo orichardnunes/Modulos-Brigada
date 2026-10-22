@@ -396,8 +396,8 @@ function mnuSobre() {
     '<h3>Adicionar militar</h3><p>Informe subunidade, graduação e nome de guerra; para cada escala escolha a posição (automática pela graduação) e a data do último serviço em dia útil e em dia vermelho — ou “nunca serviu” (folga 31 nas duas escalas a partir do dia da inclusão, e “***” em fundo marrom-avermelhado nos dias anteriores). O nº de ordem (coluna C) é recalculado pelo tamanho do grupo da escala (ex.: CB DIA 1-1-1-1, 2-2-2-2). ' +
     'Verificar mostra onde entra e a folga; depois Adicionar. Só o mês escolhido é alterado.</p>' +
     '<h2>🗂️ Abas Mensal</h2>' +
-    '<p><b>Criar abas do próximo mês:</b> cria “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia” a partir das abas do mês atual, com folgas ligadas ao mês anterior e corpo limpo. Meses de 28 a 31 dias são ajustados sozinhos; se algo falhar, as abas criadas na tentativa são removidas.<br>' +
-    '<b>Definir gatilho:</b> número de 1 a 28 (todo mês, nesse dia), data dd/mm/aaaa (uma vez) ou PDU (primeiro dia útil). Roda às ' + CFG.HORA_GATILHO + 'h e só cria se as abas ainda não existirem.<br>' +
+    '<p><b>Criar abas do próximo mês:</b> cria as duas abas do mês seguinte ao de hoje, sem perguntar.  cria “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia” a partir das abas do mês atual, com folgas ligadas ao mês anterior e corpo limpo. Meses de 28 a 31 dias são ajustados sozinhos; se algo falhar, as abas criadas na tentativa são removidas.<br>' +
+    '<b>Definir gatilho:</b> escolha na caixa: todo mês em um dia de 1 a 28, uma data única ou o primeiro dia útil de cada mês, e o horário. Roda às ' + CFG.HORA_GATILHO + 'h e só cria se as abas ainda não existirem.<br>' +
     '<b>Ver / Desativar gatilho:</b> mostra a configuração e a última criação automática.</p>' +
     '<h2>📊 Auditagem — Verificação de serviços tirados</h2>' +
     '<p>Conta quantos serviços cada militar tirou em uma ou várias escalas, em meses inteiros ou num período (por padrão até hoje; “Incluir dias futuros” conta o planejado) e mostra o ranking, a média, o máximo e o mínimo. Só LÊ a planilha. ' +

@@ -662,14 +662,8 @@ function apiCriarAbas(mm, aaaa) {
 
 function mnuCriarAbasProximoMes() {
   var ui = SpreadsheetApp.getUi(), hoje = new Date();
-  var prox = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
-  var sug = ('0' + (prox.getMonth() + 1)).slice(-2) + '/' + prox.getFullYear();
-  var r = ui.prompt('Criar abas do mês', 'Serão criadas "<Mês> Grad" e "<Mês> Cndt e Praia" a partir das abas do mês anterior ao escolhido.\n' +
-    'Informe MM/AAAA (sugestão: próximo mês):', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var txt = (r.getResponseText() || sug).trim(), m = /^(\d{1,2})\/(\d{4})$/.exec(txt);
-  if (!m || Number(m[1]) < 1 || Number(m[1]) > 12) { ui.alert('Formato inválido. Use MM/AAAA, ex.: ' + sug); return; }
-  try { ui.alert('Módulo Brigada', apiCriarAbas(m[1], m[2]), ui.ButtonSet.OK); }
+  var alvo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
+  try { ui.alert('Abas do próximo mês', apiCriarAbas(alvo.getMonth() + 1, alvo.getFullYear()), ui.ButtonSet.OK); }
   catch (e) { ui.alert('Não foi possível criar as abas', e.message, ui.ButtonSet.OK); }
 }
 
@@ -789,27 +783,48 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
 }
 
 /* ----- gatilho */
+function textoHora_(h) { return ('0' + h).slice(-2) + ':00'; }
+
 function mnuDefinirGatilho() {
-  var ui = SpreadsheetApp.getUi();
-  var r = ui.prompt('Definir gatilho de criação automática',
-    'Digite:\n• um número de 1 a 28 (todo mês, nesse dia — cria o mês seguinte);\n• uma data dd/mm/aaaa (uma única vez — cria o mês seguinte);\n' +
-    '• PDU (primeiro dia útil do mês — cria as abas do mês corrente, se faltarem).\nRoda às ' + CFG.HORA_GATILHO + 'h.', ui.ButtonSet.OK_CANCEL);
-  if (r.getSelectedButton() !== ui.Button.OK) return;
-  var txt = r.getResponseText().trim().toUpperCase(), cfg;
-  if (/^\d{1,2}$/.test(txt) && Number(txt) >= 1 && Number(txt) <= 28) cfg = { tipo: 'DIA', valor: Number(txt), texto: 'todo dia ' + Number(txt) + ' às ' + CFG.HORA_GATILHO + 'h' };
-  else if (/^\d{2}\/\d{2}\/\d{4}$/.test(txt)) {
-    var p = txt.split('/'), dt = new Date(Number(p[2]), Number(p[1]) - 1, Number(p[0]), CFG.HORA_GATILHO, 0, 0);
-    if (dt <= new Date()) { ui.alert('A data precisa estar no futuro.'); return; }
-    cfg = { tipo: 'DATA', valor: dt.getTime(), texto: 'uma vez em ' + txt + ' às ' + CFG.HORA_GATILHO + 'h' };
-  } else if (txt === 'PDU') cfg = { tipo: 'PDU', valor: 0, texto: 'primeiro dia útil de cada mês às ' + CFG.HORA_GATILHO + 'h' };
-  else { ui.alert('Entrada inválida. Use 1–28, dd/mm/aaaa ou PDU.'); return; }
+  var atual = JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO') || 'null');
+  var dias = '', horas = '', i;
+  for (i = 1; i <= 28; i++) dias += '<option value="' + i + '">dia ' + i + '</option>';
+  for (i = 0; i <= 23; i++) horas += '<option value="' + i + '"' + (i === CFG.HORA_GATILHO ? ' selected' : '') + '>' + textoHora_(i) + '</option>';
+  var amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
+  var h = '<style>.op{display:block;border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin:8px 0;cursor:pointer}.op:has(input:checked){border-color:#1a73e8;background:#e8f0fe}' +
+    '.op small{display:block;color:#5f6368;margin:2px 0 0 22px}.op select,.op input[type=date]{margin-left:6px}.top{color:#5f6368;margin:0 0 6px}</style>' +
+    '<h3>Criação automática das abas do mês</h3>' +
+    '<p class="top">' + (atual ? 'Gatilho atual: <b>' + esc_(atual.texto) + '</b>' : 'Nenhum gatilho definido.') + '</p>' +
+    '<label class="op"><input type="radio" name="t" value="DIA" checked> Todo mês, no <select id="dia">' + dias + '</select><small>Cria as abas do mês seguinte.</small></label>' +
+    '<label class="op"><input type="radio" name="t" value="DATA"> Uma única vez, em <input type="date" id="data" value="' + isoData_(amanha) + '"><small>Cria as abas do mês seguinte, na data escolhida.</small></label>' +
+    '<label class="op"><input type="radio" name="t" value="PDU"> No primeiro dia útil de cada mês<small>Cria as abas do mês corrente, se ainda não existirem.</small></label>' +
+    '<label style="display:block;margin:10px 0">Horário: <select id="hora">' + horas + '</select></label>' +
+    '<button class="p" onclick="salvar()">Salvar gatilho</button><button onclick="google.script.host.close()">Cancelar</button><pre id="out" style="display:none"></pre>' +
+    '<script>function $(i){return document.getElementById(i)}' +
+    'function salvar(){var t=document.querySelector("input[name=t]:checked").value;var p={tipo:t,dia:$("dia").value,data:$("data").value,hora:$("hora").value};' +
+    '$("out").style.display="block";$("out").textContent="Salvando…";google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},1800)})' +
+    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDefinirGatilho(p)}</script>';
+  mostrarHtml_(h, 'Definir gatilho', 460, 470);
+}
+
+function apiDefinirGatilho(p) {
+  var hora = Number(p.hora), cfg;
+  if (isNaN(hora) || hora < 0 || hora > 23) throw new Error('Horário inválido.');
+  if (p.tipo === 'DIA') cfg = { tipo: 'DIA', valor: Number(p.dia), hora: hora, texto: 'todo dia ' + Number(p.dia) + ', às ' + textoHora_(hora) };
+  else if (p.tipo === 'DATA') {
+    if (!p.data) throw new Error('Escolha a data.');
+    var dt = parseIso_(p.data); dt.setHours(hora, 0, 0, 0);
+    if (dt <= new Date()) throw new Error('A data e o horário precisam estar no futuro.');
+    cfg = { tipo: 'DATA', valor: dt.getTime(), hora: hora, texto: 'uma vez, em ' + fmtData_(dt) + ' às ' + textoHora_(hora) };
+  } else if (p.tipo === 'PDU') cfg = { tipo: 'PDU', valor: 0, hora: hora, texto: 'primeiro dia útil de cada mês, às ' + textoHora_(hora) };
+  else throw new Error('Escolha uma das opções.');
   removerGatilhos_();
   var tb = ScriptApp.newTrigger('gatilhoCriarAbas').timeBased();
-  if (cfg.tipo === 'DIA') tb.onMonthDay(cfg.valor).atHour(CFG.HORA_GATILHO).create();
+  if (cfg.tipo === 'DIA') tb.onMonthDay(cfg.valor).atHour(hora).create();
   else if (cfg.tipo === 'DATA') tb.at(new Date(cfg.valor)).create();
-  else tb.everyDays(1).atHour(CFG.HORA_GATILHO).create();
+  else tb.everyDays(1).atHour(hora).create();
   PropertiesService.getDocumentProperties().setProperty('GATILHO', JSON.stringify(cfg));
-  ui.alert('Gatilho definido: ' + cfg.texto + '.\nNa primeira vez o Google pode pedir autorização.');
+  return 'Gatilho definido: ' + cfg.texto + '.';
 }
 
 function removerGatilhos_() {
