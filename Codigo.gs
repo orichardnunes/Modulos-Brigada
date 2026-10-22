@@ -263,6 +263,11 @@ function ehSegundoPar_(A, B, d) {
 }
 function ehPar_(B) { return B.kind === 'par3' || B.kind === 'par1'; }
 
+function ehTexto_(A, r, c) { /* célula com texto não numérico, ex.: "***" */
+  var v = A.vals[r][c];
+  return typeof v === 'string' && v.trim() !== '' && num_(v) == null;
+}
+
 function participa_(A, B, R, d) {
   if (B.kind === 'qg') return !!A.gac[d];
   var c = colDia_(d);
@@ -367,7 +372,7 @@ function mnuSobre() {
     '<h3>Retirar serviços</h3><p>Retira os “0” das escalas marcadas, de hoje em diante; o “0” volta a ser fórmula de folga e a cor volta ao padrão. Opções: retirar também os verdes, preservar cores de afastamento e anotações (marcadas por padrão). Cores de afastamento nunca são apagadas.</p>' +
     '<h3>Adicionar afastamento</h3><p>Pinta o período na linha do militar com a cor da legenda (férias, licença/dispensa/curso, missão, baixado, concurso, exame de pagamento, fora da escala). A apresentação pinta só o dia em cinza. ' +
     'Vários militares de uma vez (afastamento conjunto). Se havia “0” no período, ele vira fórmula e o resumo avisa que falta substituto — use depois “Adicionar serviços”. Período que atravessa o mês pinta também a aba seguinte, se existir.</p>' +
-    '<h3>Adicionar militar</h3><p>Informe subunidade, graduação e nome de guerra; para cada escala escolha a posição (automática pela graduação) e a data do último serviço em dia útil e em dia vermelho — ou “nunca serviu” (maior folga + 1). ' +
+    '<h3>Adicionar militar</h3><p>Informe subunidade, graduação e nome de guerra; para cada escala escolha a posição (automática pela graduação) e a data do último serviço em dia útil e em dia vermelho — ou “nunca serviu” (folga 31 nas duas escalas a partir do dia da inclusão, e “***” nos dias anteriores). ' +
     'Verificar mostra onde entra e a folga; depois Adicionar. Só o mês escolhido é alterado.</p>' +
     '<h2>🗂️ Abas Mensal</h2>' +
     '<p><b>Criar abas do próximo mês:</b> cria “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia” a partir das abas do mês atual, com folgas ligadas ao mês anterior e corpo limpo. Meses de 28 a 31 dias são ajustados sozinhos; se algo falhar, as abas criadas na tentativa são removidas.<br>' +
