@@ -678,15 +678,17 @@ function criarAbasMes_(mes, ano) {
     if (ss.getSheetByName(CFG.MESES[mes] + ' ' + t)) throw new Error('A aba "' + CFG.MESES[mes] + ' ' + t + '" já existe.');
     if (!ss.getSheetByName(CFG.MESES[mAnt] + ' ' + t)) throw new Error('A aba base "' + CFG.MESES[mAnt] + ' ' + t + '" não existe.');
   });
+  var base = 0; /* as abas novas ficam à direita das abas do mês vigente (Grad, depois Cndt e Praia) */
+  tipos.forEach(function (t) { base = Math.max(base, ss.getSheetByName(CFG.MESES[mAnt] + ' ' + t).getIndex()); });
   try {
-    tipos.forEach(function (t) {
+    tipos.forEach(function (t, ti) {
       var prev = ss.getSheetByName(CFG.MESES[mAnt] + ' ' + t);
       var novo = prev.copyTo(ss);
       criadas.push(novo);
       novo.setName(CFG.MESES[mes] + ' ' + t);
       novo.showSheet();
       ss.setActiveSheet(novo);
-      ss.moveActiveSheet(prev.getIndex() + 1);
+      ss.moveActiveSheet(base + 1 + ti);
       montarAbaNova_(novo, prev, mes, ano, anoAnt);
     });
   } catch (e) {
@@ -739,7 +741,12 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   var primeiroBloco = N.blocos.length ? N.blocos[0].hdr : N.vals.length;
   if (N.topo != null) {
     var dm = N.vals[N.topo][colDia_(1)] instanceof Date;
-    if (N.topo > 0) novo.getRange(N.topo, F1, 1, n).clearContent().setBackground(CFG.COR.BRANCO);
+    /* acima do cabeçalho: tira textos, anotações e mesclagens herdados do mês anterior (nomes das unidades da Guarnição) */
+    if (N.topo > 0) {
+      var acima = novo.getRange(1, F1, N.topo, novo.getMaxColumns() - F1 + 1);
+      acima.breakApart().clearContent().clearNote();
+      novo.getRange(N.topo, F1, 1, novo.getMaxColumns() - F1 + 1).setBackground(CFG.COR.BRANCO);
+    }
     escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, CFG.COR.CINZA_CAB);
 /* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
     for (var i = N.topo + 2; i < primeiroBloco; i++) {
@@ -752,7 +759,8 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
 
   N.blocos.forEach(function (B) {
     var dmB = N.vals[B.hdr][colDia_(1)] instanceof Date;
-    escreverCabecalho_(novo, N, B.hdr, mes, ano, n, dmB, null);
+    escreverCabecalho_(novo, N, B.hdr, mes, ano, n, dmB, B.kind === 'qg' ? CFG.COR.CINZA_CAB : null);
+    if (B.kind === 'qg') novo.getRange(B.hdr + 1, 1, 2, colDia_(1)).setBackground(CFG.COR.CINZA_CAB); /* título cinza até importar a Guarnição */
     var PB = null;
     P.blocos.forEach(function (b) { if (b.titulo === B.titulo) PB = b; });
     var M = [], BG = [], FG = [];

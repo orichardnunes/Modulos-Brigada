@@ -245,6 +245,9 @@ function ajustarBlocosQG_(sh) {
   var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], novos = 0, removidos = 0, preservados = 0;
   A.blocos.forEach(function (B) {
     if (B.kind !== 'qg') return;
+    /* título laranja e dias do cabeçalho: laranja = 21º GAC, azul = outra unidade */
+    sh.getRange(B.hdr + 1, 1, 2, colDia_(1)).setBackground(CFG.COR.LARANJA);
+    for (var dh = 1; dh <= A.nDias; dh++) sh.getRange(B.hdr + 1, colDia_(dh) + 1).setBackground(B.gac[dh] ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
     B.rows.forEach(function (R) {
       for (var d = 1; d <= A.nDias; d++) {
         var c = colDia_(d), forma = A.forms[R.r][c], val = A.vals[R.r][c], a1 = a1_(R.r, c);
