@@ -159,15 +159,58 @@ function trocarRefsCache_(f) {
   return out;
 }
 
+/** grava (por script, que tem permissão total) a tabela por dia e as trocas internas nas colunas ocultas L:AE e AG:AJ */
+function atualizarTabelasInternas_(sh) {
+  var datas = datasPrevia_(sh), cal = PREVIA_CAL([datas], 0), trc = PREVIA_TROCAS([datas], 0);
+  sh.getRange(2, 12, cal.length, cal[0].length).setValues(cal);
+  sh.getRange('AG2:AJ300').clearContent();
+  sh.getRange(2, 33, trc.length, 4).setValues(trc);
+}
+
 function instalarAuxPrevia_(sh) {
   var precisa = 45 - sh.getMaxColumns();
   if (precisa > 0) sh.insertColumnsAfter(sh.getMaxColumns(), precisa);
-  sh.getRange('L2').setFormula('=PREVIA_CAL($C$2:$I$2,NOW())');
-  sh.getRange('AG2').setFormula('=PREVIA_TROCAS($C$2:$I$2,NOW())');
-  sh.getRange('L1').setValue('PREVIA_CAL (tabela por dia — não apague)');
-  sh.getRange('AG1').setValue('PREVIA_TROCAS (não apague)');
+  sh.getRange(1, 10, sh.getMaxRows(), 36).clearContent(); /* limpa colunas auxiliares (J:AS), inclusive restos de versões antigas */
+  sh.getRange('L1').setValue('Tabela por dia (script — não apague)');
+  sh.getRange('AG1').setValue('Trocas (script — não apague)');
   sh.hideColumns(12, 34);
+  atualizarTabelasInternas_(sh);
 }
+
+function colNum_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + L.charCodeAt(i) - 64; return n; }
+
+/* se as colunas auxiliares foram deslocadas (inserção/remoção de colunas), religa as referências às posições L/AG */
+function normalizarHelpers_(f) {
+  var out = f.replace(/INDEX\(\s*\$([A-Z]+)\$2:\$\1\$8\s*([,;])\s*MATCH\(\s*([^,;()]+?)\s*[,;]\s*\$([A-Z]+)\$2:\$\4\$8\s*[,;]\s*0\s*\)\s*\)/g,
+    function (m, x, sep, arg, y) {
+      if (y === 'AL') return m;
+      var nx = 12 + colNum_(x) - colNum_(y);
+      if (nx < 12 || nx > 31) return m;
+      var L = colLetra_(nx - 1);
+      return 'INDEX($' + L + '$2:$' + L + '$8' + sep + ' MATCH(' + arg + sep + ' $L$2:$L$8' + sep + ' 0))';
+    });
+  out = out.replace(/INDEX\(\s*\$([A-Z]+)\$2:\$\1\$400\s*([,;])\s*MATCH\(\s*1\s*[,;]\s*ARRAYFORMULA\(\(\s*\$([A-Z]+)\$2:\$\3\$400\s*=\s*([^)*]+?)\s*\)\s*\*\s*\(\s*\$([A-Z]+)\$2:\$\5\$400\s*=\s*TRIM\(nomeGrade/g,
+    function (m, as, sep, da, arg) {
+      return 'INDEX($AI$2:$AI$400' + sep + ' MATCH(1' + sep + ' ARRAYFORMULA(($AG$2:$AG$400=' + arg + ')*($AH$2:$AH$400=TRIM(nomeGrade';
+    });
+  return out;
+}
+
+/* serviços que normalmente não existem em todos os dias: sem ninguém escalado = "X" (e não PENDENTE) */
+function opcionaisParaX_(f) {
+  if (!/CONDUTOR DE TURISMO|SUPERVISOR DE PRAIA FBRB|Ct Aces Estr/.test(f)) return f;
+  return f.replace(/(nomeGrade\s*=\s*""\s*[,;]\s*)"PENDENTE"/g, '$1"X"');
+}
+
+/* CB DIA: nos dias com menos de 4 (título "2 CB DIA"), as posições sem militar ficam "X" */
+function cbDiaParaX_(f) {
+  if (!/\$A[B-E]\$2:\$A[B-E]\$8/.test(f)) return f;
+  return f.replace(/IF\(\s*nome\s*=\s*""\s*([,;])\s*"PENDENTE"\s*[,;]\s*nome\s*\)/g, function (m, sep) {
+    return 'IF(nome=""' + sep + ' IF(INDEX($AB$2:$AB$8' + sep + ' MATCH(d' + sep + ' $L$2:$L$8' + sep + ' 0))=""' + sep + ' "PENDENTE"' + sep + ' "X")' + sep + ' nome)';
+  });
+}
+
+function ajustarFormulaPrevia_(f) { return cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f)))); }
 
 /** Troca as referências às abas CAL/TROCAS/ESCALADOS_CACHE por fórmulas locais. Devolve {alteradas, externas[]}. */
 function migrarPrevia_(sh) {
@@ -176,7 +219,7 @@ function migrarPrevia_(sh) {
     for (var c = 0; c < 9; c++) {
       var f = forms[r][c];
       if (!f) continue;
-      var novo = trocarRefsCache_(f);
+      var novo = ajustarFormulaPrevia_(f);
       if (novo !== f) { sh.getRange(r + 1, c + 1).setFormula(novo); alteradas++; }
       var m = /(OF_DIA|SGT_DIA|MANOBREIRO|ATENDIMENTO|CAL|TROCAS|ESCALADOS)_CACHE/.exec(novo);
       if (m) externas[m[1]] = true;
@@ -205,16 +248,15 @@ function mnuAtualizarPrevia() {
     ss_().setRecalculationInterval(SpreadsheetApp.RecalculationInterval.MINUTE);
     var tot = 0, nomes = [], avisos = [], pendentes = {};
     abasPrevia_().forEach(function (sh) {
-      var r = migrarPrevia_(sh), ehModelo = /Modelo/i.test(sh.getName());
+      var r;
+      try { r = migrarPrevia_(sh); } catch (e) { avisos.push(sh.getName() + ': ' + e.message); return; }
       tot += r.alteradas;
       nomes.push(sh.getName());
-      if (!ehModelo) {
-        try {
-          var x = atualizarExternosPrevia_(sh, true);
-          x.avisos.forEach(function (a) { avisos.push(sh.getName() + ': ' + a); });
-        } catch (e) { avisos.push(sh.getName() + ': ' + e.message); }
-        refsCache_(sh).forEach(function (c) { pendentes[c] = true; });
-      }
+      try {
+        var x = atualizarExternosPrevia_(sh, true);
+        x.avisos.forEach(function (a) { avisos.push(sh.getName() + ': ' + a); });
+      } catch (e) { avisos.push(sh.getName() + ': ' + e.message); }
+      refsCache_(sh).forEach(function (c) { pendentes[c] = true; });
     });
     var novoGatilho = garantirTriggerExternos_();
     SpreadsheetApp.flush();

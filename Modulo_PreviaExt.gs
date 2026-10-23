@@ -328,12 +328,28 @@ function atualizarExternosPrevia_(sh, comFormulas) {
 function atualizarExternosTrigger() {
   abasPrevia_().forEach(function (sh) {
     if (sh.isSheetHidden() || /Modelo/i.test(sh.getName())) return;
-    try { atualizarExternosPrevia_(sh, false); } catch (e) { Logger.log(sh.getName() + ': ' + e.message); }
+    try { atualizarTabelasInternas_(sh); atualizarExternosPrevia_(sh, false); } catch (e) { Logger.log(sh.getName() + ': ' + e.message); }
+  });
+}
+
+/* a cada alteração/formatação da planilha (instalável): atualiza as tabelas internas (cores, trocas), no máximo 1x a cada 20 s */
+function atualizarTabelasOnChange() {
+  var props = PropertiesService.getDocumentProperties(), agora = Date.now();
+  if (agora - Number(props.getProperty('PV_ULT') || 0) < 20000) return;
+  props.setProperty('PV_ULT', String(agora));
+  abasPrevia_().forEach(function (sh) {
+    if (sh.isSheetHidden() || /Modelo/i.test(sh.getName())) return;
+    try { atualizarTabelasInternas_(sh); } catch (e) { Logger.log(sh.getName() + ': ' + e.message); }
   });
 }
 
 function garantirTriggerExternos_() {
-  var tem = ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'atualizarExternosTrigger'; });
-  if (!tem) ScriptApp.newTrigger('atualizarExternosTrigger').timeBased().everyMinutes(10).create();
-  return !tem;
+  var tr = ScriptApp.getProjectTriggers(), novo = false;
+  if (!tr.some(function (t) { return t.getHandlerFunction() === 'atualizarExternosTrigger'; })) {
+    ScriptApp.newTrigger('atualizarExternosTrigger').timeBased().everyMinutes(10).create(); novo = true;
+  }
+  if (!tr.some(function (t) { return t.getHandlerFunction() === 'atualizarTabelasOnChange'; })) {
+    ScriptApp.newTrigger('atualizarTabelasOnChange').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onChange().create(); novo = true;
+  }
+  return novo;
 }
