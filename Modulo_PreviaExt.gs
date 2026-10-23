@@ -273,8 +273,9 @@ function fxAtend_(A, colLetra, bloco) {
   var lista = bloco === 1 ? A.b1 : A.b2;
   if (!lista.length) return bloco === 1 ? '="PENDENTE"' : '=IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X")';
   var r1 = lista[0].r + 1, r2 = lista[lista.length - 1].r + 1;
-  var core = 'LET(dados,' + importExt_(EXT.ATEND, A.loc.sh) + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',lin,SEQUENCE(ROWS(dados)),' +
-    'f,FILTER(n,ISNUMBER(v)*(v=0)*(lin>=' + r1 + ')*(lin<=' + r2 + ')),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
+  var imp = 'IMPORTRANGE("' + urlExt_(EXT.ATEND) + '","\'' + A.loc.sh.getName().replace(/'/g, "''") + '\'!A' + r1 + ':' + colLetra_(A.loc.col) + r2 + '")';
+  var core = 'LET(dados,' + imp + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',' +
+    'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
   if (bloco === 1) return '=IFERROR(' + core + ',"PENDENTE")';
   return '=IFERROR(' + core + ',IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X"))';
 }

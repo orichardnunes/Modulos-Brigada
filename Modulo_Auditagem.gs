@@ -94,7 +94,7 @@ function calcularQuantitativo_(p) {
             if (ehAfastLegenda_(A, R.r, c)) continue;
             var pe = pessoa(R.key, R.nome, R.sub), cl = String(A.bgs[R.r][c]).toLowerCase() === A.leg.outra.bg;
             var peso = ehPar_(B) ? 0.5 : 1; /* par de dias seguidos (Condutor/Praia) = 1 serviço */
-            if (cl) { verdes.push({ pe: pe, peso: peso, key: A.nome + '|' + R.key + '|' + d }); continue; }
+            if (cl) { verdes.push({ pe: pe, peso: 1, key: A.nome + '|' + R.key + '|' + d }); continue; }
             donos[A.nome + '|' + R.key + '|' + d] = true;
             pe.proprios += peso;
             pe.porEscala[B.titulo] = (pe.porEscala[B.titulo] || 0) + peso;
