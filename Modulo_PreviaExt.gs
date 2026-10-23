@@ -232,12 +232,13 @@ function tabelasExternas_(datas) {
 
 function escreverTabelasExternas_(sh, tabelas) {
   var E = PREVIA_EXT;
-  sh.getRange(E.OF.data + '1').setValue('OF_DIA (script, a cada 10 min — não apague)');
-  sh.getRange(E.TRC.data + '1').setValue('TROCAS externas (script — não apague)');
+  sh.getRange(E.OF.data + '1:' + E.OF.qg + '1').setValues([['Of Dia: data', 'Of Dia: Unidade', 'Of Dia: QG AD/1']]);
+  sh.getRange(E.TRC.data + '1:' + E.TRC.tag + '1').setValues([['Trocas (arquivos externos): data', 'Quem estava na escala', 'Quem assume (*)', 'Fonte']]);
   sh.getRange(E.OF.data + '2:' + E.OF.qg + '8').setValues(tabelas.of);
   var lim = sh.getRange(E.TRC.data + '2:' + E.TRC.tag + '300');
   lim.clearContent();
   if (tabelas.trc.length) sh.getRange(E.TRC.data + '2:' + E.TRC.tag + (1 + tabelas.trc.length)).setValues(tabelas.trc);
+  formatarAuxPrevia_(sh);
 }
 
 /* ----- fórmulas dos blocos externos */
@@ -272,8 +273,8 @@ function fxAtend_(A, colLetra, bloco) {
   var lista = bloco === 1 ? A.b1 : A.b2;
   if (!lista.length) return bloco === 1 ? '="PENDENTE"' : '=IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X")';
   var r1 = lista[0].r + 1, r2 = lista[lista.length - 1].r + 1;
-  var core = 'LET(dados,' + importExt_(EXT.ATEND, A.loc.sh) + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',r,SEQUENCE(ROWS(dados)),' +
-    'f,FILTER(n,ISNUMBER(v)*(v=0)*(r>=' + r1 + ')*(r<=' + r2 + ')),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
+  var core = 'LET(dados,' + importExt_(EXT.ATEND, A.loc.sh) + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',lin,SEQUENCE(ROWS(dados)),' +
+    'f,FILTER(n,ISNUMBER(v)*(v=0)*(lin>=' + r1 + ')*(lin<=' + r2 + ')),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
   if (bloco === 1) return '=IFERROR(' + core + ',"PENDENTE")';
   return '=IFERROR(' + core + ',IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X"))';
 }

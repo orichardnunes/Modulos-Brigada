@@ -170,14 +170,28 @@ function atualizarTabelasInternas_(sh) {
   sh.getRange(2, 33, trc.length, 4).setValues(trc);
 }
 
+var CABECALHO_CAL_ = ['Data', 'QG: CMT GD (laranja)', 'QG: CB GD (laranja)', 'QG: GD (laranja)', 'QG: Mot POMN (laranja)', 'QG: Of Dia (laranja)', 'Dia vermelho (Grad)',
+  'Dia vermelho (Cndt)', 'Portão 12h #1', 'Portão 12h #2', 'Portão 24h #1', 'Portão 24h #2', 'Portão 24h #3', 'Controle #1', 'Controle #2', 'Controle #3',
+  'CB DIA #1 (2ª BO)', 'CB DIA #2 (1ª BO)', 'CB DIA #3 (DMSF)', 'CB DIA #4 (BIA C)'];
+
+/** títulos, formato de data e aviso nas colunas ocultas (L:AS); só apresentação, não altera os dados */
+function formatarAuxPrevia_(sh) {
+  var cab = '#e8eaed';
+  sh.getRange(1, 12, 1, 20).setValues([CABECALHO_CAL_]).setFontWeight('bold').setBackground(cab).setWrap(true);
+  sh.getRange(1, 33, 1, 4).setValues([['Trocas (nesta planilha): data', 'Quem estava na escala', 'Quem assume (*)', 'Escala']]).setFontWeight('bold').setBackground(cab).setWrap(true);
+  sh.getRange('AL1:AN1').setFontWeight('bold').setBackground(cab).setWrap(true);
+  sh.getRange('AP1:AS1').setFontWeight('bold').setBackground(cab).setWrap(true);
+  ['L2:L8', 'AG2:AG300', 'AL2:AL8', 'AP2:AP300'].forEach(function (a) { sh.getRange(a).setNumberFormat('dd/mm/yyyy'); });
+  sh.getRange('L10').setValue('Área auxiliar da prévia: preenchida por script (a cada alteração da planilha, a cada 10 min e em "Atualizar prévia"). Não edite.').setFontColor('#80868b');
+}
+
 function instalarAuxPrevia_(sh) {
   var precisa = 45 - sh.getMaxColumns();
   if (precisa > 0) sh.insertColumnsAfter(sh.getMaxColumns(), precisa);
   sh.getRange(1, 10, sh.getMaxRows(), 36).clearContent(); /* limpa colunas auxiliares (J:AS), inclusive restos de versões antigas */
-  sh.getRange('L1').setValue('Tabela por dia (script — não apague)');
-  sh.getRange('AG1').setValue('Trocas (script — não apague)');
   sh.hideColumns(12, 34);
   atualizarTabelasInternas_(sh);
+  formatarAuxPrevia_(sh);
 }
 
 function colNum_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + L.charCodeAt(i) - 64; return n; }
