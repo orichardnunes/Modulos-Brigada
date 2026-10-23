@@ -355,6 +355,30 @@ function nomePrevia_(ini) {
     'Prévia ' + ini.getDate() + ' ' + CFG.MESES[ini.getMonth()] + ' - ' + fim.getDate() + ' ' + CFG.MESES[fim.getMonth()];
 }
 
+function vermelhoFlags_(ini) {
+  var out = [];
+  for (var i = 0; i < 7; i++) out.push(!!vermelhoParaData_(new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i)));
+  return out;
+}
+
+/** o corpo da prévia acompanha o tipo do dia: colunas de escala vermelha (sáb, dom, feriado) recebem o mesmo fundo das colunas vermelhas do Modelo, e as demais o das colunas normais */
+function ajustarCorpoPrevia_(sh, modelo, flags) {
+  var cab = modelo.getRange(2, 3, 1, 7).getBackgrounds()[0].map(function (c) { return String(c).toLowerCase(); });
+  var isRed = cab.map(function (c) { return c === PREVIA_COR.CAB_VERMELHO; });
+  var rj = isRed.indexOf(true), nj = isRed.indexOf(false), lr = sh.getLastRow();
+  if (rj < 0 || nj < 0 || lr < 6) return;
+  var rg = sh.getRange(6, 3, lr - 5, 7), body = rg.getBackgrounds();
+  var refRed = body.map(function (l) { return l[rj]; }), refNor = body.map(function (l) { return l[nj]; });
+  for (var j = 0; j < 7; j++) {
+    if (isRed[j] === flags[j]) continue;
+    for (var r = 0; r < body.length; r++) {
+      var de = isRed[j] ? refRed[r] : refNor[r], para = flags[j] ? refRed[r] : refNor[r];
+      if (body[r][j] === de) body[r][j] = para;
+    }
+  }
+  rg.setBackgrounds(body);
+}
+
 function criarPrevia_(ini) {
   var ss = ss_(), modelo = ss.getSheetByName('Prévia - Modelo');
   if (!modelo) throw new Error('A aba "Prévia - Modelo" não existe.');
@@ -374,6 +398,7 @@ function criarPrevia_(ini) {
     vermelhos.forEach(function (p) { sh.getRange(p[0], p[1]).setBackground(PREVIA_COR.CAB_VERMELHO); });
     normais.forEach(function (p) { sh.getRange(p[0], p[1]).setBackground(PREVIA_COR.CAB_NORMAL); });
     sh.getRange(4, 3, 1, 7).setValues([parada]);
+    ajustarCorpoPrevia_(sh, modelo, vermelhoFlags_(ini));
     /* a nova aba fica à frente das outras prévias */
     var primeira = abasPrevia_().filter(function (s) { return s.getSheetId() !== sh.getSheetId() && !s.isSheetHidden(); })[0];
     ss.setActiveSheet(sh);
