@@ -168,6 +168,7 @@ function atualizarTabelasInternas_(sh) {
   sh.getRange(2, 12, cal.length, cal[0].length).setValues(cal);
   sh.getRange('AG2:AJ300').clearContent();
   sh.getRange(2, 33, trc.length, 4).setValues(trc);
+  carimboPrevia_(sh);
 }
 
 var CABECALHO_CAL_ = ['Data', 'QG: CMT GD (laranja)', 'QG: CB GD (laranja)', 'QG: GD (laranja)', 'QG: Mot POMN (laranja)', 'QG: Of Dia (laranja)', 'Dia vermelho (Grad)',
@@ -260,38 +261,79 @@ function refsCache_(sh) {
   return Object.keys(achou);
 }
 
+/** carimbo visível (J1) com a hora da última atualização feita pelo script */
+function carimboPrevia_(sh) {
+  var t = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM HH:mm:ss');
+  sh.getRange('J1').setValue('Atualizado pelo script em ' + t).setFontColor('#9aa0a6').setFontSize(8);
+}
+
+/** conta as células PENDENTE/erro de uma prévia e lista onde estão */
+function pendenciasPrevia_(sh) {
+  var lr = sh.getLastRow(), out = { n: 0, linhas: {} };
+  if (lr < 4) return out;
+  var v = sh.getRange(1, 1, lr, 9).getDisplayValues();
+  for (var r = 3; r < lr; r++) for (var c = 2; c < 9; c++) {
+    var t = String(v[r][c]).trim();
+    if (t === 'PENDENTE' || /^#(ERROR|REF|N\/A|VALUE|NAME)/i.test(t) || /^Loading|^Carregando/i.test(t)) {
+      out.n++;
+      var rot = String(v[r][1]).trim() || String(v[r][0]).trim() || ('linha ' + (r + 1));
+      out.linhas[rot] = (out.linhas[rot] || []).concat(String(v[1][c]).trim() || ('col ' + (c + 1)));
+    }
+  }
+  return out;
+}
+
 function mnuAtualizarPrevia() {
   var ui = SpreadsheetApp.getUi();
   try {
     ss_().setRecalculationInterval(SpreadsheetApp.RecalculationInterval.MINUTE);
-    var tot = 0, nomes = [], avisos = [], pendentes = {};
+    var tot = 0, previas = [], avisos = [], pendentes = {}, objs = [];
     abasPrevia_().forEach(function (sh) {
       var r;
       try { r = migrarPrevia_(sh); } catch (e) { avisos.push(sh.getName() + ': ' + e.message); return; }
       tot += r.alteradas;
-      nomes.push(sh.getName());
       try {
         var x = atualizarExternosPrevia_(sh, true);
         x.avisos.forEach(function (a) { avisos.push(sh.getName() + ': ' + a); });
       } catch (e) { avisos.push(sh.getName() + ': ' + e.message); }
+      try { atualizarTabelasInternas_(sh); } catch (e) { avisos.push(sh.getName() + ': ' + e.message); }
+      objs.push(sh);
       refsCache_(sh).forEach(function (c) { pendentes[c] = true; });
     });
     var novoGatilho = garantirTriggerExternos_();
     SpreadsheetApp.flush();
-    var msg = 'Prévias verificadas: ' + nomes.length + ' (' + tot + ' fórmula(s) ajustada(s)).\n' +
-      '• Escalas da própria planilha: tempo real.\n• Cores e anotações (portões, CB DIA, trocas): a cada minuto.\n' +
-      '• Sgt Dia, Manobreiro e Atendimento: IMPORTRANGE em tempo real. Se alguma linha ficar PENDENTE, clique nas células cinzas J2:J4 de cada prévia e escolha "Permitir acesso" (uma vez por arquivo).\n' +
-      '• Of Dia e trocas dos arquivos externos: lidos por script a cada 10 min' + (novoGatilho ? ' (gatilho criado agora)' : '') + '.';
-    if (avisos.length) msg += '\n\n⚠ ' + avisos.slice(0, 8).join('\n⚠ ');
+    Utilities.sleep(2500); /* tempo para o IMPORTRANGE (Sgt Dia e Manobreiro) carregar */
+    objs.forEach(function (sh) { previas.push({ nome: sh.getName(), p: pendenciasPrevia_(sh) }); });
+    var totPend = previas.reduce(function (a, x) { return a + x.p.n; }, 0);
+    var agora = Utilities.formatDate(new Date(), 'America/Sao_Paulo', "dd/MM/yyyy 'às' HH:mm:ss");
     var pend = Object.keys(pendentes);
-    if (pend.length) msg += '\n\nAinda há fórmulas lendo: ' + pend.join(', ') + '.';
-    ui.alert('Atualizar prévia', msg, ui.ButtonSet.OK);
+
+    var h = '<h2 style="margin-top:0">Atualizar prévia</h2>' +
+      '<p class="mu">Atualizado em ' + agora + '</p>' +
+      '<div class="cards"><div class="card"><b>' + previas.length + '</b><span>prévia(s) verificada(s)</span></div>' +
+      '<div class="card"><b>' + tot + '</b><span>fórmula(s) ajustada(s)</span></div>' +
+      '<div class="card' + (totPend ? ' bad' : '') + '"><b>' + totPend + '</b><span>célula(s) pendente(s)</span></div></div>';
+    h += totPend ? '<p class="erro"><b>Ainda há pendências.</b> Veja abaixo onde estão.</p>' : '<p class="ok"><b>✔ Prévia atualizada.</b> Nenhuma célula pendente.</p>';
+    previas.forEach(function (x) {
+      h += '<details' + (x.p.n ? ' open' : '') + '><summary>' + esc_(x.nome) + ' — ' + (x.p.n ? '<span class="erro">' + x.p.n + ' pendente(s)</span>' : '<span class="ok">completa</span>') + '</summary>';
+      var ks = Object.keys(x.p.linhas);
+      if (!ks.length) h += '<p class="mu">Todas as linhas preenchidas.</p>';
+      else { h += '<table><tr><th>Linha</th><th>Dias pendentes</th></tr>'; ks.forEach(function (k) { h += '<tr><td>' + esc_(k) + '</td><td>' + esc_(x.p.linhas[k].join(' · ').replace(/\s+/g, ' ')) + '</td></tr>'; }); h += '</table>'; }
+      h += '</details>';
+    });
+    if (avisos.length) h += '<details open><summary class="erro">⚠ Avisos (' + avisos.length + ')</summary><ul>' + avisos.slice(0, 10).map(function (a) { return '<li>' + esc_(a) + '</li>'; }).join('') + '</ul></details>';
+    if (pend.length) h += '<p class="erro">Ainda há fórmulas lendo as abas de cache: ' + esc_(pend.join(', ')) + '.</p>';
     var existentes = ABAS_CACHE_.filter(function (n) { return ss_().getSheetByName(n); });
-    if (!pend.length && existentes.length) {
-      var r2 = ui.alert('Abas de cache', 'Nenhuma prévia usa mais as abas de cache:\n' + existentes.join(', ') +
-        '\n\nApagar essas abas agora? (A aba "Prévia - Modelo" pode mostrar PENDENTE nas linhas externas, mas é refeita a cada prévia nova.)', ui.ButtonSet.YES_NO);
-      if (r2 === ui.Button.YES) existentes.forEach(function (n) { ss_().deleteSheet(ss_().getSheetByName(n)); });
-    }
+    if (!pend.length && existentes.length) h += '<p class="mu">Abas de cache que não são mais usadas (pode apagá-las): ' + esc_(existentes.join(', ')) + '.</p>';
+    h += '<details><summary>Como a prévia se mantém atualizada</summary><ul>' +
+      '<li><b>Escalas da própria planilha:</b> tempo real (fórmulas).</li>' +
+      '<li><b>Cores e anotações</b> (portões, CB DIA, trocas): a cada alteração da planilha (até 1x a cada 20 s).</li>' +
+      '<li><b>Of Dia, Atendimento e trocas dos arquivos externos:</b> lidos por script a cada 10 min' + (novoGatilho ? ' <i>(gatilho criado agora)</i>' : '') + ', ou ao rodar esta função.</li>' +
+      '<li><b>Sgt Dia e Manobreiro:</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J3 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
+      '<li>Em cada prévia, a célula <b>J1</b> (cinza, à direita da tabela) mostra a hora da última atualização feita pelo script.</li></ul></details>' +
+      '<button class="p" onclick="google.script.host.close()">OK</button>';
+    mostrarHtml_(h, 'Atualizar prévia', 560, 560);
+
   } catch (e) { ui.alert('Não foi possível atualizar a prévia', e.message, ui.ButtonSet.OK); }
 }
 
