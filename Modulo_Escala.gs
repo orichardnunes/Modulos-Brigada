@@ -871,98 +871,154 @@ function mnuVerGatilho() {
 var JS_COMUM_ = '<script>' +
   'function $(i){return document.getElementById(i)}' +
   'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}' +
-  'function falha(e){$("out").className="erro";$("out").textContent="ERRO: "+(e&&e.message?e.message:e)}' +
+  'function falha(e){var o=$("out");o.style.display="block";o.className="erro";o.textContent="ERRO: "+(e&&e.message?e.message:e)}' +
   'function selMes(d,id){var s=$(id);d.meses.forEach(function(m){var o=document.createElement("option");o.value=m.id;o.text=m.id;' +
   'if(m.id===d.mesAtual)o.selected=true;s.appendChild(o)})}' +
   '</script>';
 
 function htmlServicos_(modo) {
-  var add = modo === 'add';
-  return '<h3>' + (add ? 'Adicionar serviços' : 'Retirar serviços') + '</h3>' +
-    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select>' +
-    '<label class="chip"><input type="checkbox" id="tG" checked onchange="carrega()">Grad</label>' +
-    '<label class="chip"><input type="checkbox" id="tC" checked onchange="carrega()">Cndt e Praia</label></div>' +
-    '<div class="bar"><b class="lb">Período</b>De <input type="date" id="de"> até <input type="date" id="ate"></div>' +
-    '<details open><summary>Escalas</summary><div id="blocos" class="lista" style="max-height:230px">Carregando…</div></details>' +
-    '<details open><summary>Opções</summary>' +
-    (add ? '<div class="bar"><b class="lb" style="min-width:0">Folga mínima</b><input type="number" id="folga" value="' + CFG.FOLGA_MIN_H + '" style="width:70px"> horas</div>' +
-      '<label class="opt"><input type="checkbox" id="evOutra" checked> Não escalar quem já está de serviço em outra escala no dia</label>' +
-      '<label class="opt"><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>' +
-      '<label class="opt"><input type="checkbox" id="relaxar"> Se faltar militar, aceitar intervalo menor que a folga mínima (avisa no resumo)</label>' :
-      '<label class="opt"><input type="checkbox" id="verdes" checked> Retirar também os "0" verdes (serviço em outra escala)</label>' +
-      '<label class="opt"><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>' +
-      '<small>Cores de afastamento nunca são apagadas. A retirada vale de hoje em diante.</small>') +
-    '</details><button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">' + (add ? 'Aplicar' : 'Retirar') + '</button>' +
-    '<pre id="out"></pre>' + JS_COMUM_ +
-    '<script>var MODO="' + modo + '",D=null;' +
-    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +
-    'function carrega(){var t=[];if($("tG").checked)t.push("Grad");if($("tC").checked)t.push("Cndt e Praia");$("blocos").textContent="Carregando…";' +
-    'google.script.run.withSuccessHandler(render).withFailureHandler(falha).apiBlocos($("mes").value,t)}' +
-    'function render(r){D=r;var h=r.hoje,i=r.ini,f=r.fim;var ini=(h>=i&&h<=f)?h:i;' +
-    'if(MODO==="add"&&h>=i&&h<f){var a=new Date(h+"T12:00:00");a.setDate(a.getDate()+1);ini=a.toISOString().substring(0,10)}' +
-    '$("de").value=ini;$("ate").value=f;var x="<table><tr><th></th><th>Aba</th><th>Escala</th>"+(MODO==="add"?"<th>Militar(es) por dia</th>":"")+"</tr>";' +
-    'r.blocos.forEach(function(b,k){x+="<tr><td><input type=checkbox id=b"+k+(MODO==="add"?" checked":"")+"></td><td>"+esc(b.tipo)+"</td><td>"+esc(b.titulo)+' +
-    '(b.kind==="par3"||b.kind==="par1"?" <small>(par de 2 dias)</small>":"")+(b.kind==="qg"?" <small>(só dias laranja)</small>":"")+"</td>"+' +
-    '(MODO==="add"?"<td><input type=number min=0 id=v"+k+" value="+b.vagas+" style=\\"width:55px\\"></td>":"")+"</tr>"});$("blocos").innerHTML=x+"</table>"}' +
-    'function run(ap){var p={mesId:$("mes").value,de:$("de").value,ate:$("ate").value,blocos:[]};' +
-    'if(MODO==="add"){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked;p.relaxar=$("relaxar").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}' +
-    'D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:MODO==="add"?$("v"+k).value:0})});' +
-    'if(!p.blocos.length){falha("Marque ao menos uma escala.");return}' +
-    'if(ap&&!confirm(MODO==="add"?"Aplicar os serviços na planilha?":"Retirar os serviços marcados?"))return;' +
-    '$("out").className="";$("out").textContent="Processando… (pode levar alguns minutos)";' +
-    'google.script.run.withSuccessHandler(function(t){$("out").textContent=t}).withFailureHandler(falha).apiServicos(MODO,p,ap)}' +
-    '</script>';
+  var head =
+    '<style>.sub{color:#5f6368;margin:-2px 0 10px}.esc{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #f1f3f4;padding:5px 2px}.esc:last-child{border:0}\n' +
+    '.esc label{display:flex;align-items:center;gap:8px;margin:0;flex:1;cursor:pointer}.esc input[type=checkbox]{accent-color:#1a73e8;width:15px;height:15px}\n' +
+    '.gh{font-size:11px;text-transform:uppercase;color:#5f6368;letter-spacing:.4px;padding:6px 2px 2px}.vg{display:flex;align-items:center;gap:5px}.vg input{width:54px;text-align:center}\n' +
+    '.tag{font-size:10px;background:#f1f3f4;color:#5f6368;border-radius:8px;padding:1px 7px}.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}</style>\n' +
+    '<h3 id="ttl"></h3><p class="sub" id="sub"></p>\n' +
+    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select>\n' +
+    '<label class="chip"><input type="checkbox" id="tG" checked onchange="carrega()">Grad</label><label class="chip"><input type="checkbox" id="tC" checked onchange="carrega()">Cndt e Praia</label></div>\n' +
+    '<div class="bar"><b class="lb">Período</b><input type="date" id="de"><span class="mu">até</span><input type="date" id="ate">\n' +
+    '<span class="lk" onclick="setP(\'rest\')">restante do mês</span><span class="lk" onclick="setP(\'sem\')">7 dias</span><span class="lk" onclick="setP(\'mes\')">mês inteiro</span></div>\n' +
+    '<details open><summary>Escalas <span class="mu" id="nb"></span></summary><div id="blocos" class="lista" style="max-height:230px">Carregando…</div>\n' +
+    '<div style="margin-top:6px"><span class="lk" onclick="marca(true)">marcar todas</span><span class="lk" onclick="marca(false)">limpar</span></div></details>\n' +
+    '<details open id="optAdd"><summary>Regras</summary>\n' +
+    '<div class="bar"><b class="lb" style="min-width:0">Folga mínima</b><input type="number" id="folga" value="{{FOLGA}}" style="width:70px"> horas</div>\n' +
+    '<label class="opt"><input type="checkbox" id="evOutra" checked> Não escalar quem já está de serviço em outra escala no dia</label>\n' +
+    '<label class="opt"><input type="checkbox" id="evAdj" checked> Não escalar quem está de serviço no dia anterior/seguinte (outra escala)</label>\n' +
+    '<label class="opt"><input type="checkbox" id="relaxar"> Se faltar militar, aceitar intervalo menor que a folga mínima (avisa no resumo)</label></details>\n' +
+    '<details open id="optDel"><summary>Opções</summary>\n' +
+    '<label class="opt"><input type="checkbox" id="verdes" checked> Retirar também os “0” verdes (serviço em outra escala)</label>\n' +
+    '<label class="opt"><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>\n' +
+    '<small>Cores de afastamento nunca são apagadas.</small></details>\n' +
+    '<div class="stk"><button class="p" id="bap" onclick="run(true)"></button><button onclick="run(false)">Verificar</button></div>\n' +
+    '<pre id="out" style="display:none"></pre>\n' +
+    '\n';
+  var tail =
+    '<script>\n' +
+    'var MODO="{{MODO}}",D=null,ADD=MODO==="add";\n' +
+    '$("ttl").textContent=ADD?"Adicionar serviços":"Retirar serviços";\n' +
+    '$("sub").textContent=ADD?"Escolhe quem cumpre cada serviço pela maior folga e marca o “0” na escala.":"Retira os “0” das escalas marcadas, de hoje em diante; a fórmula de folga volta.";\n' +
+    '$("optAdd").style.display=ADD?"block":"none";$("optDel").style.display=ADD?"none":"block";$("bap").textContent=ADD?"Aplicar":"Retirar";\n' +
+    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();\n' +
+    'function carrega(){var t=[];if($("tG").checked)t.push("Grad");if($("tC").checked)t.push("Cndt e Praia");$("blocos").textContent="Carregando…";\n' +
+    ' google.script.run.withSuccessHandler(render).withFailureHandler(falha).apiBlocos($("mes").value,t)}\n' +
+    'function iso(d){return d.toISOString().substring(0,10)}\n' +
+    'function mais(s,n){var a=new Date(s+"T12:00:00");a.setDate(a.getDate()+n);return iso(a)}\n' +
+    'function setP(t){if(!D)return;var h=D.hoje,i=D.ini,f=D.fim,ini=(h>=i&&h<=f)?(ADD&&h<f?mais(h,1):h):i;\n' +
+    ' if(t==="mes"){$("de").value=i;$("ate").value=f}else if(t==="sem"){$("de").value=ini;var e=mais(ini,6);$("ate").value=e>f?f:e}else{$("de").value=ini;$("ate").value=f}}\n' +
+    'function render(r){D=r;setP("rest");var x="",tp="";\n' +
+    ' r.blocos.forEach(function(b,k){if(b.tipo!==tp){tp=b.tipo;x+="<div class=gh>"+esc(tp)+(ADD&&k===0?"<span style=\\"float:right\\">militares por dia</span>":"")+"</div>"}\n' +
+    '  x+="<div class=esc><label><input type=checkbox id=b"+k+(ADD?" checked":"")+" onchange=cont()><span>"+esc(b.titulo)+"</span>"+\n' +
+    '  (b.kind==="par3"||b.kind==="par1"?" <span class=tag>par de 2 dias</span>":"")+(b.kind==="qg"?" <span class=tag>só dias laranja</span>":"")+"</label>"+\n' +
+    '  (ADD?"<span class=vg><input type=number min=0 id=v"+k+" value="+b.vagas+"></span>":"")+"</div>"});\n' +
+    ' $("blocos").innerHTML=x||"Nenhuma escala encontrada.";cont()}\n' +
+    'function cont(){if(!D)return;var n=0;D.blocos.forEach(function(b,k){if($("b"+k).checked)n++});$("nb").textContent="("+n+" de "+D.blocos.length+")"}\n' +
+    'function marca(v){D.blocos.forEach(function(b,k){$("b"+k).checked=v});cont()}\n' +
+    'function run(ap){var p={mesId:$("mes").value,de:$("de").value,ate:$("ate").value,blocos:[]};\n' +
+    ' if(ADD){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked;p.relaxar=$("relaxar").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}\n' +
+    ' D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:ADD?$("v"+k).value:0})});\n' +
+    ' if(!p.blocos.length){falha("Marque ao menos uma escala.");return}\n' +
+    ' if(ap&&!confirm(ADD?"Aplicar os serviços na planilha?":"Retirar os serviços marcados?"))return;\n' +
+    ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando… (pode levar alguns minutos)";\n' +
+    ' google.script.run.withSuccessHandler(function(t){o.textContent=t}).withFailureHandler(falha).apiServicos(MODO,p,ap)}\n' +
+    '</script>\n';
+  return (head + JS_COMUM_ + tail).replace('{{MODO}}', function () { return modo; }).replace('{{FOLGA}}', function () { return String(CFG.FOLGA_MIN_H); });
 }
 
 function htmlAfastamento_() {
-  var tipos = Object.keys(TIPOS_AFAST).map(function (k) { return '<option value="' + k + '">' + TIPOS_AFAST[k] + '</option>'; }).join('');
-  var subs = CFG.SUBUNIDADES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
-  return '<h3>Adicionar afastamento</h3>' +
-    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select><b class="lb" style="min-width:0">Aba</b>' +
-    '<select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select></div>' +
-    '<div class="bar"><b class="lb">Escala</b><select id="bloco" onchange="lista()"></select></div>' +
-    '<details open><summary>Militares <span class="mu">(marque vários para afastamento conjunto)</span></summary>' +
-    '<div class="bar">Subunidade <select id="sub" onchange="lista()"><option value="">todas</option>' + subs + '</select> Nome <input type="text" id="busca" oninput="lista()" placeholder="buscar"></div>' +
-    '<div id="mil" class="lista"></div></details>' +
-    '<div class="bar"><b class="lb">Tipo</b><select id="tp">' + tipos + '</select></div>' +
-    '<div class="bar"><b class="lb">Período</b>Início <input type="date" id="de"> Término <input type="date" id="ate"></div>' +
-    '<div class="bar"><b class="lb">Apresentação</b><input type="date" id="apres"> <span class="mu">(opcional — pinta só o dia)</span></div>' +
-    '<label class="opt"><input type="checkbox" id="todas"> Aplicar em todas as escalas do militar nesta aba</label>' +
-    '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><pre id="out"></pre>' + JS_COMUM_ +
-    '<script>var D=null,SEL={};' +
-    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +
-    'function carrega(){google.script.run.withSuccessHandler(function(r){D=r;var s=$("bloco");s.innerHTML="";' +
-    'r.blocos.forEach(function(b,k){var o=document.createElement("option");o.value=k;o.text=b.titulo;s.appendChild(o)});lista()}).withFailureHandler(falha).apiBlocos($("mes").value,[$("tipo").value])}' +
-    'function lista(){if(!D||!D.blocos.length){$("mil").textContent="Sem escalas.";return}var b=D.blocos[$("bloco").value],q=$("busca").value.toUpperCase(),sb=$("sub").value,x="";' +
-    'b.linhas.forEach(function(l){if(sb&&l.sub!==sb)return;if(q&&l.nome.toUpperCase().indexOf(q)<0)return;var k=l.nome.toUpperCase().replace(/\\s+/g," ");' +
-    'x+="<label><input type=checkbox "+(SEL[k]?"checked":"")+" onchange=\\"SEL[this.value]=this.checked\\" value=\\""+esc(k)+"\\"> "+esc(l.nome)+" <small>"+esc(l.sub)+"</small></label>"});$("mil").innerHTML=x}' +
-    'function run(ap){var b=D.blocos[$("bloco").value],keys=Object.keys(SEL).filter(function(k){return SEL[k]});' +
-    'var p={aba:b.aba,hdr:b.hdr,keys:keys,tipo:$("tp").value,de:$("de").value,ate:$("ate").value,apres:$("apres").value,todas:$("todas").checked};' +
-    '$("out").className="";$("out").textContent="Processando…";' +
-    'google.script.run.withSuccessHandler(function(t){$("out").textContent=t}).withFailureHandler(falha).apiAfastamento(p,ap)}</script>';
+  var cores = { ferias: CFG.LEGENDA_PADRAO.ferias.bg, licenca: CFG.LEGENDA_PADRAO.licenca.bg, missao: CFG.LEGENDA_PADRAO.missao.bg, baixado: CFG.LEGENDA_PADRAO.baixado.bg,
+    concurso: CFG.LEGENDA_PADRAO.concurso.bg, exame: CFG.LEGENDA_PADRAO.exame.bg, fora: CFG.LEGENDA_PADRAO.fora.bg };
+  var tipos = JSON.stringify(Object.keys(TIPOS_AFAST).map(function (k) { return { k: k, l: TIPOS_AFAST[k], c: cores[k] }; }));
+  var subs = CFG.SUBUNIDADES.map(function (x) { return '<option>' + x + '</option>'; }).join('');
+  var head =
+    '<style>.sub{color:#5f6368;margin:-2px 0 10px}.sec{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368;margin:12px 0 4px}\n' +
+    '.dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid #0002}.mil{display:flex;align-items:center;gap:8px;margin:0;padding:4px 2px;border-bottom:1px solid #f1f3f4;cursor:pointer}\n' +
+    '.mil input{accent-color:#1a73e8;width:15px;height:15px}.mil small{margin-left:auto}.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}</style>\n' +
+    '<h3>Adicionar afastamento</h3><p class="sub">Pinta o período na linha do militar com a cor da legenda. Marque vários para um afastamento conjunto.</p>\n' +
+    '<div class="sec">Escala</div>\n' +
+    '<div class="bar"><select id="mes" onchange="carrega()"></select><label class="chip"><input type="radio" name="tipo" value="Grad" checked onchange="carrega()">Grad</label>\n' +
+    '<label class="chip"><input type="radio" name="tipo" value="Cndt e Praia" onchange="carrega()">Cndt e Praia</label><select id="bloco" onchange="lista()" style="max-width:260px"></select></div>\n' +
+    '<div class="sec">Militares <span id="nsel" class="mu"></span></div>\n' +
+    '<div class="bar"><select id="sub" onchange="lista()"><option value="">todas as SU</option>{{SUBS}}</select><input type="text" id="busca" oninput="lista()" placeholder="buscar nome" style="flex:1"></div>\n' +
+    '<div id="mil" class="lista" style="max-height:170px"></div>\n' +
+    '<div class="sec">Tipo</div><div class="bar" id="tipos"></div>\n' +
+    '<div class="sec">Período</div>\n' +
+    '<div class="bar"><input type="date" id="de"><span class="mu">até</span><input type="date" id="ate"><span class="mu" style="margin-left:10px">apresentação</span><input type="date" id="apres"></div>\n' +
+    '<label class="opt"><input type="checkbox" id="todas"> Aplicar em todas as escalas do militar nesta aba</label>\n' +
+    '<div class="stk"><button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button></div>\n' +
+    '<pre id="out" style="display:none"></pre>\n' +
+    '\n';
+  var tail =
+    '<script>\n' +
+    'var D=null,SEL={},TIPOS={{TIPOS}};\n' +
+    '(function(){var h="";TIPOS.forEach(function(t,i){h+="<label class=chip><input type=radio name=tp value="+t.k+(i===0?" checked":"")+"><span class=dot style=\\"background:"+t.c+"\\"></span>"+esc(t.l)+"</label>"});$("tipos").innerHTML=h})();\n' +
+    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();\n' +
+    'function tipoAba(){return document.querySelector("input[name=tipo]:checked").value}\n' +
+    'function carrega(){google.script.run.withSuccessHandler(function(r){D=r;var s=$("bloco");s.innerHTML="";\n' +
+    ' r.blocos.forEach(function(b,k){var o=document.createElement("option");o.value=k;o.text=b.titulo;s.appendChild(o)});lista()}).withFailureHandler(falha).apiBlocos($("mes").value,[tipoAba()])}\n' +
+    'function lista(){if(!D||!D.blocos.length){$("mil").textContent="Sem escalas.";return}var b=D.blocos[$("bloco").value],q=$("busca").value.toUpperCase(),sb=$("sub").value,x="";\n' +
+    ' b.linhas.forEach(function(l){if(sb&&l.sub!==sb)return;if(q&&l.nome.toUpperCase().indexOf(q)<0)return;var k=l.nome.toUpperCase().replace(/\\s+/g," ");\n' +
+    ' x+="<label class=mil><input type=checkbox "+(SEL[k]?"checked":"")+" onchange=\\"SEL[this.value]=this.checked;cont()\\" value=\\""+esc(k)+"\\"><span>"+esc(l.nome)+"</span><small>"+esc(l.sub)+"</small></label>"});\n' +
+    ' $("mil").innerHTML=x||"<span class=mu>Nenhum militar.</span>";cont()}\n' +
+    'function cont(){var n=Object.keys(SEL).filter(function(k){return SEL[k]}).length;$("nsel").textContent=n?"— "+n+" selecionado(s)":""}\n' +
+    'function run(ap){var b=D.blocos[$("bloco").value],keys=Object.keys(SEL).filter(function(k){return SEL[k]});\n' +
+    ' var p={aba:b.aba,hdr:b.hdr,keys:keys,tipo:document.querySelector("input[name=tp]:checked").value,de:$("de").value,ate:$("ate").value,apres:$("apres").value,todas:$("todas").checked};\n' +
+    ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
+    ' google.script.run.withSuccessHandler(function(t){o.textContent=t}).withFailureHandler(falha).apiAfastamento(p,ap)}\n' +
+    '</script>\n';
+  return (head + JS_COMUM_ + tail).replace('{{TIPOS}}', function () { return tipos; }).replace('{{SUBS}}', function () { return subs; });
 }
 
 function htmlMilitar_() {
-  var subs = CFG.SUBUNIDADES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
-  var grads = CFG.GRADUACOES.map(function (s) { return '<option>' + s + '</option>'; }).join('');
-  return '<h3>Adicionar militar</h3>' +
-    '<div class="bar"><b class="lb">Militar</b><select id="sub">' + subs + '</select><select id="grad">' + grads + '</select><input type="text" id="nome" placeholder="nome de guerra"></div>' +
-    '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select><b class="lb" style="min-width:0">Aba</b>' +
-    '<select id="tipo" onchange="carrega()"><option>Grad</option><option>Cndt e Praia</option></select></div>' +
-    '<div class="bar"><b class="lb">Entra em</b><input type="date" id="inicio"> <span class="mu">(usado em “nunca serviu”; vazio = hoje)</span></div>' +
-    '<details open><summary>Escalas <span class="mu">— data do último serviço em dia útil e em dia vermelho, ou “nunca serviu” (folga 31)</span></summary>' +
-    '<div id="blocos" class="lista" style="max-height:300px">Carregando…</div></details>' +
-    '<button onclick="run(false)">Verificar</button><button class="p" id="bad" disabled onclick="run(true)">Adicionar</button><pre id="out"></pre>' + JS_COMUM_ +
-    '<script>var D=null;' +
-    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();' +
-    'function carrega(){$("bad").disabled=true;google.script.run.withSuccessHandler(render).withFailureHandler(falha).apiBlocos($("mes").value,[$("tipo").value])}' +
-    'function render(r){D=r;var x="<table><tr><th></th><th>Escala</th><th>Posição</th><th>Últ. útil</th><th>Últ. vermelho</th><th>Nunca</th></tr>";' +
-    'r.blocos.forEach(function(b,k){var o="<option value=auto>Automática (graduação)</option>";b.linhas.forEach(function(l){o+="<option value="+l.r+">Depois de "+esc(l.nome)+"</option>"});' +
-    'x+="<tr><td><input type=checkbox id=b"+k+"></td><td>"+esc(b.titulo)+"</td><td><select id=p"+k+">"+o+"</select></td>"+' +
-    '"<td><input type=date id=u"+k+"></td><td><input type=date id=r"+k+"></td><td><input type=checkbox id=n"+k+"></td></tr>"});$("blocos").innerHTML=x+"</table>"}' +
-    'function run(ap){var es=[];D.blocos.forEach(function(b,k){if($("b"+k).checked)es.push({hdr:b.hdr,pos:$("p"+k).value,ultPreta:$("u"+k).value,ultVerm:$("r"+k).value,nunca:$("n"+k).checked})});' +
-    'if(!es.length){falha("Marque ao menos uma escala.");return}' +
-    'var p={inicio:$("inicio").value,aba:D.blocos[0].aba,sub:$("sub").value,grad:$("grad").value,nome:$("nome").value,escalas:es};' +
-    '$("out").className="";$("out").textContent="Processando…";' +
-    'google.script.run.withSuccessHandler(function(t){$("out").textContent=t;$("bad").disabled=ap}).withFailureHandler(function(e){$("bad").disabled=true;falha(e)}).apiMilitar(p,ap)}</script>';
+  var subs = JSON.stringify(CFG.SUBUNIDADES), grads = JSON.stringify(CFG.GRADUACOES);
+  var head =
+    '<style>.sub{color:#5f6368;margin:-2px 0 10px}.sec{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368;margin:12px 0 4px}\n' +
+    '.card2{border:1px solid #e0e0e0;border-radius:10px;margin:6px 0;padding:7px 12px}.card2.on{border-color:#1a73e8;background:#f8fbff}.card2 .h{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:500}\n' +
+    '.card2 .h input{accent-color:#1a73e8;width:15px;height:15px}.card2 .b{display:none;margin-top:8px;gap:8px;flex-wrap:wrap;align-items:flex-end}.card2.on .b{display:flex}\n' +
+    '.f{display:flex;flex-direction:column;font-size:11px;color:#5f6368;gap:2px}.tag{font-size:10px;background:#f1f3f4;color:#5f6368;border-radius:8px;padding:1px 7px;font-weight:400}\n' +
+    '.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}</style>\n' +
+    '<h3>Adicionar militar</h3><p class="sub">Insere o militar nas escalas marcadas, na posição certa e já com a folga calculada.</p>\n' +
+    '<div class="sec">Militar</div>\n' +
+    '<div class="bar" id="sus"></div><div class="bar" id="grads"></div>\n' +
+    '<div class="bar"><input type="text" id="nome" placeholder="nome de guerra" style="flex:1;max-width:260px"></div>\n' +
+    '<div class="sec">Onde</div>\n' +
+    '<div class="bar"><select id="mes" onchange="carrega()"></select><label class="chip"><input type="radio" name="tipo" value="Grad" checked onchange="carrega()">Grad</label>\n' +
+    '<label class="chip"><input type="radio" name="tipo" value="Cndt e Praia" onchange="carrega()">Cndt e Praia</label>\n' +
+    '<span class="mu" style="margin-left:8px">entra em</span><input type="date" id="inicio" title="usado em “nunca serviu”; vazio = hoje"></div>\n' +
+    '<div class="sec">Escalas <span class="mu">— marque e informe o último serviço (dia útil e dia vermelho) ou “nunca serviu”</span></div>\n' +
+    '<div id="blocos" style="max-height:290px;overflow:auto">Carregando…</div>\n' +
+    '<div class="stk"><button onclick="run(false)">Verificar</button><button class="p" id="bad" disabled onclick="run(true)">Adicionar</button></div>\n' +
+    '<pre id="out" style="display:none"></pre>\n' +
+    '\n';
+  var tail =
+    '<script>\n' +
+    'var D=null,SUS={{SUS}},GRADS={{GRADS}};\n' +
+    '(function(){var h="";SUS.forEach(function(s,i){h+="<label class=chip><input type=radio name=sub value=\\""+s+"\\""+(i===0?" checked":"")+">"+s+"</label>"});$("sus").innerHTML=h;\n' +
+    ' h="";GRADS.forEach(function(s){h+="<label class=chip><input type=radio name=grad value=\\""+s+"\\""+(s==="SD EP"?" checked":"")+">"+s+"</label>"});$("grads").innerHTML=h})();\n' +
+    'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();\n' +
+    'function tipoAba(){return document.querySelector("input[name=tipo]:checked").value}\n' +
+    'function carrega(){$("bad").disabled=true;google.script.run.withSuccessHandler(render).withFailureHandler(falha).apiBlocos($("mes").value,[tipoAba()])}\n' +
+    'function render(r){D=r;var x="";\n' +
+    ' r.blocos.forEach(function(b,k){var o="<option value=auto>Automática (graduação)</option>";b.linhas.forEach(function(l){o+="<option value="+l.r+">Depois de "+esc(l.nome)+"</option>"});\n' +
+    ' x+="<div class=card2 id=c"+k+"><label class=h><input type=checkbox id=b"+k+" onchange=tog("+k+")><span>"+esc(b.titulo)+"</span>"+(b.kind==="qg"?" <span class=tag>QG AD/1</span>":"")+"</label>"+\n' +
+    ' "<div class=b><span class=f>Posição<select id=p"+k+">"+o+"</select></span><span class=f>Último serviço útil<input type=date id=u"+k+"></span>"+\n' +
+    ' "<span class=f>Último serviço vermelho<input type=date id=r"+k+"></span><label class=chip style=\\"margin-bottom:2px\\"><input type=checkbox id=n"+k+" onchange=nun("+k+")>nunca serviu</label></div></div>"});\n' +
+    ' $("blocos").innerHTML=x||"Nenhuma escala encontrada."}\n' +
+    'function tog(k){$("c"+k).className="card2"+($("b"+k).checked?" on":"");$("bad").disabled=true}\n' +
+    'function nun(k){$("u"+k).disabled=$("n"+k).checked;$("r"+k).disabled=$("n"+k).checked}\n' +
+    'function run(ap){var es=[];D.blocos.forEach(function(b,k){if($("b"+k).checked)es.push({hdr:b.hdr,pos:$("p"+k).value,ultPreta:$("u"+k).value,ultVerm:$("r"+k).value,nunca:$("n"+k).checked})});\n' +
+    ' if(!es.length){falha("Marque ao menos uma escala.");return}\n' +
+    ' var p={inicio:$("inicio").value,aba:D.blocos[0].aba,sub:document.querySelector("input[name=sub]:checked").value,grad:document.querySelector("input[name=grad]:checked").value,nome:$("nome").value,escalas:es};\n' +
+    ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
+    ' google.script.run.withSuccessHandler(function(t){o.textContent=t;$("bad").disabled=ap}).withFailureHandler(function(e){$("bad").disabled=true;falha(e)}).apiMilitar(p,ap)}\n' +
+    '</script>\n';
+  return (head + JS_COMUM_ + tail).replace('{{SUS}}', function () { return subs; }).replace('{{GRADS}}', function () { return grads; });
 }
