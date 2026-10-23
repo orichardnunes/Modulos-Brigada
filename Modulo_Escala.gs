@@ -725,6 +725,18 @@ function escreverCabecalho_(sh, A, hIdx, mes, ano, n, comoData, corNum) {
   sh.getRange(hIdx + 2, F1, 1, n).setValues([dias]).setBackgrounds([bgW]);
 }
 
+/* cor das células de um dia em que o bloco não tem serviço (ex.: segunda no Condutor), copiada de um dia igual (mesmo dia da semana e tipo) da aba anterior */
+function corDiaSemServico_(P, PB, PR, anoAnt, mes, w, t) {
+  var R = PR || (PB && PB.rows[0]);
+  if (!PB || !R) return null;
+  var mAnt = (mes + 11) % 12;
+  for (var x = 1; x <= P.nDias; x++) {
+    if (new Date(anoAnt, mAnt, x).getDay() !== w || (vermelho_(P, PB, x) ? 1 : 0) !== t || participa_(P, PB, R, x)) continue;
+    return P.bgs[R.r][colDia_(x)];
+  }
+  return null;
+}
+
 function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   var P = lerAba_(prev, undefined, anoAnt);
   var n = new Date(ano, mes + 1, 0).getDate(), diff = n - P.nDias, F1 = colDia_(1) + 1;
@@ -741,11 +753,11 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   var primeiroBloco = N.blocos.length ? N.blocos[0].hdr : N.vals.length;
   if (N.topo != null) {
     var dm = N.vals[N.topo][colDia_(1)] instanceof Date;
-    /* acima do cabeçalho: tira textos, anotações e mesclagens herdados do mês anterior (nomes das unidades da Guarnição) */
+    /* acima do cabeçalho (linhas 1 a 3): volta ao padrão em branco/azul, sem textos, anotações, mesclagens ou bordas do mês anterior */
     if (N.topo > 0) {
       var acima = novo.getRange(1, F1, N.topo, novo.getMaxColumns() - F1 + 1);
-      acima.breakApart().clearContent().clearNote();
-      novo.getRange(N.topo, F1, 1, novo.getMaxColumns() - F1 + 1).setBackground(CFG.COR.BRANCO);
+      acima.breakApart().clear();
+      acima.setBackground(CFG.COR.AZUL);
     }
     escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, CFG.COR.CINZA_CAB);
 /* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
@@ -759,8 +771,10 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
 
   N.blocos.forEach(function (B) {
     var dmB = N.vals[B.hdr][colDia_(1)] instanceof Date;
-    escreverCabecalho_(novo, N, B.hdr, mes, ano, n, dmB, B.kind === 'qg' ? CFG.COR.CINZA_CAB : null);
-    if (B.kind === 'qg') novo.getRange(B.hdr + 1, 1, 2, colDia_(1)).setBackground(CFG.COR.CINZA_CAB); /* título cinza até importar a Guarnição */
+    var temLaranja = B.kind === 'qg';
+    for (var dx = 1; dx <= Math.min(n, P.nDias) && !temLaranja; dx++) temLaranja = String(N.bgs[B.hdr][colDia_(dx)]).toLowerCase() === CFG.COR.LARANJA;
+    /* só as datas do cabeçalho ficam cinza (até importar a Guarnição) nos blocos que seguem laranja/azul */
+    escreverCabecalho_(novo, N, B.hdr, mes, ano, n, dmB, temLaranja ? CFG.COR.CINZA_CAB : null);
     var PB = null;
     P.blocos.forEach(function (b) { if (b.titulo === B.titulo) PB = b; });
     var M = [], BG = [], FG = [];
@@ -771,7 +785,11 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
       for (var d = 1; d <= n; d++) {
         var dt = new Date(ano, mes, d), t = ehVermelhoData_(dt) ? 1 : 0, w = dt.getDay();
         bgl.push(t ? CFG.COR.VERMELHO : CFG.COR.BRANCO); fgl.push(CFG.COR.PRETO);
-        if (!participaNovo_(B, w)) { linha.push(''); bgl[d - 1] = CFG.COR.BRANCO; continue; } /* dia sem serviço: cor padrão (branco), mesmo em feriado */
+        if (!participaNovo_(B, w)) {
+          linha.push('');
+          if (B.kind !== 'qg') bgl[d - 1] = corDiaSemServico_(P, PB, PR, anoAnt, mes, w, t) || bgl[d - 1]; /* dia sem serviço: mesma cor da aba anterior */
+          continue;
+        }
         var seg = ehPar_(B) && (B.kind === 'par3' ? (w === 3 || w === 5 || w === 0) : w === 0);
         if (seg && d > 1 && linha[d - 2] !== '') { linha.push('=' + a1_(R.r, colDia_(d - 1))); ult[t] = d; continue; }
         if (ult[t] > 0) { linha.push('=' + a1_(R.r, colDia_(ult[t])) + '+1'); ult[t] = d; continue; }

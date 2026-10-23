@@ -243,10 +243,19 @@ function refazerTipos_(sh, A, diverge) {
 /** Blocos QG AD/1: fórmula de folga nos dias laranja da escala correspondente; some nos dias azuis. */
 function ajustarBlocosQG_(sh) {
   var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], novos = 0, removidos = 0, preservados = 0;
+  A.blocos.forEach(function (B) { /* blocos comuns (ex.: CMT GD) com cabeçalho cinza: colore pela linha-resumo correspondente */
+    if (B.kind === 'qg' || String(A.bgs[B.hdr][colDia_(1)]).toLowerCase() !== CFG.COR.CINZA_CAB) return;
+    var base = semAcento_(B.titulo).trim(), S = null;
+    A.resumo.forEach(function (x) { if (!S && semAcento_(x.label).replace(/\s*GRAGOATA\s*$/, '').trim() === base) S = x; });
+    if (!S) return;
+    for (var dc = 1; dc <= A.nDias; dc++) {
+      var lar = String(A.bgs[S.r][colDia_(dc)]).toLowerCase() === CFG.COR.LARANJA;
+      sh.getRange(B.hdr + 1, colDia_(dc) + 1).setBackground(lar ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
+    }
+  });
   A.blocos.forEach(function (B) {
     if (B.kind !== 'qg') return;
-    /* título laranja e dias do cabeçalho: laranja = 21º GAC, azul = outra unidade */
-    sh.getRange(B.hdr + 1, 1, 2, colDia_(1)).setBackground(CFG.COR.LARANJA);
+    /* dias do cabeçalho: laranja = 21º GAC, azul = outra unidade */
     for (var dh = 1; dh <= A.nDias; dh++) sh.getRange(B.hdr + 1, colDia_(dh) + 1).setBackground(B.gac[dh] ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
     B.rows.forEach(function (R) {
       for (var d = 1; d <= A.nDias; d++) {
