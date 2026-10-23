@@ -20,7 +20,7 @@ EXT_ANO_SEM_ANO['1uSGJcXE51OrZ4NiZooFYRpOYF8e0pZdT9ivlDQ0XBPs'] = 2025;
 EXT_ANO_SEM_ANO['16EwNWRSbggX2rJQD4Jqw-5DFNaRDVfNRyBuWkMqyZms'] = 2025;
 var MES_FULL_ = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 var MES_ABR_ = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-var PREVIA_EXT = { OF: { data: 'AL', unid: 'AM', qg: 'AN' }, TRC: { data: 'AP', orig: 'AQ', assume: 'AR', tag: 'AS' } };
+var PREVIA_EXT = { OF: { data: 'AL', unid: 'AM', qg: 'AN' }, TRC: { data: 'AP', orig: 'AQ', assume: 'AR', tag: 'AS' }, AT: { data: 'AU', at: 'AV', aux: 'AW' } };
 
 /* ============================================================ ABAS E COLUNAS DOS ARQUIVOS EXTERNOS */
 var CACHE_EXT_ = { ss: {}, dados: {}, mapas: {} };
@@ -186,7 +186,7 @@ function datasPrevia_(sh) {
 }
 
 function tabelasExternas_(datas) {
-  var of = [], trc = [], avisos = [];
+  var of = [], trc = [], at = [], avisos = [];
   datas.forEach(function (dt) {
     var s = serialData_(dt), unid = '', qg = '';
     var O = lerOfDia_(dt);
@@ -218,23 +218,26 @@ function tabelasExternas_(datas) {
         if (t) trc.push([s, p.nome, t.nome + ' *', 'MANOBREIRO']);
       });
     }
-    var A = lerAtend_(dt);
+    var A = lerAtend_(dt), nomeAt = '', nomeAux = '';
     if (A) {
       var chA = A.b1.concat(A.b2).map(function (p) { return { key: semAcento_(p.nome), nome: p.nome, sub: '' }; });
-      zerosExt_(A, A.b1.concat(A.b2)).forEach(function (p) {
-        var t = trocaExt_(A, p, chA);
-        if (t) trc.push([s, p.nome, t.nome + ' *', 'ATENDIMENTO']);
-      });
-    }
+      var zA = zerosExt_(A, A.b1), zX = zerosExt_(A, A.b2);
+      var qm = function (p) { var t = trocaExt_(A, p, chA); if (t) trc.push([s, p.nome, t.nome + ' *', 'ATENDIMENTO']); return t ? t.nome + ' *' : p.nome; };
+      if (zA.length) nomeAt = qm(zA[0]);
+      if (zX.length) nomeAux = qm(zX[0]);
+    } else avisos.push('Atendimento: aba/coluna de ' + fmtData_(dt) + ' não encontrada no arquivo.');
+    at.push([s, nomeAt, nomeAux]);
   });
-  return { of: of, trc: trc, avisos: avisos };
+  return { of: of, trc: trc, at: at, avisos: avisos };
 }
 
 function escreverTabelasExternas_(sh, tabelas) {
   var E = PREVIA_EXT;
   sh.getRange(E.OF.data + '1:' + E.OF.qg + '1').setValues([['Of Dia: data', 'Of Dia: Unidade', 'Of Dia: QG AD/1']]);
   sh.getRange(E.TRC.data + '1:' + E.TRC.tag + '1').setValues([['Trocas (arquivos externos): data', 'Quem estava na escala', 'Quem assume (*)', 'Fonte']]);
+  sh.getRange(E.AT.data + '1:' + E.AT.aux + '1').setValues([['Atendimento: data', 'Atendimento', 'Auxiliar Atendimento']]);
   sh.getRange(E.OF.data + '2:' + E.OF.qg + '8').setValues(tabelas.of);
+  sh.getRange(E.AT.data + '2:' + E.AT.aux + '8').setValues(tabelas.at);
   var lim = sh.getRange(E.TRC.data + '2:' + E.TRC.tag + '300');
   lim.clearContent();
   if (tabelas.trc.length) sh.getRange(E.TRC.data + '2:' + E.TRC.tag + (1 + tabelas.trc.length)).setValues(tabelas.trc);
@@ -269,15 +272,11 @@ function fxMano_(M, colLetra) {
     'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
-function fxAtend_(A, colLetra, bloco) {
-  var lista = bloco === 1 ? A.b1 : A.b2;
-  if (!lista.length) return bloco === 1 ? '="PENDENTE"' : '=IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X")';
-  var r1 = lista[0].r + 1, r2 = lista[lista.length - 1].r + 1;
-  var imp = 'IMPORTRANGE("' + urlExt_(EXT.ATEND) + '","\'' + A.loc.sh.getName().replace(/'/g, "''") + '\'!A' + r1 + ':' + colLetra_(A.loc.col) + r2 + '")';
-  var core = 'LET(dados,' + imp + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',' +
-    'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
-  if (bloco === 1) return '=IFERROR(' + core + ',"PENDENTE")';
-  return '=IFERROR(' + core + ',IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X"))';
+function fxAtend_(colLetra, bloco) { /* lê da tabela oculta AU:AW, preenchida pelo script (como o Of Dia) */
+  var E = PREVIA_EXT.AT, c = bloco === 1 ? E.at : E.aux, rng = '$' + c + '$2:$' + c + '$8';
+  var idx = 'INDEX(' + rng + ',MATCH(' + colLetra + '$2,$' + E.data + '$2:$' + E.data + '$8,0))';
+  var vazio = bloco === 1 ? '"PENDENTE"' : 'IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X")';
+  return '=IFERROR(IF(' + idx + '="",' + vazio + ',' + idx + '),"PENDENTE")';
 }
 
 function fxOf_(colLetra, qg) {
@@ -334,9 +333,8 @@ function gerarFormulasExternas_(sh, datas) {
     else avisos.push('Sgt Dia sem aba/coluna para ' + fmtData_(dt));
     var M = lerMano_(dt);
     if (M) ponha(rMano, fxMano_(M, L), 'MANOBREIRO'); else avisos.push('Manobreiro sem aba/coluna para ' + fmtData_(dt));
-    var A = lerAtend_(dt);
-    if (A) { ponha(rAt, fxAtend_(A, L, 1), 'ATENDIMENTO'); ponha(rAux, fxAtend_(A, L, 2), 'AUX ATENDIMENTO'); }
-    else avisos.push('Atendimento sem aba/coluna para ' + fmtData_(dt));
+    ponha(rAt, fxAtend_(L, 1), 'ATENDIMENTO');
+    ponha(rAux, fxAtend_(L, 2), 'AUX ATENDIMENTO');
   });
   escreverPermissoes_(sh);
   return { n: n, avisos: avisos };
@@ -344,7 +342,7 @@ function gerarFormulasExternas_(sh, datas) {
 
 /** células visíveis (J2:J4) para o Google pedir "Permitir acesso" a cada arquivo (IFERROR esconderia o pedido) */
 function escreverPermissoes_(sh) {
-  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO], ['Atendimento', EXT.ATEND]];
+  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO]];
   itens.forEach(function (it, i) {
     sh.getRange(2 + i, 10).setFormula(localizarFormula_('=IMPORTRANGE("' + urlExt_(it[1]) + '","A1")')).setFontColor('#9aa0a6').setFontSize(7);
     sh.getRange(2 + i, 11).setValue('↖ ' + it[0] + ': se aparecer "Permitir acesso", clique').setFontColor('#9aa0a6').setFontSize(8);
