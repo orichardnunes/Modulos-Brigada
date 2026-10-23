@@ -58,7 +58,11 @@ function dadosAba_(sh) {
 
 /** serial da data -> índice (0-based) da coluna, a partir da linha de cabeçalho com os números dos dias */
 function mapaColunas_(hdr, primeiraCol, mes, ano) {
-  var map = {}, idx1 = -1, j, v;
+  var map = {}, idx1 = -1, j, v, temData = false;
+  for (j = primeiraCol; j < hdr.length; j++) {
+    if (hdr[j] instanceof Date) { temData = true; var sd = serialData_(hdr[j]); if (!(sd in map)) map[sd] = j; }
+  }
+  if (temData) return map; /* cabeçalho com datas de verdade */
   for (j = primeiraCol; j < hdr.length; j++) { v = Number(hdr[j]); if (hdr[j] !== '' && v === 1) { idx1 = j; break; } }
   if (idx1 < 0) return map;
   var m = mes, a = ano, ant = 0;
@@ -182,7 +186,7 @@ function datasPrevia_(sh) {
 }
 
 function tabelasExternas_(datas) {
-  var of = [], trc = [];
+  var of = [], trc = [], avisos = [];
   datas.forEach(function (dt) {
     var s = serialData_(dt), unid = '', qg = '';
     var O = lerOfDia_(dt);
@@ -195,6 +199,8 @@ function tabelasExternas_(datas) {
         else if (!O.cor21 || bg === O.cor21) { if (!unid) unid = nome; }
       });
     }
+    if (!O) avisos.push('Of Dia: aba/coluna de ' + fmtData_(dt) + ' não encontrada no arquivo.');
+    else if (!unid && !qg) avisos.push('Of Dia: nenhum "0" de serviço em ' + fmtData_(dt) + ' (confira as cores da legenda).');
     of.push([s, unid, qg]);
     var S = lerSgt_(dt);
     if (S) {
@@ -221,7 +227,7 @@ function tabelasExternas_(datas) {
       });
     }
   });
-  return { of: of, trc: trc };
+  return { of: of, trc: trc, avisos: avisos };
 }
 
 function escreverTabelasExternas_(sh, tabelas) {
@@ -237,7 +243,10 @@ function escreverTabelasExternas_(sh, tabelas) {
 /* ----- fórmulas dos blocos externos */
 function urlExt_(id) { return 'https://docs.google.com/spreadsheets/d/' + id + '/edit'; }
 
-function importExt_(id, tab) { return 'IMPORTRANGE("' + urlExt_(id) + '","\'' + tab.replace(/'/g, "''") + '\'!A1:AO80")'; }
+function importExt_(id, sh) { /* intervalo dentro dos limites da aba (IMPORTRANGE falha se passar da grade) */
+  var linhas = Math.max(5, Math.min(sh.getMaxRows(), sh.getLastRow() + 30)), cols = Math.max(5, Math.min(sh.getMaxColumns(), sh.getLastColumn() + 1));
+  return 'IMPORTRANGE("' + urlExt_(id) + '","\'' + sh.getName().replace(/'/g, "''") + '\'!A1:' + colLetra_(cols - 1) + linhas + '")';
+}
 
 function fxTroca_(col) { /* aplica a troca anotada (tabela oculta AP:AS) ao nome */
   var E = PREVIA_EXT.TRC;
@@ -245,7 +254,7 @@ function fxTroca_(col) { /* aplica a troca anotada (tabela oculta AP:AS) ao nome
 }
 
 function fxSgt_(S, colLetra, posicao) { /* os 2 sargentos do dia, em ordem de antiguidade (ordem das linhas), independente da SU */
-  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh.getName()) + ',v,INDEX(dados,0,' + (S.loc.col + 1) + '),n,INDEX(dados,0,2),' +
+  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh) + ',v,INDEX(dados,0,' + (S.loc.col + 1) + '),n,INDEX(dados,0,2),' +
     'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,' + posicao + ')),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
@@ -255,7 +264,7 @@ function fxGradNome_(colGrad, colNome) { /* fragmento de LET: define g, gm e n (
 }
 
 function fxMano_(M, colLetra) {
-  return '=IFERROR(LET(dados,' + importExt_(EXT.MANO, M.loc.sh.getName()) + ',v,INDEX(dados,0,' + (M.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',' +
+  return '=IFERROR(LET(dados,' + importExt_(EXT.MANO, M.loc.sh) + ',v,INDEX(dados,0,' + (M.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',' +
     'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
@@ -263,7 +272,7 @@ function fxAtend_(A, colLetra, bloco) {
   var lista = bloco === 1 ? A.b1 : A.b2;
   if (!lista.length) return bloco === 1 ? '="PENDENTE"' : '=IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X")';
   var r1 = lista[0].r + 1, r2 = lista[lista.length - 1].r + 1;
-  var core = 'LET(dados,' + importExt_(EXT.ATEND, A.loc.sh.getName()) + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',r,SEQUENCE(ROWS(dados)),' +
+  var core = 'LET(dados,' + importExt_(EXT.ATEND, A.loc.sh) + ',v,INDEX(dados,0,' + (A.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',r,SEQUENCE(ROWS(dados)),' +
     'f,FILTER(n,ISNUMBER(v)*(v=0)*(r>=' + r1 + ')*(r<=' + r2 + ')),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + ')';
   if (bloco === 1) return '=IFERROR(' + core + ',"PENDENTE")';
   return '=IFERROR(' + core + ',IF(OR(WEEKDAY(' + colLetra + '$2,2)=6,WEEKDAY(' + colLetra + '$2,2)=7),"PENDENTE","X"))';
@@ -327,7 +336,17 @@ function gerarFormulasExternas_(sh, datas) {
     if (A) { ponha(rAt, fxAtend_(A, L, 1), 'ATENDIMENTO'); ponha(rAux, fxAtend_(A, L, 2), 'AUX ATENDIMENTO'); }
     else avisos.push('Atendimento sem aba/coluna para ' + fmtData_(dt));
   });
+  escreverPermissoes_(sh);
   return { n: n, avisos: avisos };
+}
+
+/** células visíveis (J2:J4) para o Google pedir "Permitir acesso" a cada arquivo (IFERROR esconderia o pedido) */
+function escreverPermissoes_(sh) {
+  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO], ['Atendimento', EXT.ATEND]];
+  itens.forEach(function (it, i) {
+    sh.getRange(2 + i, 10).setFormula(localizarFormula_('=IMPORTRANGE("' + urlExt_(it[1]) + '","A1")')).setFontColor('#9aa0a6').setFontSize(7);
+    sh.getRange(2 + i, 11).setValue('↖ ' + it[0] + ': se aparecer "Permitir acesso", clique').setFontColor('#9aa0a6').setFontSize(8);
+  });
 }
 
 /** Atualiza uma aba de prévia: tabelas (Of Dia e trocas) e, opcionalmente, as fórmulas dos blocos externos. */
@@ -336,6 +355,7 @@ function atualizarExternosPrevia_(sh, comFormulas) {
   var datas = datasPrevia_(sh), tab = tabelasExternas_(datas), res = { n: 0, avisos: [] };
   if (comFormulas) res = gerarFormulasExternas_(sh, datas);
   escreverTabelasExternas_(sh, tab);
+  res.avisos = tab.avisos.concat(res.avisos);
   return res;
 }
 

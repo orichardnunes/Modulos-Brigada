@@ -265,7 +265,7 @@ function mnuAtualizarPrevia() {
     SpreadsheetApp.flush();
     var msg = 'Prévias verificadas: ' + nomes.length + ' (' + tot + ' fórmula(s) ajustada(s)).\n' +
       '• Escalas da própria planilha: tempo real.\n• Cores e anotações (portões, CB DIA, trocas): a cada minuto.\n' +
-      '• Sgt Dia, Manobreiro e Atendimento: IMPORTRANGE em tempo real (na primeira vez o Google pede "Permitir acesso" em cada arquivo).\n' +
+      '• Sgt Dia, Manobreiro e Atendimento: IMPORTRANGE em tempo real. Se alguma linha ficar PENDENTE, clique nas células cinzas J2:J4 de cada prévia e escolha "Permitir acesso" (uma vez por arquivo).\n' +
       '• Of Dia e trocas dos arquivos externos: lidos por script a cada 10 min' + (novoGatilho ? ' (gatilho criado agora)' : '') + '.';
     if (avisos.length) msg += '\n\n⚠ ' + avisos.slice(0, 8).join('\n⚠ ');
     var pend = Object.keys(pendentes);
