@@ -771,7 +771,7 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
       for (var d = 1; d <= n; d++) {
         var dt = new Date(ano, mes, d), t = ehVermelhoData_(dt) ? 1 : 0, w = dt.getDay();
         bgl.push(t ? CFG.COR.VERMELHO : CFG.COR.BRANCO); fgl.push(CFG.COR.PRETO);
-        if (!participaNovo_(B, w)) { linha.push(''); continue; }
+        if (!participaNovo_(B, w)) { linha.push(''); bgl[d - 1] = CFG.COR.BRANCO; continue; } /* dia sem serviço: cor padrão (branco), mesmo em feriado */
         var seg = ehPar_(B) && (B.kind === 'par3' ? (w === 3 || w === 5 || w === 0) : w === 0);
         if (seg && d > 1 && linha[d - 2] !== '') { linha.push('=' + a1_(R.r, colDia_(d - 1))); ult[t] = d; continue; }
         if (ult[t] > 0) { linha.push('=' + a1_(R.r, colDia_(ult[t])) + '+1'); ult[t] = d; continue; }
