@@ -753,19 +753,27 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
   var primeiroBloco = N.blocos.length ? N.blocos[0].hdr : N.vals.length;
   if (N.topo != null) {
     var dm = N.vals[N.topo][colDia_(1)] instanceof Date;
-    /* acima do cabeçalho (linhas 1 a 3): volta ao padrão em branco/azul, sem textos, anotações, mesclagens ou bordas do mês anterior */
+    /* acima do cabeçalho (linhas 1 a 3): sem textos, anotações e mesclagens do mês anterior; nomes das unidades (última linha) voltam ao azul */
+    var colsTopo = novo.getMaxColumns() - F1 + 1;
+    novo.getRange(1, F1, novo.getMaxRows(), colsTopo).clearNote(); /* anotações do mês anterior não valem no mês novo */
     if (N.topo > 0) {
-      var acima = novo.getRange(1, F1, N.topo, novo.getMaxColumns() - F1 + 1);
-      acima.breakApart().clear();
-      acima.setBackground(CFG.COR.AZUL);
+      var acima = novo.getRange(1, F1, N.topo, colsTopo);
+      acima.breakApart().clearContent();
+      var uni = novo.getRange(N.topo, F1, 1, colsTopo);
+      uni.clear().setBackground(CFG.COR.AZUL);
+      novo.getRange(1, F1, N.topo, n).setBorder(true, true, true, true, false, false, CFG.COR.PRETO, SpreadsheetApp.BorderStyle.SOLID);
     }
     escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, CFG.COR.CINZA_CAB);
 /* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
+    var rotImp = {};
+    GUARNICAO_MAPA.forEach(function (m) { rotImp[m.rotulo] = true; });
     for (var i = N.topo + 2; i < primeiroBloco; i++) {
       if (diaDe_(N.vals[i][colDia_(1)]) == null || String(N.vals[i].slice(0, 5).join('')).trim() === '') continue;
-      var vals = [];
+      var vals = [], lab = '';
+      for (var cc = 0; cc <= 4 && !lab; cc++) lab = semAcento_(N.vals[i][cc]);
       for (var d = 1; d <= n; d++) vals.push(d === 1 ? 1 : '=' + a1_(i, colDia_(d - 1)) + '+1');
-      novo.getRange(i + 1, F1, 1, n).setValues([vals]).setBackground(CFG.COR.CINZA_CAB);
+      var rgS = novo.getRange(i + 1, F1, 1, n).setValues([vals]);
+      if (rotImp[lab]) rgS.setBackground(CFG.COR.CINZA_CAB); /* só as linhas que vêm da importação ficam cinza */
     }
   }
 
@@ -787,7 +795,7 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
         bgl.push(t ? CFG.COR.VERMELHO : CFG.COR.BRANCO); fgl.push(CFG.COR.PRETO);
         if (!participaNovo_(B, w)) {
           linha.push('');
-          if (B.kind !== 'qg') bgl[d - 1] = corDiaSemServico_(P, PB, PR, anoAnt, mes, w, t) || bgl[d - 1]; /* dia sem serviço: mesma cor da aba anterior */
+          if (B.kind !== 'qg' && !t) bgl[d - 1] = corDiaSemServico_(P, PB, PR, anoAnt, mes, w, t) || bgl[d - 1]; /* dia sem serviço: mesma cor da aba anterior */
           continue;
         }
         var seg = ehPar_(B) && (B.kind === 'par3' ? (w === 3 || w === 5 || w === 0) : w === 0);
