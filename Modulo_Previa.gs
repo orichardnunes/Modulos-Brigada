@@ -361,22 +361,17 @@ function vermelhoFlags_(ini) {
   return out;
 }
 
-/** o corpo da prévia acompanha o tipo do dia: colunas de escala vermelha (sáb, dom, feriado) recebem o mesmo fundo das colunas vermelhas do Modelo, e as demais o das colunas normais */
+/** o corpo da prévia acompanha o tipo do dia: colunas de escala vermelha (sáb, dom, feriado) copiam o formato de uma coluna vermelha do Modelo, as demais o de uma coluna normal.
+ *  Copia o formato direto do Modelo (getBackgrounds mistura formatação condicional e não serve para isso). */
 function ajustarCorpoPrevia_(sh, modelo, flags) {
   var cab = modelo.getRange(2, 3, 1, 7).getBackgrounds()[0].map(function (c) { return String(c).toLowerCase(); });
   var isRed = cab.map(function (c) { return c === PREVIA_COR.CAB_VERMELHO; });
-  var rj = isRed.indexOf(true), nj = isRed.indexOf(false), lr = sh.getLastRow();
+  var rj = isRed.indexOf(true), nj = isRed.indexOf(false), lr = Math.min(sh.getLastRow(), modelo.getLastRow());
   if (rj < 0 || nj < 0 || lr < 6) return;
-  var rg = sh.getRange(6, 3, lr - 5, 7), body = rg.getBackgrounds();
-  var refRed = body.map(function (l) { return l[rj]; }), refNor = body.map(function (l) { return l[nj]; });
   for (var j = 0; j < 7; j++) {
     if (isRed[j] === flags[j]) continue;
-    for (var r = 0; r < body.length; r++) {
-      var de = isRed[j] ? refRed[r] : refNor[r], para = flags[j] ? refRed[r] : refNor[r];
-      if (body[r][j] === de) body[r][j] = para;
-    }
+    modelo.getRange(6, 3 + (flags[j] ? rj : nj), lr - 5, 1).copyTo(sh.getRange(6, 3 + j, lr - 5, 1), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
   }
-  rg.setBackgrounds(body);
 }
 
 function criarPrevia_(ini) {
