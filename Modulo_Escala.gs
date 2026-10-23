@@ -183,10 +183,10 @@ function planejarServicos_(A, pr, proxA) {
         var need = vagasHoje - exist;
         if (need > 0) {
           var escolhidos = par ? escolherPar_() : escolherDia_();
-          escolhidos.forEach(function (x) {
+          escolhidos.forEach(function (x, ix) {
             V[x.ri] = 0;
             var R = B.rows[x.ri];
-            plano.esc.push({ bi: bi, ri: x.ri, d: d, tipo: 'servico' });
+            plano.esc.push({ bi: bi, ri: x.ri, d: d, tipo: 'servico', cor: (!par && !t && semAcento_(B.titulo).indexOf('POMN') === 0) ? (ix < 2 ? '#a4c2f4' : '#1c4587') : null });
             addSvc(bi, R.key, d, true);
             marcaVerde(bi, R, d, true);
             if (par) {
@@ -356,10 +356,10 @@ function formulaFolga_(A, B, R, d) {
 
 /** itens: {bi, ri, d, tipo:'servico'|'verde'|'fix'|'rem', keepBg, limparNota} */
 function escreverMarcas_(A, itens, opts) {
-  var sh = A.sh, rl = { servico: [], verde: [], branco: [], vermelho: [], notas: [] }, grupos = {}, av = [];
+  var sh = A.sh, rl = { servico: [], verde: [], branco: [], vermelho: [], notas: [] }, grupos = {}, av = [], porCorServ = {};
   itens.forEach(function (it) {
     var B = A.blocos[it.bi], R = B.rows[it.ri], a1 = a1_(R.r, colDia_(it.d));
-    if (it.tipo === 'servico') { rl.servico.push(a1); return; }
+    if (it.tipo === 'servico') { var ck = it.cor || A.leg.servico.bg; (porCorServ[ck] = porCorServ[ck] || []).push(a1); return; }
     if (it.tipo === 'verde') { rl.verde.push(a1); return; }
     var f = formulaFolga_(A, B, R, it.d);
     if (!f) { av.push(R.nome + ' dia ' + it.d); f = { a1: '=1' }; }
@@ -368,7 +368,9 @@ function escreverMarcas_(A, itens, opts) {
     if (it.tipo === 'rem' && !it.keepBg) (vermelho_(A, B, it.d) ? rl.vermelho : rl.branco).push(a1);
     if (it.limparNota) rl.notas.push(a1);
   });
-  if (rl.servico.length) sh.getRangeList(rl.servico).setValue(0).setBackground(A.leg.servico.bg).setFontColor(A.leg.servico.fg);
+  Object.keys(porCorServ).forEach(function (ck) {
+    sh.getRangeList(porCorServ[ck]).setValue(0).setBackground(ck).setFontColor(ck === '#1c4587' ? CFG.COR.BRANCO : A.leg.servico.fg);
+  });
   if (rl.verde.length) sh.getRangeList(rl.verde).setValue(0).setBackground(A.leg.outra.bg).setFontColor(A.leg.outra.fg);
   Object.keys(grupos).forEach(function (f) { sh.getRangeList(grupos[f]).setFormulaR1C1(f); });
   if (rl.branco.length) sh.getRangeList(rl.branco).setBackground(CFG.COR.BRANCO).setFontColor(CFG.COR.PRETO);

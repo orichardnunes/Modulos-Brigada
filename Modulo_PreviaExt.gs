@@ -274,6 +274,20 @@ function fxOf_(colLetra, qg) {
   return '=IFERROR(IF(' + idx + '="",' + (qg ? '"X"' : '"PENDENTE"') + ',' + idx + '),"PENDENTE")';
 }
 
+/** a planilha em português usa ";" como separador de argumentos; em inglês, ",". Converte (fora de textos entre aspas). */
+function localizarFormula_(f) {
+  var loc = '';
+  try { loc = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetLocale(); } catch (e) { loc = ''; }
+  if (/^(en|ja|zh|ko|he|th|hi)/i.test(loc)) return f;
+  var out = '', dentro = false;
+  for (var i = 0; i < f.length; i++) {
+    var ch = f.charAt(i);
+    if (ch === '"') dentro = !dentro;
+    out += (ch === ',' && !dentro) ? ';' : ch;
+  }
+  return out;
+}
+
 /** classifica as linhas da prévia: [{r(1-based), secao, label, pos}] */
 function rotularLinhasPrevia_(sh) {
   var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 3).getValues(), out = [];
@@ -301,7 +315,7 @@ function gerarFormulasExternas_(sh, datas) {
   var rS1 = linha('SV SUBUNIDADES', 'SGT DIA 1ª/2ª BO'), rS2 = linha('SV SUBUNIDADES', 'SGT DIA BIA C/DMSF');
   datas.forEach(function (dt, i) {
     var col = 3 + i, L = colLetra_(col - 1);
-    function ponha(r, f, nome) { if (r) { sh.getRange(r, col).setFormula(f); n++; } else avisos.push('linha "' + nome + '" não encontrada'); }
+    function ponha(r, f, nome) { if (r) { sh.getRange(r, col).setFormula(localizarFormula_(f)); n++; } else avisos.push('linha "' + nome + '" não encontrada'); }
     ponha(rOf, fxOf_(L, false), 'OF DIA');
     ponha(rQg, fxOf_(L, true), 'OF DIA (QG AD/1)');
     var S = lerSgt_(dt);

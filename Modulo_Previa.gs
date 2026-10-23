@@ -95,11 +95,14 @@ function PREVIA_CAL(datas, tick) {
       G.blocos.forEach(function (B) {
         var t = semAcento_(B.titulo);
         if (t.indexOf('POMN') === 0) {
+          var resto = [];
           zerosValidos_(G, B, dia).forEach(function (z) {
             if (vermG) ctrl.push(z.nome);
             else if (z.bg === PREVIA_COR.PORTAO12) p12.push(z.nome);
             else if (z.bg === PREVIA_COR.PORTAO24) p24.push(z.nome);
+            else resto.push(z.nome); /* sem cor de portão: os 2 primeiros são 12h e os demais 24h */
           });
+          resto.forEach(function (nm) { if (p12.length < 2) p12.push(nm); else p24.push(nm); });
         } else if (t === 'CB DIA') {
           zerosValidos_(G, B, dia).forEach(function (z) { cb.push(z.nome); });
         }
