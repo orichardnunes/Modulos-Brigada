@@ -763,7 +763,8 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
       uni.clear().setBackground(CFG.COR.AZUL);
       novo.getRange(1, F1, N.topo, n).setBorder(true, true, true, true, false, false, CFG.COR.PRETO, SpreadsheetApp.BorderStyle.SOLID);
     }
-    escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, CFG.COR.CINZA_CAB);
+    var grad = novo.getName().indexOf(CFG.TIPO_GRAD) >= 0 && novo.getName().indexOf(CFG.TIPO_CNDT) < 0; /* Cndt e Praia não importa a Guarnição: datas em azul */
+    escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, grad ? CFG.COR.CINZA_CAB : CFG.COR.AZUL);
 /* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
     var rotImp = {};
     GUARNICAO_MAPA.forEach(function (m) { rotImp[m.rotulo] = true; });
@@ -773,7 +774,8 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
       for (var cc = 0; cc <= 4 && !lab; cc++) lab = semAcento_(N.vals[i][cc]);
       for (var d = 1; d <= n; d++) vals.push(d === 1 ? 1 : '=' + a1_(i, colDia_(d - 1)) + '+1');
       var rgS = novo.getRange(i + 1, F1, 1, n).setValues([vals]);
-      if (rotImp[lab]) rgS.setBackground(CFG.COR.CINZA_CAB); /* só as linhas que vêm da importação ficam cinza */
+      if (rotImp[lab]) rgS.setBackground(CFG.COR.CINZA_CAB); /* linhas que vêm da importação: cinza até importar */
+      else rgS.setBackground(CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO); /* linhas manuais (CARCERAGEM FEMININA, OF DIA POMN): azul, aguardando o operador */
     }
   }
 
