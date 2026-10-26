@@ -242,7 +242,7 @@ function refazerTipos_(sh, A, diverge) {
 
 /** Blocos QG AD/1: fórmula de folga nos dias laranja da escala correspondente; some nos dias azuis. */
 function ajustarBlocosQG_(sh) {
-  var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], novos = 0, removidos = 0, preservados = 0;
+  var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], cores = {}, novos = 0, removidos = 0, preservados = 0;
   A.blocos.forEach(function (B) { /* blocos comuns (ex.: CMT GD) com cabeçalho cinza: colore pela linha-resumo correspondente */
     if (B.kind === 'qg' || String(A.bgs[B.hdr][colDia_(1)]).toLowerCase() !== CFG.COR.CINZA_CAB) return;
     var base = semAcento_(B.titulo).trim(), S = null;
@@ -259,9 +259,11 @@ function ajustarBlocosQG_(sh) {
     for (var dh = 1; dh <= A.nDias; dh++) sh.getRange(B.hdr + 1, colDia_(dh) + 1).setBackground(B.gac[dh] ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
     B.rows.forEach(function (R) {
       for (var d = 1; d <= A.nDias; d++) {
-        var c = colDia_(d), forma = A.forms[R.r][c], val = A.vals[R.r][c], a1 = a1_(R.r, c);
-        if (B.gac[d]) {
-          if (forma === '' && val === '') {
+        var c = colDia_(d), forma = A.forms[R.r][c], val = A.vals[R.r][c], a1 = a1_(R.r, c), vazio = forma === '' && val === '';
+        var verm = vermelho_(A, B, d), bg = String(A.bgs[R.r][c]).toLowerCase();
+        var neutra = [CFG.COR.BRANCO, CFG.COR.VERMELHO, CFG.COR.QG_PRETA, CFG.COR.QG_VERM, ''].indexOf(bg) >= 0;
+        if (B.gac[d] || B.todosDias) {
+          if (vazio) {
             var f = formulaFolga_(A, B, R, d);
             if (!f) f = { a1: '=1' };
             if (f.r1c1) (grupos[f.r1c1] = grupos[f.r1c1] || []).push(a1); else avulsas.push({ a1: a1, f: f.a1 });
@@ -269,12 +271,18 @@ function ajustarBlocosQG_(sh) {
           }
         } else if (forma !== '' && num_(val) !== 0) { limpar.push(a1); removidos++; }
         else if (val === 0 || num_(val) === 0) preservados++;
+        /* dia de outra unidade: azul-claro (escala preta) / rosa (vermelha); dia do 21º GAC volta ao branco/vermelho */
+        if (neutra) {
+          var alvo = B.gac[d] ? (verm ? CFG.COR.VERMELHO : CFG.COR.BRANCO) : (verm ? CFG.COR.QG_VERM : CFG.COR.QG_PRETA);
+          if (alvo !== bg) (cores[alvo] = cores[alvo] || []).push(a1);
+        }
       }
     });
   });
   Object.keys(grupos).forEach(function (f) { sh.getRangeList(grupos[f]).setFormulaR1C1(f); });
   avulsas.forEach(function (x) { sh.getRange(x.a1).setFormula(x.f); });
   if (limpar.length) sh.getRangeList(limpar).clearContent();
+  Object.keys(cores).forEach(function (cor) { sh.getRangeList(cores[cor]).setBackground(cor); });
   SpreadsheetApp.flush();
   return 'QG AD/1: ' + novos + ' célula(s) de folga criada(s), ' + removidos + ' limpa(s) em dia de outra unidade' +
     (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '');

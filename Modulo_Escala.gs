@@ -334,9 +334,9 @@ function planejarRetirada_(A, pr) {
  */
 function formulaFolga_(A, B, R, d) {
   var t = vermelho_(A, B, d), x;
-  if (ehPar_(B) && ehSegundoPar_(A, B, d) && d > 1 && participa_(A, B, R, d - 1)) return { r1c1: '=RC[-1]' };
+  if (ehPar_(B) && ehSegundoPar_(A, B, d) && d > 1 && contaFolga_(A, B, R, d - 1)) return { r1c1: '=RC[-1]' };
   for (x = d - 1; x >= 1; x--) {
-    if (vermelho_(A, B, x) === t && participa_(A, B, R, x) && !ehTexto_(A, R.r, colDia_(x))) return { r1c1: '=RC[' + (x - d) + ']+1' };
+    if (vermelho_(A, B, x) === t && contaFolga_(A, B, R, x) && !ehTexto_(A, R.r, colDia_(x))) return { r1c1: '=RC[' + (x - d) + ']+1' };
   }
   if (A._prev === undefined) {
     var ps = abaMesVizinho_(A, -1);
@@ -347,7 +347,7 @@ function formulaFolga_(A, B, R, d) {
   var pl = proxLinha_(P, B, R);
   if (!pl) return null;
   for (x = P.nDias; x >= 1; x--) {
-    if (vermelho_(P, pl.B, x) === t && participa_(P, pl.B, pl.R, x)) {
+    if (vermelho_(P, pl.B, x) === t && contaFolga_(P, pl.B, pl.R, x)) {
       return { a1: "='" + P.nome + "'!" + a1_(pl.R.r, colDia_(x)) + '+1' };
     }
   }

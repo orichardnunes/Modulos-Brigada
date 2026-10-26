@@ -21,7 +21,7 @@ var CFG = {
   TIPO_CNDT: 'Cndt e Praia',
 /* Cores fixas (não existem na legenda) */
   COR: {
-    SERVICO: '#ffff00', OUTRA: '#00ff00', LARANJA: '#ff9900', AZUL: '#0000ff',
+    SERVICO: '#ffff00', OUTRA: '#00ff00', LARANJA: '#ff9900', AZUL: '#0000ff', QG_PRETA: '#c9daf8', QG_VERM: '#ea9999',
     CINZA_CAB: '#999999', CINZA_DIA: '#cccccc', VERMELHO: '#ff0000', BRANCO: '#ffffff',
     PRETO: '#000000', SEM_FOLGA: '#c0504d'
   },
@@ -223,6 +223,7 @@ function lerAba_(sh, mes, ano) {
       if (B.gacRow == null && (lab === base || 'SD ' + lab === base)) B.gacRow = S.r;
     });
     B.gac = {};
+    B.todosDias = /^(CB|SD) GD/.test(semAcento_(B.titulo)); /* CB GD e SD GD (QG): a folga conta em todos os dias, mesmo nos que não são do 21º GAC */
     for (var dd = 1; dd <= A.nDias; dd++) {
       B.gac[dd] = B.gacRow != null ? String(A.bgs[B.gacRow][colDia_(dd)]).toLowerCase() === CFG.COR.LARANJA : !!A.gac[dd];
     }
@@ -294,6 +295,9 @@ function participa_(A, B, R, d) {
   var c = colDia_(d);
   return !(A.vals[R.r][c] === '' && A.forms[R.r][c] === '');
 }
+
+/** a folga conta neste dia? (nos blocos QG comuns só nos dias do 21º GAC; em CB GD e SD GD QG, em todos) */
+function contaFolga_(A, B, R, d) { return B.kind === 'qg' && B.todosDias ? true : participa_(A, B, R, d); }
 
 function classeCel_(A, r, c) {
   var bg = String(A.bgs[r][c]).toLowerCase(), fg = String(A.fgs[r][c]).toLowerCase(), L = A.leg;

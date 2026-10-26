@@ -165,40 +165,71 @@ function pastaDaPlanilha_() {
   return it.hasNext() ? it.next() : DriveApp.getRootFolder();
 }
 
+function etapa_(nome, fn) { /* devolve a mensagem real do erro, com o nome da etapa */
+  try { return fn(); } catch (e) { throw new Error(nome + ': ' + (e && e.message ? e.message : e)); }
+}
+
 function apiExportarQuantitativo(p, formato) {
   var r = calcularQuantitativo_(p), nome = 'Quantitativo de serviços - ' +
-    Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HHmm');
-  var matriz = matrizQuantitativo_(r), pasta = pastaDaPlanilha_();
+    Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'yyyy-MM-dd HHmm');
+  var matriz = matrizQuantitativo_(r);
   var cabecalho = ['Quantitativo de serviços tirados', 'Período: ' + (r.resumo.periodos.join('; ') || '-'),
     'Militares: ' + r.resumo.militares + ' · média ' + r.resumo.media + ' · máximo ' + r.resumo.maximo + ' · mínimo ' + r.resumo.minimo];
+  var pasta = null;
+  try { pasta = pastaDaPlanilha_(); } catch (e) { pasta = null; } /* sem pasta: o arquivo fica no Meu Drive */
+  function guardar(arq) { if (pasta) { try { arq.moveTo(pasta); } catch (e) { /* fica onde foi criado */ } } return arq; }
+  var nCol = matriz[0].length;
+
   if (formato === 'sheet') {
-    var s2 = SpreadsheetApp.create(nome), sh = s2.getSheets()[0];
-    sh.getRange(1, 1, cabecalho.length, 1).setValues(cabecalho.map(function (x) { return [x]; })).setFontWeight('bold');
-    sh.getRange(cabecalho.length + 2, 1, matriz.length, matriz[0].length).setValues(matriz);
-    sh.getRange(cabecalho.length + 2, 1, 1, matriz[0].length).setFontWeight('bold').setBackground('#d9d9d9');
-    DriveApp.getFileById(s2.getId()).moveTo(pasta);
-    return { url: s2.getUrl(), nome: nome };
+    return etapa_('Planilha', function () {
+      var s2 = SpreadsheetApp.create(nome), sh = s2.getSheets()[0];
+      sh.setName('Quantitativo');
+      sh.getRange(1, 1, cabecalho.length, 1).setValues(cabecalho.map(function (x) { return [x]; })).setFontWeight('bold');
+      var topo = cabecalho.length + 2;
+      sh.getRange(topo, 1, matriz.length, nCol).setValues(matriz.map(function (l) { return l.map(function (v) { return v == null ? '' : v; }); }));
+      sh.getRange(topo, 1, 1, nCol).setFontWeight('bold').setBackground('#d9d9d9');
+      sh.getRange(topo, 1, matriz.length, nCol).setBorder(true, true, true, true, true, true, '#bdbdbd', SpreadsheetApp.BorderStyle.SOLID);
+      sh.setFrozenRows(topo);
+      sh.autoResizeColumns(1, nCol);
+      sh.setColumnWidth(nCol, 420);
+      sh.getRange(topo + 1, nCol, matriz.length - 1, 1).setWrap(true);
+      sh.setColumnWidth(2, Math.max(sh.getColumnWidth(2), 200));
+      SpreadsheetApp.flush();
+      guardar(DriveApp.getFileById(s2.getId()));
+      return { url: s2.getUrl(), nome: nome };
+    });
   }
-  var doc = DocumentApp.create(nome), body = doc.getBody();
-  body.appendParagraph(cabecalho[0]).setHeading(DocumentApp.ParagraphHeading.HEADING1);
-  body.appendParagraph(cabecalho[1]);
-  body.appendParagraph(cabecalho[2]);
-  var tab = body.appendTable(matriz);
-  tab.getRow(0).editAsText().setBold(true);
-  doc.saveAndClose();
-  var arq = DriveApp.getFileById(doc.getId()), blob, url;
-  if (formato === 'pdf') {
-    blob = arq.getAs(MimeType.PDF).setName(nome + '.pdf');
-  } else {
-    var resp = UrlFetchApp.fetch('https://docs.google.com/document/d/' + doc.getId() + '/export?format=docx',
-      { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-    if (resp.getResponseCode() !== 200) { arq.setTrashed(true); throw new Error('Falha ao gerar o .docx (HTTP ' + resp.getResponseCode() + ').'); }
-    blob = resp.getBlob().setName(nome + '.docx');
-  }
-  var novo = pasta.createFile(blob);
-  arq.setTrashed(true);
-  url = novo.getUrl();
-  return { url: url, nome: novo.getName() };
+
+  var docId = etapa_('Documento', function () {
+    var doc = DocumentApp.create(nome), body = doc.getBody();
+    try { body.setPageWidth(842).setPageHeight(595).setMarginLeft(36).setMarginRight(36).setMarginTop(36).setMarginBottom(36); } catch (e) { /* mantém a página padrão */ }
+    body.appendParagraph(cabecalho[0]).setHeading(DocumentApp.ParagraphHeading.HEADING1);
+    body.appendParagraph(cabecalho[1]);
+    body.appendParagraph(cabecalho[2]);
+    var txt = matriz.map(function (l) { return l.map(function (v) { return v == null ? '' : String(v); }); }); /* appendTable só aceita texto */
+    var tab = body.appendTable(txt);
+    try {
+      tab.setFontSize(9);
+      var c0 = tab.getRow(0);
+      for (var j = 0; j < nCol; j++) c0.getCell(j).setBackgroundColor('#d9d9d9').editAsText().setBold(true);
+    } catch (e) { /* estilo é opcional */ }
+    if (body.getNumChildren() > 1 && body.getChild(0).getType() === DocumentApp.ElementType.PARAGRAPH && body.getChild(0).asParagraph().getText() === '') body.removeChild(body.getChild(0));
+    doc.saveAndClose();
+    return doc.getId();
+  });
+  var arq = DriveApp.getFileById(docId), blob;
+  etapa_('Conversão', function () {
+    if (formato === 'pdf') blob = arq.getAs(MimeType.PDF).setName(nome + '.pdf');
+    else {
+      var resp = UrlFetchApp.fetch('https://docs.google.com/document/d/' + docId + '/export?format=docx',
+        { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+      if (resp.getResponseCode() !== 200) throw new Error('HTTP ' + resp.getResponseCode() + ' ao gerar o .docx');
+      blob = resp.getBlob().setName(nome + '.docx');
+    }
+  });
+  var novo = etapa_('Gravação', function () { var f = DriveApp.createFile(blob); return guardar(f); });
+  try { arq.setTrashed(true); } catch (e) { /* o documento temporário pode ficar */ }
+  return { url: novo.getUrl(), nome: novo.getName() };
 }
 
 /* ---------- caixa */
