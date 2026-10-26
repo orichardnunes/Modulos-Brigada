@@ -64,7 +64,6 @@ function onOpen() {
       .addItem('Definir gatilho', 'mnuDefinirGatilho')
       .addItem('Ver / Desativar gatilho', 'mnuVerGatilho'))
     .addSubMenu(ui.createMenu('📥 Importar Escala')
-      .addItem('Aba de destino', 'mnuAbaDestino')
       .addItem('Importar via Google Drive', 'mnuImportarDrive')
       .addItem('Importar via documento', 'mnuImportarDocumento'))
     .addSubMenu(ui.createMenu('🔍 Auditagem do Sistema')
@@ -422,7 +421,7 @@ function mnuSobre() {
     'Conta cada “0” (amarelo, laranja, azuis, sem cor); “0” verde (serviço em outra escala) entra só se o militar não tiver “0” próprio no mesmo dia nas escalas marcadas; “0” com cor de afastamento não conta. ' +
     '“Considerar trocas” usa a nota da célula (Total = próprios − passados + pegos). Exporte para Planilha Google, PDF ou Word: o arquivo novo é salvo na pasta da planilha (o Google pede autorização na primeira exportação).</p>' +
     '<h2>📥 Importar escala da Guarnição</h2>' +
-    '<p><b>Aba de destino:</b> a aba “&lt;Mês&gt; Grad” aberta (ou a escolhida no menu). <b>Via Google Drive:</b> lê direto a planilha da Guarnição (acha a aba pelo título “ESCALAS DE SERVIÇO – MÊS DE ANO”, mesmo que o nome da aba esteja desatualizado). ' +
+    '<p><b>Aba de destino:</b> escolhida numa lista dentro da própria janela de importação (vem selecionada a aba “&lt;Mês&gt; Grad” aberta). <b>Via Google Drive:</b> lê direto a planilha da Guarnição (acha a aba pelo título “ESCALAS DE SERVIÇO – MÊS DE ANO”, mesmo que o nome da aba esteja desatualizado). ' +
     '<b>Via documento:</b> PDF, xlsx, xls, ods ou csv; mostra a tabela lida, onde você corrige qualquer célula e o tipo (PRETA/VERM) antes de aplicar. ' +
     'A importação pinta as linhas OF DIA / CMT GD / CB GD / GD GRAGOATÁ / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
     'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
@@ -443,7 +442,7 @@ function mnuVerificarSistema() {
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'atualizarExternosTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
-    'mnuAbaDestino', 'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
+    'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'

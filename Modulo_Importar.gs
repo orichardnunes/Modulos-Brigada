@@ -22,21 +22,14 @@ function destinoImportacao_() {
   if (n && n.tipo === CFG.TIPO_GRAD) return at;
   var salvo = PropertiesService.getDocumentProperties().getProperty('ABA_DESTINO');
   var sh = salvo ? ss_().getSheetByName(salvo) : null;
-  if (!sh) throw new Error('Escolha a aba de destino (menu Importar Escala → Aba de destino) ou deixe aberta uma aba "<Mês> Grad".');
+  if (!sh) { /* sem aba Grad aberta nem destino salvo: sugere a última aba Grad (a janela de importação permite trocar) */
+    var gs = ss_().getSheets().filter(function (x) { var y = nomeAba_(x.getName()); return y && y.tipo === CFG.TIPO_GRAD; });
+    sh = gs.length ? gs[gs.length - 1] : null;
+  }
+  if (!sh) throw new Error('Nenhuma aba "<Mês> Grad" encontrada.');
   return sh;
 }
 
-function mnuAbaDestino() {
-  var abas = ss_().getSheets().map(function (s) { return s.getName(); }).filter(function (n) {
-    var x = nomeAba_(n); return x && x.tipo === CFG.TIPO_GRAD;
-  });
-  var atual = PropertiesService.getDocumentProperties().getProperty('ABA_DESTINO') || '';
-  var h = '<h3>Aba de destino da importação</h3><p>Escolha a aba mensal que receberá a escala da Guarnição. ' +
-    'Se uma aba "&lt;Mês&gt; Grad" estiver aberta ao importar, ela é usada no lugar desta.</p><select id="a">' +
-    abas.map(function (n) { return '<option' + (n === atual ? ' selected' : '') + '>' + esc_(n) + '</option>'; }).join('') + '</select>' +
-    '<br><button class="p" onclick="google.script.run.withSuccessHandler(function(){google.script.host.close()}).apiAbaDestino(document.getElementById(\'a\').value)">Salvar</button>';
-  mostrarHtml_(h, 'Aba de destino', 460, 260);
-}
 function apiAbaDestino(nome) { PropertiesService.getDocumentProperties().setProperty('ABA_DESTINO', nome); }
 
 function mnuImportarDrive() { abrirImportacao_('drive'); }
@@ -334,8 +327,8 @@ function htmlImportacao_(modo, destino) {
     'if(R.qg)h+="<div class=card><b>"+R.qg.novos+"</b><span>folga(s) criada(s) no QG</span></div>";' +
     'else h+="<div class=card><b>"+R.qgBlocos.length+"</b><span>bloco(s) QG a ajustar</span></div>";' +
     'h+="</div>";' +
-    'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>Outra un.</th><th>Dias do 21º GAC</th></tr>";' +
-    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.rotulo.replace(" GRAGOATA"," GRAGOATÁ").replace("MOTORISTA A POMN","MOTORISTA À POMN"))+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
+    'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>%</th><th>Outra un.</th><th>Dias do 21º GAC</th></tr>";' +
+    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.rotulo.replace(" GRAGOATA"," GRAGOATÁ").replace("MOTORISTA A POMN","MOTORISTA À POMN"))+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=num>"+Math.round(100*e.gac.length/Math.max(1,e.gac.length+e.outra))+"%</td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
     'h+="</table>";' +
     'if(R.diverge.length){h+="<details open><summary class=erro>⚠ Tipo do dia divergente ("+R.diverge.length+")</summary><ul>";' +
     'R.diverge.forEach(function(x){h+="<li>Dia "+x.d+": Guarnição = escala "+x.fonte+", aba = escala "+x.aba+"</li>"});' +
