@@ -772,8 +772,10 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
       if (diaDe_(N.vals[i][colDia_(1)]) == null || String(N.vals[i].slice(0, 5).join('')).trim() === '') continue;
       var vals = [], lab = '';
       for (var cc = 0; cc <= 4 && !lab; cc++) lab = semAcento_(N.vals[i][cc]);
-      for (var d = 1; d <= n; d++) vals.push(d === 1 ? 1 : '=' + a1_(i, colDia_(d - 1)) + '+1');
+      var comoData = N.vals[i][colDia_(1)] instanceof Date; /* célula formatada como data: o dia 1 é a data de verdade (1/mês/ano), exibida só como o número do dia */
+      for (var d = 1; d <= n; d++) vals.push(d === 1 ? (comoData ? new Date(ano, mes, 1) : 1) : '=' + a1_(i, colDia_(d - 1)) + '+1');
       var rgS = novo.getRange(i + 1, F1, 1, n).setValues([vals]);
+      if (comoData) rgS.setNumberFormat('d');
       if (rotImp[lab]) rgS.setBackground(CFG.COR.CINZA_CAB); /* linhas que vêm da importação: cinza até importar */
       else rgS.setBackground(CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO); /* linhas manuais (CARCERAGEM FEMININA, OF DIA POMN): azul, aguardando o operador */
     }
