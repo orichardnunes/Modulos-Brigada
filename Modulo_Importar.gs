@@ -116,6 +116,7 @@ function apiImportarDrive(destNome, url, opcoes, aplicar) {
   r.fonte = lido.fonte;
   r.linhas = lido.linhas;
   r.texto = 'Fonte: aba "' + lido.fonte + '" da planilha da Guarnição.\n\n' + r.texto;
+  if (r.rel) r.rel.fonte = lido.fonte;
   return r;
 }
 
@@ -146,7 +147,7 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
   /* linhas-resumo do topo */
   var resumoPorRotulo = {};
   A.resumo.forEach(function (S) { resumoPorRotulo[semAcento_(S.label)] = S; });
-  var plano = [], texto = [];
+  var plano = [], texto = [], relEsc = [];
   GUARNICAO_MAPA.forEach(function (m, k) {
     var S = resumoPorRotulo[m.rotulo];
     if (!S) { avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
@@ -156,6 +157,7 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
       if (ehProprio_(om)) laranja.push(dd); else azul.push(dd);
       plano.push({ r: S.r, d: dd, cor: ehProprio_(om) ? CFG.COR.LARANJA : CFG.COR.AZUL });
     });
+    relEsc.push({ rotulo: m.rotulo, gac: laranja, outra: azul.length });
     texto.push('▸ ' + m.rotulo + ': 21º GAC em ' + laranja.length + ' dia(s)' + (laranja.length ? ' (' + laranja.join(', ') + ')' : '') + ' · outra unidade em ' + azul.length + '.');
   });
 
@@ -179,6 +181,7 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
   if (qgInfo.length) texto.push('\nBlocos QG AD/1 que serão ajustados: ' + qgInfo.join(', ') + '.');
   if (avisos.length) texto.push('\n⚠ ' + avisos.join('\n⚠ '));
 
+  var qgRel = null;
   if (aplicar) {
     if (diverge.length && opcoes.tipos !== 'refazer' && opcoes.tipos !== 'manter') {
       throw new Error('Há dias com tipo divergente. Escolha "refazer fórmulas" ou "manter os tipos atuais" e aplique de novo.');
@@ -193,10 +196,18 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
     SpreadsheetApp.flush();
     if (diverge.length && opcoes.tipos === 'refazer') refazerTipos_(sh, A, diverge);
     var qg = ajustarBlocosQG_(sh);
-    texto.push('\n✅ APLICADO' + (qg ? ' — ' + qg : '') + '.');
+    qgRel = qg;
+    texto.push('\n✅ APLICADO' + (qg ? ' — ' + qg.texto : '') + '.');
   } else texto.unshift('🔎 VERIFICAÇÃO (nada foi alterado)\n');
   SpreadsheetApp.flush();
-  return { texto: texto.join('\n'), divergencias: diverge.length };
+  return {
+    texto: texto.join('\n'), divergencias: diverge.length,
+    rel: {
+      aplicado: !!aplicar, aba: destNome, mes: CFG.MESES_EXT[A.mes] + '/' + A.ano, dias: dias.length, totalDias: n, escalas: relEsc,
+      diverge: diverge.map(function (x) { return { d: x.d, fonte: x.fonte ? 'vermelha' : 'preta', aba: x.fonte ? 'preta' : 'vermelha' }; }),
+      tipos: aplicar ? (opcoes.tipos || '') : '', avisos: avisos, qgBlocos: qgInfo, qg: qgRel
+    }
+  };
 }
 
 /** Ajusta cabeçalhos de dia (vermelho/cinza) e recalcula as fórmulas de folga com os novos tipos. */
@@ -284,14 +295,19 @@ function ajustarBlocosQG_(sh) {
   if (limpar.length) sh.getRangeList(limpar).clearContent();
   Object.keys(cores).forEach(function (cor) { sh.getRangeList(cores[cor]).setBackground(cor); });
   SpreadsheetApp.flush();
-  return 'QG AD/1: ' + novos + ' célula(s) de folga criada(s), ' + removidos + ' limpa(s) em dia de outra unidade' +
-    (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '');
+  return { novos: novos, removidos: removidos, preservados: preservados, texto: 'QG AD/1: ' + novos + ' célula(s) de folga criada(s), ' + removidos + ' limpa(s) em dia de outra unidade' +
+    (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '') };
 }
 
 /* ============================================================ CAIXA */
 function htmlImportacao_(modo, destino) {
   var drive = modo === 'drive';
-  var cab = '<h3>Importar escala da Guarnição</h3><p>Aba de destino: <b>' + esc_(destino) + '</b></p>';
+  var abasG = ss_().getSheets().map(function (x) { return x.getName(); }).filter(function (n) { var x = nomeAba_(n); return x && x.tipo === CFG.TIPO_GRAD; });
+  if (abasG.indexOf(destino) < 0) abasG.unshift(destino);
+  var cab = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.inf{background:#e8f0fe;color:#174ea6}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#ff9900;color:#fff;font-weight:600;padding:0 6px}</style>' +
+    '<h3 style="margin-top:0">Importar escala da Guarnição</h3>' +
+    '<div class="bar"><b class="lb" style="min-width:0">Aba de destino</b><select id="dest" onchange="DEST=this.value;google.script.run.apiAbaDestino(DEST)">' +
+    abasG.map(function (n) { return '<option' + (n === destino ? ' selected' : '') + '>' + esc_(n) + '</option>'; }).join('') + '</select></div>';
   var origem = drive ?
     '<label>Planilha da Guarnição (URL):<br><input type="text" id="url" style="width:100%" value="' + esc_(CFG.URL_GUARNICAO) + '"></label>' :
     '<label>Arquivo (PDF, xlsx, xls, ods ou csv): <input type="file" id="arq" accept=".pdf,.xlsx,.xls,.ods,.csv" onchange="leArquivo(this.files[0])"></label>' +
@@ -303,10 +319,32 @@ function htmlImportacao_(modo, destino) {
   var corpo = cab + origem +
     '<div id="opt" class="bar" style="display:none"><b class="lb" style="min-width:0">Tipo do dia divergente:</b><label class="chip"><input type="radio" name="tp" value="manter">manter os tipos atuais</label> ' +
     '<label class="chip"><input type="radio" name="tp" value="refazer">refazer fórmulas</label></div>' +
-    '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><pre id="out"></pre>' + JS_COMUM_ + scripts +
+    '<button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button><div id="out" style="margin-top:10px;white-space:pre-wrap"></div>' + JS_COMUM_ + scripts +
     '<script>var MODO="' + modo + '",DEST=' + JSON.stringify(destino) + ',LINHAS=[];' +
     'function opts(){var r=document.querySelector("input[name=tp]:checked");return{tipos:r?r.value:""}}' +
-    'function resp(r){$("out").className="";$("out").textContent=r.texto;$("opt").style.display=r.divergencias?"block":"none";if(r.linhas){LINHAS=r.linhas}}' +
+    'function resp(r){' +
+    'var o=$("out");o.className="";o.style.whiteSpace="normal";var R=r.rel;' +
+    'if(r.linhas){LINHAS=r.linhas}' +
+    '$("opt").style.display=r.divergencias?"block":"none";' +
+    'if(!R){o.style.whiteSpace="pre-wrap";o.textContent=r.texto;return}' +
+    'var h="";' +
+    'h+="<div class=\\"ban "+(R.aplicado?"okb":"inf")+"\\"><b>"+(R.aplicado?"✅ Escala aplicada":"🔎 Verificação — nada foi alterado")+"</b><br><span class=mu>"+esc(R.aba)+" · "+esc(R.mes)+(R.fonte?" · fonte: aba “"+esc(R.fonte)+"” da Guarnição":"")+"</span></div>";' +
+    'h+="<div class=cards><div class=card><b>"+R.dias+"/"+R.totalDias+"</b><span>dias do mês com dado</span></div>";' +
+    'h+="<div class=\\"card"+(R.diverge.length?" bad":"")+"\\"><b>"+R.diverge.length+"</b><span>dia(s) com tipo divergente</span></div>";' +
+    'if(R.qg)h+="<div class=card><b>"+R.qg.novos+"</b><span>folga(s) criada(s) no QG</span></div>";' +
+    'else h+="<div class=card><b>"+R.qgBlocos.length+"</b><span>bloco(s) QG a ajustar</span></div>";' +
+    'h+="</div>";' +
+    'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>Outra un.</th><th>Dias do 21º GAC</th></tr>";' +
+    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.rotulo.replace(" GRAGOATA"," GRAGOATÁ").replace("MOTORISTA A POMN","MOTORISTA À POMN"))+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
+    'h+="</table>";' +
+    'if(R.diverge.length){h+="<details open><summary class=erro>⚠ Tipo do dia divergente ("+R.diverge.length+")</summary><ul>";' +
+    'R.diverge.forEach(function(x){h+="<li>Dia "+x.d+": Guarnição = escala "+x.fonte+", aba = escala "+x.aba+"</li>"});' +
+    'h+="</ul><p class=mu>Escolha abaixo “refazer fórmulas” (ajusta as colunas e recalcula as folgas) ou “manter os tipos atuais” e aplique de novo.</p></details>"}' +
+    'if(R.qg){h+="<details><summary>QG AD/1 — resultado</summary><ul><li>"+R.qg.novos+" célula(s) de folga criada(s)</li><li>"+R.qg.removidos+" limpa(s) em dia de outra unidade</li>"+(R.qg.preservados?"<li>"+R.qg.preservados+" “0” mantido(s) em dia de outra unidade (confira)</li>":"")+"</ul><p class=mu>Blocos: "+esc(R.qgBlocos.join(", "))+"</p></details>"}' +
+    'else if(R.qgBlocos.length){h+="<p class=mu>Blocos QG AD/1 que serão ajustados: "+esc(R.qgBlocos.join(", "))+".</p>"}' +
+    'if(R.avisos.length){h+="<details><summary>⚠ Avisos ("+R.avisos.length+")</summary><ul>";R.avisos.forEach(function(a){h+="<li>"+esc(a)+"</li>"});h+="</ul></details>"}' +
+    'if(R.aplicado)h+="<button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";' +
+    'o.innerHTML=h;o.scrollIntoView&&o.scrollIntoView({block:"nearest"})}' +
     (drive ?
       'function run(ap){$("out").textContent="Lendo a planilha da Guarnição…";google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiImportarDrive(DEST,$("url").value,opts(),ap)}' :
       'function run(ap){var l=coleta();if(!l.length){falha("Carregue um arquivo primeiro.");return}$("out").textContent="Processando…";google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiImportarLinhas(DEST,l,opts(),ap)}' +
