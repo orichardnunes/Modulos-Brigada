@@ -229,7 +229,10 @@ function cbDiaParaX_(f) {
   });
 }
 
-function ajustarFormulaPrevia_(f) { return cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f)))); }
+/* meses de 31 dias: a coluna do dia 31 é a AI (dia + 3); intervalos até AH deixavam o último dia PENDENTE */
+function estenderDia31_(f) { return /IMPORTRANGE/i.test(f) ? f.replace(/:AH(?=")/g, ':AI') : f; }
+
+function ajustarFormulaPrevia_(f) { return estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f))))); }
 
 /** Troca as referências às abas CAL/TROCAS/ESCALADOS_CACHE por fórmulas locais. Devolve {alteradas, externas[]}. */
 function migrarPrevia_(sh) {
