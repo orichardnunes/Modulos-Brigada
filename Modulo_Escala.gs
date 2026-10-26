@@ -81,12 +81,11 @@ function apiServicos(modo, p, aplicar) {
     var relAba = { aba: A.nome, escalas: [], fix: 0, verdes: 0, prox: 0, avisos: [], itens: [] };
     rel.abas.push(relAba);
     if (modo === 'add') {
-      var proxA = null;
-      if (A.blocos.some(function (B) { return ehPar_(B); })) {
-        var ps = abaMesVizinho_(A, 1);
-        if (ps) { try { proxA = lerAba_(ps); } catch (e) { proxA = null; } }
-      }
-      var plano = planejarServicos_(A, pr, proxA);
+      var proxA = null, antA = null; /* meses vizinhos: o intervalo mínimo vale também entre o fim de um mês e o começo do outro */
+      var ps = abaMesVizinho_(A, 1), pa = abaMesVizinho_(A, -1);
+      if (ps) { try { proxA = lerAba_(ps); } catch (e) { proxA = null; } }
+      if (pa) { try { antA = lerAba_(pa); } catch (e) { antA = null; } }
+      var plano = planejarServicos_(A, pr, proxA, antA);
       txt.push(textoPlano_(A, plano));
       Object.keys(plano.resumo).forEach(function (bi) { var r = plano.resumo[bi]; if (r.sel) relAba.escalas.push({ titulo: r.titulo, n: r.esc, falta: r.falta }); });
       relAba.fix = plano.esc.filter(function (e) { return e.tipo === 'fix'; }).length;
@@ -110,7 +109,7 @@ function apiServicos(modo, p, aplicar) {
 }
 
 /* ============================================================ MOTOR — ADICIONAR SERVIÇOS */
-function planejarServicos_(A, pr, proxA) {
+function planejarServicos_(A, pr, proxA, antA) {
   var n = A.nDias, hoje1 = primeiroDiaAdicionar_(A);
   var dIni = Math.max(pr.dIni, hoje1), dFim = Math.min(pr.dFim, n);
   var gapMin = Math.ceil(pr.folgaH / 24) + 1;
@@ -140,6 +139,27 @@ function planejarServicos_(A, pr, proxA) {
     });
     plano.resumo[bi] = { titulo: B.titulo, esc: 0, falta: 0, sel: vagasDe[B.hdr] != null };
   });
+
+  /* serviços dos meses vizinhos entram como dias fora do mês (≤ 0 para o anterior, > nDias para o seguinte) */
+  function vizinho_(V, off) {
+    if (!V) return;
+    V.blocos.forEach(function (VB) {
+      var bi = -1;
+      A.blocos.forEach(function (B, i) { if (bi < 0 && B.titulo === VB.titulo) bi = i; });
+      VB.rows.forEach(function (VR) {
+        for (var dv = 1; dv <= V.nDias; dv++) {
+          if (!participa_(V, VB, VR, dv) || num_(V.vals[VR.r][colDia_(dv)]) !== 0) continue;
+          var cv = classeCel_(V, VR.r, colDia_(dv));
+          if (cv === 'afast') continue;
+          var dd = off(dv);
+          (svc[VR.key] = svc[VR.key] || {})[dd] = true;
+          if (cv !== 'verde' && bi >= 0) (svcB[bi + '|' + VR.key] = svcB[bi + '|' + VR.key] || []).push(dd);
+        }
+      });
+    });
+  }
+  vizinho_(antA, function (dv) { return dv - antA.nDias; });
+  vizinho_(proxA, function (dv) { return n + dv; });
 
   var ST = A.blocos.map(function (B) {
     return B.rows.map(function () { return { last: [null, null], dirty: [false, false], prev: null }; });
