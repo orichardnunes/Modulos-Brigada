@@ -825,7 +825,7 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
 /* ----- gatilho */
 function textoHora_(h) { return ('0' + h).slice(-2) + ':00'; }
 
-function mnuDefinirGatilho() {
+function mnuConfigGatilho() {
   var atual = JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO') || 'null');
   var dias = '', horas = '', i;
   for (i = 1; i <= 28; i++) dias += '<option value="' + i + '">dia ' + i + '</option>';
@@ -833,8 +833,10 @@ function mnuDefinirGatilho() {
   var amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
   var h = '<style>.op{display:block;border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin:8px 0;cursor:pointer}.op:has(input:checked){border-color:#1a73e8;background:#e8f0fe}' +
     '.op small{display:block;color:#5f6368;margin:2px 0 0 22px}.op select,.op input[type=date]{margin-left:6px}.top{color:#5f6368;margin:0 0 6px}</style>' +
-    '<h3>Criação automática das abas do mês</h3>' +
-    '<p class="top">' + (atual ? 'Gatilho atual: <b>' + esc_(atual.texto) + '</b>' : 'Nenhum gatilho definido.') + '</p>' +
+    '<h3 style="margin-top:0">Gatilho de criação automática das abas</h3>' +
+    '<div class="top" style="border:1px solid #e0e0e0;border-radius:10px;padding:8px 12px;margin-bottom:8px">' + (atual ?
+      '<b>Ativo:</b> ' + esc_(atual.texto) + '<br><span class="mu">Última execução: ' + esc_(atual.ultima || 'nunca') + '</span><br>' +
+      '<button style="margin:6px 0 0;color:#b00020" onclick="desativar()">Desativar gatilho</button>' : 'Nenhum gatilho definido.') + '</div>' +
     '<label class="op"><input type="radio" name="t" value="DIA" checked> Todo mês, no <select id="dia">' + dias + '</select><small>Cria as abas do mês seguinte.</small></label>' +
     '<label class="op"><input type="radio" name="t" value="DATA"> Uma única vez, em <input type="date" id="data" value="' + isoData_(amanha) + '"><small>Cria as abas do mês seguinte, na data escolhida.</small></label>' +
     '<label class="op"><input type="radio" name="t" value="PDU"> No primeiro dia útil de cada mês<small>Cria as abas do mês corrente, se ainda não existirem.</small></label>' +
@@ -843,8 +845,10 @@ function mnuDefinirGatilho() {
     '<script>function $(i){return document.getElementById(i)}' +
     'function salvar(){var t=document.querySelector("input[name=t]:checked").value;var p={tipo:t,dia:$("dia").value,data:$("data").value,hora:$("hora").value};' +
     '$("out").style.display="block";$("out").textContent="Salvando…";google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},1800)})' +
-    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDefinirGatilho(p)}</script>';
-  mostrarHtml_(h, 'Definir gatilho', 460, 470);
+    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDefinirGatilho(p)}' +
+    'function desativar(){$("out").style.display="block";$("out").textContent="Desativando…";google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},1400)})' +
+    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDesativarGatilho()}</script>';
+  mostrarHtml_(h, 'Configuração de Gatilho Automático', 480, 560);
 }
 
 function apiDefinirGatilho(p) {
@@ -899,12 +903,10 @@ function gatilhoCriarAbas() {
   props.setProperty('GATILHO', JSON.stringify(cfg));
 }
 
-function mnuVerGatilho() {
-  var ui = SpreadsheetApp.getUi(), cfg = JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO') || 'null');
-  if (!cfg) { ui.alert('Gatilho', 'Nenhum gatilho definido.', ui.ButtonSet.OK); return; }
-  var r = ui.alert('Gatilho de criação de abas', 'Configuração: ' + cfg.texto + '\nÚltima execução: ' + (cfg.ultima || 'nunca') +
-    '\n\nDesativar o gatilho?', ui.ButtonSet.YES_NO);
-  if (r === ui.Button.YES) { removerGatilhos_(); PropertiesService.getDocumentProperties().deleteProperty('GATILHO'); ui.alert('Gatilho desativado.'); }
+function apiDesativarGatilho() {
+  removerGatilhos_();
+  PropertiesService.getDocumentProperties().deleteProperty('GATILHO');
+  return 'Gatilho desativado.';
 }
 
 /* ============================================================ HTML DAS CAIXAS */

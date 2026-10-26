@@ -59,13 +59,12 @@ function onOpen() {
     .addSubMenu(ui.createMenu('📅 Prévia Semanal')
       .addItem('Atualizar prévia', 'mnuAtualizarPrevia')
       .addItem('Adicionar prévia', 'mnuAdicionarPrevia'))
-    .addSubMenu(ui.createMenu('🗂️ Abas Mensal')
+    .addSubMenu(ui.createMenu('🗂️ Abas Mensais')
       .addItem('Criar abas do próximo mês', 'mnuCriarAbasProximoMes')
-      .addItem('Definir gatilho', 'mnuDefinirGatilho')
-      .addItem('Ver / Desativar gatilho', 'mnuVerGatilho'))
-    .addSubMenu(ui.createMenu('📥 Importar Escala')
-      .addItem('Importar via Google Drive', 'mnuImportarDrive')
-      .addItem('Importar via documento', 'mnuImportarDocumento'))
+      .addSubMenu(ui.createMenu('📥 Importar Escala')
+        .addItem('Importar via Google Drive', 'mnuImportarDrive')
+        .addItem('Importar via documento', 'mnuImportarDocumento'))
+      .addItem('Configuração de Gatilho Automático', 'mnuConfigGatilho'))
     .addSubMenu(ui.createMenu('🔍 Auditagem do Sistema')
       .addItem('📊 Verificação de serviços tirados', 'mnuQuantitativo')
       .addItem('✅ Verificação do sistema', 'mnuVerificarSistema'))
@@ -412,10 +411,10 @@ function mnuSobre() {
     'Vários militares de uma vez (afastamento conjunto). Se havia “0” no período, ele vira fórmula e o resumo avisa que falta substituto — use depois “Adicionar serviços”. Período que atravessa o mês pinta também a aba seguinte, se existir.</p>' +
     '<h3>Adicionar militar</h3><p>Informe subunidade, graduação e nome de guerra; para cada escala escolha a posição (automática pela graduação) e a data do último serviço em dia útil e em dia vermelho — ou “nunca serviu” (folga 31 nas duas escalas a partir do dia da inclusão, e “***” em fundo marrom-avermelhado nos dias anteriores). O nº de ordem (coluna C) é recalculado pelo tamanho do grupo da escala (ex.: CB DIA 1-1-1-1, 2-2-2-2). ' +
     'Verificar mostra onde entra e a folga; depois Adicionar. Só o mês escolhido é alterado.</p>' +
-    '<h2>🗂️ Abas Mensal</h2>' +
+    '<h2>🗂️ Abas Mensais</h2>' +
     '<p><b>Criar abas do próximo mês:</b> cria as duas abas do mês seguinte ao de hoje, sem perguntar.  cria “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia” a partir das abas do mês atual, com folgas ligadas ao mês anterior e corpo limpo. Meses de 28 a 31 dias são ajustados sozinhos; se algo falhar, as abas criadas na tentativa são removidas.<br>' +
-    '<b>Definir gatilho:</b> escolha na caixa: todo mês em um dia de 1 a 28, uma data única ou o primeiro dia útil de cada mês, e o horário. Roda às ' + CFG.HORA_GATILHO + 'h e só cria se as abas ainda não existirem.<br>' +
-    '<b>Ver / Desativar gatilho:</b> mostra a configuração e a última criação automática.</p>' +
+    '<b>Configuração de Gatilho Automático:</b> uma só caixa: mostra o gatilho atual e a última criação automática, permite definir (todo mês em um dia de 1 a 28, uma data única ou o primeiro dia útil de cada mês, e o horário) ou desativar. Roda às ' + CFG.HORA_GATILHO + 'h e só cria se as abas ainda não existirem.<br>' +
+    '<b>Importar Escala</b> (submenu de Abas Mensais): veja a seção seguinte.</p>' +
     '<h2>📊 Auditagem — Verificação de serviços tirados</h2>' +
     '<p>Conta quantos serviços cada militar tirou em uma ou várias escalas, em meses inteiros ou num período (por padrão até hoje; “Incluir dias futuros” conta o planejado) e mostra o ranking, a média, o máximo e o mínimo. Só LÊ a planilha. ' +
     'Conta cada “0” (amarelo, laranja, azuis, sem cor); “0” verde (serviço em outra escala) entra só se o militar não tiver “0” próprio no mesmo dia nas escalas marcadas; “0” com cor de afastamento não conta. ' +
@@ -444,7 +443,7 @@ function mnuVerificarSistema() {
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'atualizarExternosTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
-    'mnuCriarAbasProximoMes', 'mnuDefinirGatilho', 'mnuVerGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
+    'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });
