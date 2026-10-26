@@ -327,8 +327,8 @@ function htmlImportacao_(modo, destino) {
     'if(R.qg)h+="<div class=card><b>"+R.qg.novos+"</b><span>folga(s) criada(s) no QG</span></div>";' +
     'else h+="<div class=card><b>"+R.qgBlocos.length+"</b><span>bloco(s) QG a ajustar</span></div>";' +
     'h+="</div>";' +
-    'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>%</th><th>Outra un.</th><th>Dias do 21º GAC</th></tr>";' +
-    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.rotulo.replace(" GRAGOATA"," GRAGOATÁ").replace("MOTORISTA A POMN","MOTORISTA À POMN"))+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=num>"+Math.round(100*e.gac.length/Math.max(1,e.gac.length+e.outra))+"%</td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
+    'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>%</th><th>OUTRAS OM</th><th>Dias do 21º GAC</th></tr>";' +
+    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(({"OF DIA GRAGOATA":"OF DIA QG","CMT GD GRAGOATA":"CMT GD QG","CB GD GRAGOATA":"CB GD QG","GD GRAGOATA":"SD GD QG AD","MOTORISTA A POMN":"MOTORISTA À POMN"})[e.rotulo]||e.rotulo)+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=num>"+Math.round(100*e.gac.length/Math.max(1,e.gac.length+e.outra))+"%</td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
     'h+="</table>";' +
     'if(R.diverge.length){h+="<details open><summary class=erro>⚠ Tipo do dia divergente ("+R.diverge.length+")</summary><ul>";' +
     'R.diverge.forEach(function(x){h+="<li>Dia "+x.d+": Guarnição = escala "+x.fonte+", aba = escala "+x.aba+"</li>"});' +
