@@ -40,12 +40,17 @@ function carregarAbaPrevia_(ctx, d, tipo) {
   return ctx.abas[nome];
 }
 
-function flagResumo_(A, igual, dia) {
+function flagResumo_(A, igual, dia, prefixoBloco) {
   if (!A) return false;
   var achou = false;
   A.resumo.forEach(function (S) {
     var lab = semAcento_(S.label);
     if (lab === igual && !achou) achou = String(A.bgs[S.r][colDia_(dia)]).toLowerCase() === CFG.COR.LARANJA;
+  });
+  if (achou || !prefixoBloco) return achou;
+  /* alternativa: o cabeçalho do próprio bloco QG AD/1 (dias laranja = serviço do 21º GAC) */
+  A.blocos.forEach(function (B) {
+    if (!achou && B.kind === 'qg' && semAcento_(B.titulo).indexOf(prefixoBloco) === 0) achou = String(A.bgs[B.hdr][colDia_(dia)]).toLowerCase() === CFG.COR.LARANJA;
   });
   return achou;
 }
@@ -88,8 +93,8 @@ function PREVIA_CAL(datas, tick) {
     var dia = d.getDate(), G = carregarAbaPrevia_(ctx, d, CFG.TIPO_GRAD), C = carregarAbaPrevia_(ctx, d, CFG.TIPO_CNDT);
     var vermG = G && G.topo != null ? String(G.bgs[G.topo + 1][colDia_(dia)]).toLowerCase() === CFG.COR.VERMELHO : ehVermelhoData_(d);
     var vermC = C && C.blocos.length ? vermelho_(C, C.blocos[0], dia) : vermG;
-    var linha = [serialData_(d), flagResumo_(G, 'CMT GD GRAGOATA', dia), flagResumo_(G, 'CB GD GRAGOATA', dia), flagResumo_(G, 'GD GRAGOATA', dia),
-      flagResumo_(G, 'MOTORISTA A POMN', dia), flagResumo_(G, 'OF DIA GRAGOATA', dia), vermG, vermC];
+    var linha = [serialData_(d), flagResumo_(G, 'CMT GD GRAGOATA', dia, 'CMT GD'), flagResumo_(G, 'CB GD GRAGOATA', dia, 'CB GD'), flagResumo_(G, 'GD GRAGOATA', dia, 'SD GD'),
+      flagResumo_(G, 'MOTORISTA A POMN', dia, 'MOTORISTA'), flagResumo_(G, 'OF DIA GRAGOATA', dia, 'OF DIA'), vermG, vermC];
     var p12 = [], p24 = [], ctrl = [], cb = [];
     if (G) {
       G.blocos.forEach(function (B) {
@@ -202,7 +207,7 @@ function colNum_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 +
 function normalizarHelpers_(f) {
   var out = f.replace(/INDEX\(\s*\$([A-Z]+)\$2:\$\1\$8\s*([,;])\s*MATCH\(\s*([^,;()]+?)\s*[,;]\s*\$([A-Z]+)\$2:\$\4\$8\s*[,;]\s*0\s*\)\s*\)/g,
     function (m, x, sep, arg, y) {
-      if (y === 'AL') return m;
+      if (y === 'AL' || y === 'AU') return m; /* tabelas do Of Dia (AL) e do Atendimento (AU) não são a tabela por dia */
       var nx = 12 + colNum_(x) - colNum_(y);
       if (nx < 12 || nx > 31) return m;
       var L = colLetra_(nx - 1);
