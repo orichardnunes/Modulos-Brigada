@@ -512,7 +512,15 @@ function apiAfastamento(p, aplicar) {
   if (p.apres) propagarAfast_(A, Object.assign({ tipo: 'apres', de: p.apres, ate: p.apres }, base), aplicar, linhas, []);
   if (semSubst.length) linhas.push('\n⚠ "0" substituído(s) pela fórmula de folga — falta substituto (use "Adicionar serviços"):\n' + semSubst.join('\n'));
   SpreadsheetApp.flush();
-  return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + linhas.join('\n');
+  var itens = linhas.map(function (t) {
+    var c = t.charAt(0) === '🎨' || t.indexOf('🎨') === 0 ? 'cor' : t.indexOf('🕓') === 0 ? 'pend' : t.indexOf('⚠') >= 0 && t.indexOf('⚠') < 3 ? 'aviso' : 'res';
+    return { k: c, t: t.replace(/^\s+/, '') };
+  });
+  return {
+    texto: (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + linhas.join('\n'),
+    rel: { aplicado: !!aplicar, aba: p.aba, escala: titulo, militares: p.keys.length, semSubst: semSubst, itens: itens,
+      tipo: p.de && p.ate ? (TIPOS_AFAST[p.tipo] || p.tipo) : '', periodo: p.de && p.ate ? fmtData_(parseIso_(p.de)) + ' a ' + fmtData_(parseIso_(p.ate)) : '', apres: p.apres ? fmtData_(parseIso_(p.apres)) : '' }
+  };
 }
 
 /* ============================================================ ADICIONAR MILITAR */
@@ -542,7 +550,7 @@ function apiMilitar(p, aplicar) {
   if (CFG.GRADUACOES.indexOf(p.grad) < 0) throw new Error('Graduação inválida.');
   if (CFG.SUBUNIDADES.indexOf(p.sub) < 0) throw new Error('Subunidade inválida.');
   if (!p.escalas || !p.escalas.length) throw new Error('Marque ao menos uma escala.');
-  var A = lerAba_(sh), E = p.grad + ' ' + nome, key = norm_(E), rk = rankGrad_(E), planos = [], linhas = [];
+  var A = lerAba_(sh), E = p.grad + ' ' + nome, key = norm_(E), rk = rankGrad_(E), planos = [], linhas = [], relEsc = [];
 
   p.escalas.forEach(function (e) {
     var bi = -1;
@@ -582,6 +590,7 @@ function apiMilitar(p, aplicar) {
       else { var pm = posMes_(A); inicio = pm === 0 ? new Date().getDate() : 1; }
     }
     planos.push({ bi: bi, apos: apos, fi: fi, primeiros: primeiros, nunca: !!e.nunca, inicio: inicio });
+    relEsc.push({ titulo: B.titulo, entra: ref ? 'após ' + ref.nome : 'no topo', linha: apos + 2, fiU: fi[0], fiV: fi[1], nunca: !!e.nunca, inicio: inicio, qg: B.kind === 'qg', avisos: avisos });
     linhas.push('▸ ' + B.titulo + ': entra ' + (ref ? 'após ' + ref.nome : 'no topo') + ' (linha ' + (apos + 2) + '); folga inicial: dia útil ' +
       (fi[0] == null ? '—' : fi[0]) + ' · vermelho ' + (fi[1] == null ? '—' : fi[1]) + (e.nunca ? ' · nunca serviu: "***" até o dia ' + (inicio - 1) + ', folga 31 a partir do dia ' + inicio : '') +
       (B.kind === 'qg' ? ' · QG: células ficam em branco até carregar a Guarnição' : '') +
@@ -593,8 +602,11 @@ function apiMilitar(p, aplicar) {
     planos.forEach(function (pl) { inserirMilitar_(A, pl, p, E); });
     SpreadsheetApp.flush();
   }
-  return (aplicar ? '✅ MILITAR ADICIONADO: ' : '🔎 VERIFICAÇÃO: ') + E + ' (' + p.sub + ')\n\n' + linhas.join('\n') +
-    (aplicar ? '\n\nNº de ordem (coluna C) recalculado pelo tamanho do grupo de cada escala.' : '');
+  return {
+    texto: (aplicar ? '✅ MILITAR ADICIONADO: ' : '🔎 VERIFICAÇÃO: ') + E + ' (' + p.sub + ')\n\n' + linhas.join('\n') +
+      (aplicar ? '\n\nNº de ordem (coluna C) recalculado pelo tamanho do grupo de cada escala.' : ''),
+    rel: { aplicado: !!aplicar, militar: E, sub: p.sub, aba: p.aba, escalas: relEsc }
+  };
 }
 
 function inserirMilitar_(A, pl, p, E) {
@@ -1010,6 +1022,7 @@ function htmlAfastamento_() {
   var tipos = JSON.stringify(Object.keys(TIPOS_AFAST).map(function (k) { return { k: k, l: TIPOS_AFAST[k], c: cores[k] }; }));
   var subs = CFG.SUBUNIDADES.map(function (x) { return '<option>' + x + '</option>'; }).join('');
   var head =
+    '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.inf{background:#e8f0fe;color:#174ea6}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#1a73e8;color:#fff;font-weight:600;padding:0 6px}</style>\n' +
     '<style>.sub{color:#5f6368;margin:-2px 0 10px}.sec{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368;margin:12px 0 4px}\n' +
     '.dot{display:inline-block;width:11px;height:11px;border-radius:50%;border:1px solid #0002}.mil{display:flex;align-items:center;gap:8px;margin:0;padding:4px 2px;border-bottom:1px solid #f1f3f4;cursor:pointer}\n' +
     '.mil input{accent-color:#1a73e8;width:15px;height:15px}.mil small{margin-left:auto}.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}</style>\n' +
@@ -1025,7 +1038,7 @@ function htmlAfastamento_() {
     '<div class="bar"><input type="date" id="de"><span class="mu">até</span><input type="date" id="ate"><span class="mu" style="margin-left:10px">apresentação</span><input type="date" id="apres"></div>\n' +
     '<label class="opt"><input type="checkbox" id="todas"> Aplicar em todas as escalas do militar nesta aba</label>\n' +
     '<div class="stk"><button onclick="run(false)">Verificar</button><button class="p" onclick="run(true)">Aplicar</button></div>\n' +
-    '<pre id="out" style="display:none"></pre>\n' +
+    '<div id="out" style="display:none"></div>\n' +
     '\n';
   var tail =
     '<script>\n' +
@@ -1040,10 +1053,23 @@ function htmlAfastamento_() {
     ' x+="<label class=mil><input type=checkbox "+(SEL[k]?"checked":"")+" onchange=\\"SEL[this.value]=this.checked;cont()\\" value=\\""+esc(k)+"\\"><span>"+esc(l.nome)+"</span><small>"+esc(l.sub)+"</small></label>"});\n' +
     ' $("mil").innerHTML=x||"<span class=mu>Nenhum militar.</span>";cont()}\n' +
     'function cont(){var n=Object.keys(SEL).filter(function(k){return SEL[k]}).length;$("nsel").textContent=n?"— "+n+" selecionado(s)":""}\n' +
+    'function resp(r){var R=r.rel,o=$("out"),h="",res=0,pend=0,av=R.semSubst.length;o.style.display="block";o.className="";\n' +
+    'R.itens.forEach(function(i){if(i.k==="res")res++;if(i.k==="pend")pend++;if(i.k==="aviso")av++});\n' +
+    'h+="<div class=\\"ban "+(R.aplicado?"okb":"inf")+"\\"><b>"+(R.aplicado?"✅ Afastamento aplicado":"🔎 Verificação — nada foi alterado")+"</b><br><span class=mu>"+esc(R.aba)+" · "+esc(R.escala)+(R.tipo?" · "+esc(R.tipo)+" · "+esc(R.periodo):"")+(R.apres?" · apresentação "+esc(R.apres):"")+"</span></div>";\n' +
+    'h+="<div class=cards><div class=card><b>"+R.militares+"</b><span>militar(es)</span></div><div class=card><b>"+res+"</b><span>mês(es)/aba(s) lançado(s)</span></div>";\n' +
+    'h+="<div class=\\"card"+(pend?" bad":"")+"\\"><b>"+pend+"</b><span>pendente(s) p/ mês seguinte</span></div><div class=\\"card"+(av?" bad":"")+"\\"><b>"+av+"</b><span>aviso(s)</span></div></div>";\n' +
+    'h+="<table><tr><th>Lançamento</th></tr>";\n' +
+    'R.itens.forEach(function(i){if(i.k==="res"||i.k==="cor")h+="<tr><td"+(i.k==="cor"?" class=mu":"")+">"+esc(i.t)+"</td></tr>"});h+="</table>";\n' +
+    'R.itens.forEach(function(i){if(i.k==="pend")h+="<div class=\\"ban inf\\">"+esc(i.t)+"</div>"});\n' +
+    'var avs=R.itens.filter(function(i){return i.k==="aviso"});\n' +
+    'if(avs.length||R.semSubst.length){h+="<details open><summary class=erro>⚠ Avisos ("+(avs.length+R.semSubst.length)+")</summary><ul>";avs.forEach(function(i){h+="<li>"+esc(i.t)+"</li>"});\n' +
+    'if(R.semSubst.length){h+="<li>“0” substituído(s) pela fórmula de folga — falta substituto (use “Adicionar serviços”):<ul>";R.semSubst.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul></li>"}h+="</ul></details>"}\n' +
+    'if(R.aplicado)h+="<button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
+    'o.innerHTML=h;o.scrollIntoView&&o.scrollIntoView({block:"nearest"})}\n' +
     'function run(ap){var b=D.blocos[$("bloco").value],keys=Object.keys(SEL).filter(function(k){return SEL[k]});\n' +
     ' var p={aba:b.aba,hdr:b.hdr,keys:keys,tipo:document.querySelector("input[name=tp]:checked").value,de:$("de").value,ate:$("ate").value,apres:$("apres").value,todas:$("todas").checked};\n' +
     ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
-    ' google.script.run.withSuccessHandler(function(t){o.textContent=t}).withFailureHandler(falha).apiAfastamento(p,ap)}\n' +
+    ' google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiAfastamento(p,ap)}\n' +
     '</script>\n';
   return (head + JS_COMUM_ + tail).replace('{{TIPOS}}', function () { return tipos; }).replace('{{SUBS}}', function () { return subs; });
 }
@@ -1051,6 +1077,7 @@ function htmlAfastamento_() {
 function htmlMilitar_() {
   var subs = JSON.stringify(CFG.SUBUNIDADES), grads = JSON.stringify(CFG.GRADUACOES);
   var head =
+    '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.inf{background:#e8f0fe;color:#174ea6}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#1a73e8;color:#fff;font-weight:600;padding:0 6px}</style>\n' +
     '<style>.sub{color:#5f6368;margin:-2px 0 10px}.sec{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368;margin:12px 0 4px}\n' +
     '.card2{border:1px solid #e0e0e0;border-radius:10px;margin:6px 0;padding:7px 12px}.card2.on{border-color:#1a73e8;background:#f8fbff}.card2 .h{display:flex;align-items:center;gap:8px;margin:0;cursor:pointer;font-weight:500}\n' +
     '.card2 .h input{accent-color:#1a73e8;width:15px;height:15px}.card2 .b{display:none;margin-top:8px;gap:8px;flex-wrap:wrap;align-items:flex-end}.card2.on .b{display:flex}\n' +
@@ -1067,7 +1094,7 @@ function htmlMilitar_() {
     '<div class="sec">Escalas <span class="mu">— marque e informe o último serviço (dia útil e dia vermelho) ou “nunca serviu”</span></div>\n' +
     '<div id="blocos" style="max-height:290px;overflow:auto">Carregando…</div>\n' +
     '<div class="stk"><button onclick="run(false)">Verificar</button><button class="p" id="bad" disabled onclick="run(true)">Adicionar</button></div>\n' +
-    '<pre id="out" style="display:none"></pre>\n' +
+    '<div id="out" style="display:none"></div>\n' +
     '\n';
   var tail =
     '<script>\n' +
@@ -1085,11 +1112,20 @@ function htmlMilitar_() {
     ' $("blocos").innerHTML=x||"Nenhuma escala encontrada."}\n' +
     'function tog(k){$("c"+k).className="card2"+($("b"+k).checked?" on":"");$("bad").disabled=true}\n' +
     'function nun(k){$("u"+k).disabled=$("n"+k).checked;$("r"+k).disabled=$("n"+k).checked}\n' +
+    'function resp(r,ap){var R=r.rel,o=$("out"),h="",av=0;o.style.display="block";o.className="";\n' +
+    'R.escalas.forEach(function(e){av+=e.avisos.length});\n' +
+    'h+="<div class=\\"ban "+(R.aplicado?"okb":"inf")+"\\"><b>"+(R.aplicado?"✅ Militar adicionado":"🔎 Verificação — nada foi alterado")+"</b><br><span class=mu>"+esc(R.militar)+" · "+esc(R.sub)+" · "+esc(R.aba)+"</span></div>";\n' +
+    'h+="<div class=cards><div class=card><b>"+R.escalas.length+"</b><span>escala(s)</span></div><div class=card><b>"+R.escalas.filter(function(e){return e.nunca}).length+"</b><span>“nunca serviu”</span></div><div class=\\"card"+(av?" bad":"")+"\\"><b>"+av+"</b><span>aviso(s)</span></div></div>";\n' +
+    'h+="<table><tr><th>Escala</th><th>Entra</th><th>Folga útil</th><th>Folga verm.</th></tr>";\n' +
+    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.titulo)+"</b>"+(e.qg?" <span class=mu>QG: células em branco até carregar a Guarnição</span>":"")+"<br><span class=mu>linha "+e.linha+(e.nunca?" · “***” até o dia "+(e.inicio-1)+", folga 31 a partir do dia "+e.inicio:"")+"</span></td><td>"+esc(e.entra)+"</td><td><span class=lar>"+(e.fiU==null?"—":e.fiU)+"</span></td><td><span class=lar>"+(e.fiV==null?"—":e.fiV)+"</span></td></tr>"});h+="</table>";\n' +
+    'if(av){h+="<details open><summary class=erro>⚠ Avisos ("+av+")</summary><ul>";R.escalas.forEach(function(e){e.avisos.forEach(function(a){h+="<li>"+esc(e.titulo)+": "+esc(a)+"</li>"})});h+="</ul></details>"}\n' +
+    'if(R.aplicado)h+="<p class=mu>Nº de ordem (coluna C) recalculado pelo tamanho do grupo de cada escala.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
+    'o.innerHTML=h;o.scrollIntoView&&o.scrollIntoView({block:"nearest"})}\n' +
     'function run(ap){var es=[];D.blocos.forEach(function(b,k){if($("b"+k).checked)es.push({hdr:b.hdr,pos:$("p"+k).value,ultPreta:$("u"+k).value,ultVerm:$("r"+k).value,nunca:$("n"+k).checked})});\n' +
     ' if(!es.length){falha("Marque ao menos uma escala.");return}\n' +
     ' var p={inicio:$("inicio").value,aba:D.blocos[0].aba,sub:document.querySelector("input[name=sub]:checked").value,grad:document.querySelector("input[name=grad]:checked").value,nome:$("nome").value,escalas:es};\n' +
     ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
-    ' google.script.run.withSuccessHandler(function(t){o.textContent=t;$("bad").disabled=ap}).withFailureHandler(function(e){$("bad").disabled=true;falha(e)}).apiMilitar(p,ap)}\n' +
+    ' google.script.run.withSuccessHandler(function(t){resp(t,ap);$("bad").disabled=ap}).withFailureHandler(function(e){$("bad").disabled=true;falha(e)}).apiMilitar(p,ap)}\n' +
     '</script>\n';
   return (head + JS_COMUM_ + tail).replace('{{SUS}}', function () { return subs; }).replace('{{GRADS}}', function () { return grads; });
 }
