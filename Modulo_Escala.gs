@@ -67,7 +67,7 @@ function agruparPorAba_(blocos) {
 
 /** modo: 'add' | 'del'. aplicar=false apenas simula (Verificar). */
 function apiServicos(modo, p, aplicar) {
-  var txt = [];
+  var txt = [], rel = { aplicado: !!aplicar, modo: modo, abas: [] };
   agruparPorAba_(p.blocos).forEach(function (g) {
     var sh = ss_().getSheetByName(g.aba);
     if (!sh) throw new Error('Aba "' + g.aba + '" não encontrada.');
@@ -78,6 +78,8 @@ function apiServicos(modo, p, aplicar) {
       blocos: g.blocos.map(function (b) { return { hdr: b.hdr, vagas: Number(b.vagas) || 0 }; })
     };
     txt.push('══ ' + A.nome + ' ══');
+    var relAba = { aba: A.nome, escalas: [], fix: 0, verdes: 0, prox: 0, avisos: [], itens: [] };
+    rel.abas.push(relAba);
     if (modo === 'add') {
       var proxA = null;
       if (A.blocos.some(function (B) { return ehPar_(B); })) {
@@ -86,6 +88,12 @@ function apiServicos(modo, p, aplicar) {
       }
       var plano = planejarServicos_(A, pr, proxA);
       txt.push(textoPlano_(A, plano));
+      Object.keys(plano.resumo).forEach(function (bi) { var r = plano.resumo[bi]; if (r.sel) relAba.escalas.push({ titulo: r.titulo, n: r.esc, falta: r.falta }); });
+      relAba.fix = plano.esc.filter(function (e) { return e.tipo === 'fix'; }).length;
+      relAba.verdes = plano.esc.filter(function (e) { return e.tipo === 'verde'; }).length;
+      relAba.prox = plano.prox.length;
+      relAba.avisos = plano.avisos;
+      relAba.itens = plano.itens;
       if (aplicar) {
         escreverMarcas_(A, plano.esc);
         escreverProx_(A, proxA, plano.prox);
@@ -93,11 +101,12 @@ function apiServicos(modo, p, aplicar) {
     } else {
       var rem = planejarRetirada_(A, pr);
       txt.push(rem.avisos.concat(['Serviços a retirar: ' + rem.lista.length]).join('\n'));
+      relAba.escalas = rem.resumo;
       if (aplicar) escreverMarcas_(A, rem.lista, { notas: pr.notas });
     }
   });
   SpreadsheetApp.flush();
-  return (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + txt.join('\n');
+  return { texto: (aplicar ? '✅ APLICADO\n\n' : '🔎 VERIFICAÇÃO (nada foi alterado)\n\n') + txt.join('\n'), rel: rel };
 }
 
 /* ============================================================ MOTOR — ADICIONAR SERVIÇOS */
@@ -107,7 +116,7 @@ function planejarServicos_(A, pr, proxA) {
   var gapMin = Math.ceil(pr.folgaH / 24) + 1;
   var vagasDe = {};
   pr.blocos.forEach(function (b) { vagasDe[b.hdr] = b.vagas; });
-  var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [] };
+  var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [], itens: [] };
 
   var svc = {}, svcB = {}, idx = {};
   function addSvc(bi, key, d, proprio) {
@@ -198,6 +207,7 @@ function planejarServicos_(A, pr, proxA) {
             }
             plano.resumo[bi].esc++;
             plano.linhas.push(('0' + d).slice(-2) + '/' + ('0' + (A.mes + 1)).slice(-2) + ' ' + B.titulo + ': ' + R.nome);
+            plano.itens.push({ d: ('0' + d).slice(-2) + '/' + ('0' + (A.mes + 1)).slice(-2), t: B.titulo, n: R.nome });
           });
           var faltou = need - escolhidos.length;
           if (faltou > 0) {
@@ -307,7 +317,7 @@ function planejarRetirada_(A, pr) {
   var dIni = Math.max(pr.dIni, primeiroDiaRetirar_(A)), dFim = Math.min(pr.dFim, A.nDias);
   var sel = {};
   pr.blocos.forEach(function (b) { sel[b.hdr] = true; });
-  var out = { lista: [], avisos: [] };
+  var out = { lista: [], avisos: [], resumo: [] };
   A.blocos.forEach(function (B, bi) {
     if (!sel[B.hdr]) return;
     var antes = out.lista.length;
@@ -322,6 +332,7 @@ function planejarRetirada_(A, pr) {
       }
     });
     out.avisos.push('▸ ' + B.titulo + ': ' + (out.lista.length - antes) + ' serviço(s)');
+    out.resumo.push({ titulo: B.titulo, n: out.lista.length - antes, falta: 0 });
   });
   return out;
 }
@@ -923,6 +934,7 @@ function htmlServicos_(modo) {
     '<style>.sub{color:#5f6368;margin:-2px 0 10px}.esc{display:flex;align-items:center;justify-content:space-between;gap:8px;border-bottom:1px solid #f1f3f4;padding:5px 2px}.esc:last-child{border:0}\n' +
     '.esc label{display:flex;align-items:center;gap:8px;margin:0;flex:1;cursor:pointer}.esc input[type=checkbox]{accent-color:#1a73e8;width:15px;height:15px}\n' +
     '.gh{font-size:11px;text-transform:uppercase;color:#5f6368;letter-spacing:.4px;padding:6px 2px 2px}.vg{display:flex;align-items:center;gap:5px}.vg input{width:54px;text-align:center}\n' +
+    '.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.inf{background:#e8f0fe;color:#174ea6}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#1a73e8;color:#fff;font-weight:600;padding:0 6px}\n' +
     '.tag{font-size:10px;background:#f1f3f4;color:#5f6368;border-radius:8px;padding:1px 7px}.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}</style>\n' +
     '<h3 id="ttl"></h3><p class="sub" id="sub"></p>\n' +
     '<div class="bar"><b class="lb">Mês</b><select id="mes" onchange="carrega()"></select>\n' +
@@ -941,7 +953,7 @@ function htmlServicos_(modo) {
     '<label class="opt"><input type="checkbox" id="notas" checked> Preservar as anotações das células</label>\n' +
     '<small>Cores de afastamento nunca são apagadas.</small></details>\n' +
     '<div class="stk"><button class="p" id="bap" onclick="run(true)"></button><button onclick="run(false)">Verificar</button></div>\n' +
-    '<pre id="out" style="display:none"></pre>\n' +
+    '<div id="out" style="display:none"></div>\n' +
     '\n';
   var tail =
     '<script>\n' +
@@ -964,13 +976,30 @@ function htmlServicos_(modo) {
     ' $("blocos").innerHTML=x||"Nenhuma escala encontrada.";cont()}\n' +
     'function cont(){if(!D)return;var n=0;D.blocos.forEach(function(b,k){if($("b"+k).checked)n++});$("nb").textContent="("+n+" de "+D.blocos.length+")"}\n' +
     'function marca(v){D.blocos.forEach(function(b,k){$("b"+k).checked=v});cont()}\n' +
+    'function resp(r){var R=r.rel,o=$("out"),h="",tot=0,falta=0,av=0;o.style.display="block";o.className="";\n' +
+    'R.abas.forEach(function(a){a.escalas.forEach(function(e){tot+=e.n;falta+=e.falta||0});av+=a.avisos.length});\n' +
+    'h+="<div class=\\"ban "+(R.aplicado?"okb":"inf")+"\\"><b>"+(R.aplicado?(ADD?"✅ Serviços aplicados":"✅ Serviços retirados"):"🔎 Verificação — nada foi alterado")+"</b><br><span class=mu>"+R.abas.map(function(a){return esc(a.aba)}).join(" · ")+"</span></div>";\n' +
+    'h+="<div class=cards><div class=card><b>"+tot+"</b><span>"+(ADD?"serviço(s) escalado(s)":"serviço(s) a retirar")+"</span></div>";\n' +
+    'if(ADD)h+="<div class=\\"card"+(falta?" bad":"")+"\\"><b>"+falta+"</b><span>vaga(s) sem militar</span></div>";\n' +
+    'h+="<div class=\\"card"+(av?" bad":"")+"\\"><b>"+av+"</b><span>aviso(s)</span></div></div>";\n' +
+    'R.abas.forEach(function(a){\n' +
+    'h+="<table><tr><th>Escala</th><th>"+(ADD?"Escalados":"Serviços")+"</th>"+(ADD?"<th>Sem militar</th>":"")+"</tr>";\n' +
+    'a.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.titulo)+"</b></td><td><span class=lar>"+e.n+"</span></td>"+(ADD?"<td class=\\""+(e.falta?"erro":"mu")+"\\">"+(e.falta||"—")+"</td>":"")+"</tr>"});h+="</table>";\n' +
+    'var ex=[];if(a.fix)ex.push("♻ "+a.fix+" serviço(s) inválido(s) refeito(s) pela fórmula de folga");if(a.verdes)ex.push("🟩 "+a.verdes+" “0” verde(s) em outras escalas");if(a.prox)ex.push("➡ "+a.prox+" marcação(ões) do 2º dia do par no mês seguinte");\n' +
+    'if(ex.length)h+="<p class=mu>"+ex.map(esc).join(" · ")+"</p>";\n' +
+    'if(a.avisos.length){h+="<details open><summary class=erro>⚠ Avisos ("+a.avisos.length+")</summary><ul>";a.avisos.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul></details>"}\n' +
+    'if(a.itens&&a.itens.length){var por={},ord=[];a.itens.forEach(function(i){if(!por[i.d]){por[i.d]=[];ord.push(i.d)}por[i.d].push(i)});\n' +
+    'h+="<details><summary>Lista dia a dia ("+a.itens.length+")</summary><table><tr><th>Dia</th><th>Escala</th><th>Militar</th></tr>";\n' +
+    'ord.forEach(function(d){por[d].forEach(function(i,k){h+="<tr><td class=num>"+(k?"":d)+"</td><td class=mu>"+esc(i.t)+"</td><td>"+esc(i.n)+"</td></tr>"})});h+="</table></details>"}});\n' +
+    'if(R.aplicado)h+="<button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
+    'o.innerHTML=h;o.scrollIntoView&&o.scrollIntoView({block:"nearest"})}\n' +
     'function run(ap){var p={mesId:$("mes").value,de:$("de").value,ate:$("ate").value,blocos:[]};\n' +
     ' if(ADD){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked;p.relaxar=$("relaxar").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}\n' +
     ' D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:ADD?$("v"+k).value:0})});\n' +
     ' if(!p.blocos.length){falha("Marque ao menos uma escala.");return}\n' +
     ' if(ap&&!confirm(ADD?"Aplicar os serviços na planilha?":"Retirar os serviços marcados?"))return;\n' +
     ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando… (pode levar alguns minutos)";\n' +
-    ' google.script.run.withSuccessHandler(function(t){o.textContent=t}).withFailureHandler(falha).apiServicos(MODO,p,ap)}\n' +
+    ' google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiServicos(MODO,p,ap)}\n' +
     '</script>\n';
   return (head + JS_COMUM_ + tail).replace('{{MODO}}', function () { return modo; }).replace('{{FOLGA}}', function () { return String(CFG.FOLGA_MIN_H); });
 }
