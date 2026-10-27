@@ -26,7 +26,7 @@ Teste primeiro numa **cópia** da planilha.
 - Folga: as fórmulas existentes (`=célula anterior do mesmo tipo +1`) são mantidas; o script só grava `0` e, ao retirar, recria a fórmula.
 
 ## Premissas a confirmar
-- Intervalo de 48 h = ao menos 2 dias livres entre serviços (29 e 31 não podem juntos).
+- Folga mínima de 48 h = 2 dias inteiros livres depois do dia seguinte ao serviço (serviço dia 30 → primeiro dia possível: 3). Vale entre meses (lê as abas vizinhas).
 - Feriados: `CFG.FERIADOS_FIXOS` (nacionais fixos) e `CFG.FERIADOS_EXTRAS` (AAAA-MM-DD). Ao criar aba nova, dias vermelhos = sáb/dom/feriados dessa lista; ajuste a cor manualmente se houver feriado local.
 - Gatilho `PDU`: cria as abas do **mês corrente** se ainda não existirem; dia/data criam o **mês seguinte**.
 - Blocos `QG AD/1` só têm vaga em dias com cabeçalho laranja (carregue a Guarnição antes).
