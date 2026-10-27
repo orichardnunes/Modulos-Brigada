@@ -488,7 +488,7 @@ function gravarParada_(sh, col, h, m, verm) {
   var cel = sh.getRange(4, col), base = cel.getTextStyle(), normal = verm ? 7 : 8, fora = !(h === normal && !m);
   var tx = textoParada_(h, m) + (fora ? ' ' + PARADA_ALERTA_ : '');
   var b = SpreadsheetApp.newRichTextValue().setText(tx).setTextStyle(0, tx.length, base);
-  if (fora) b.setTextStyle(tx.length - 1, tx.length, base.copy().setForegroundColor(verm ? '#ffff00' : '#cc0000').setBold(true).build());
+  if (fora) b.setTextStyle(tx.length - 1, tx.length, base.copy().setForegroundColor(verm ? '#ffff00' : '#cc0000').setBold(false).build());
   cel.setRichTextValue(b.build());
   return { fora: fora, texto: tx };
 }
