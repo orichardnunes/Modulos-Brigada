@@ -260,13 +260,13 @@ function ajustarBlocosQG_(sh) {
   A.blocos.forEach(function (B) {
     if (B.kind !== 'qg') return;
     /* dias do cabeçalho: laranja = 21º GAC, azul = outra unidade */
-    for (var dh = 1; dh <= A.nDias; dh++) sh.getRange(B.hdr + 1, colDia_(dh) + 1).setBackground(B.gac[dh] ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
+    for (var dh = 1; dh <= A.nDias; dh++) sh.getRange(B.hdr + 1, colDia_(dh) + 1).setBackground(B.gacResumo[dh] ? CFG.COR.LARANJA : CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);
     B.rows.forEach(function (R) {
       for (var d = 1; d <= A.nDias; d++) {
         var c = colDia_(d), forma = A.forms[R.r][c], val = A.vals[R.r][c], a1 = a1_(R.r, c), vazio = forma === '' && val === '';
         var verm = vermelho_(A, B, d), bg = String(A.bgs[R.r][c]).toLowerCase();
         var neutra = [CFG.COR.BRANCO, CFG.COR.VERMELHO, CFG.COR.QG_PRETA, CFG.COR.QG_VERM, ''].indexOf(bg) >= 0;
-        if (B.gac[d] || B.todosDias) {
+        if (B.gacResumo[d] || B.todosDias) {
           if (vazio) {
             var f = formulaFolga_(A, B, R, d);
             if (!f) f = { a1: '=1' };
@@ -277,7 +277,7 @@ function ajustarBlocosQG_(sh) {
         else if (val === 0 || num_(val) === 0) preservados++;
         /* dia de outra unidade: azul-claro (escala preta) / rosa (vermelha); dia do 21º GAC volta ao branco/vermelho */
         if (neutra) {
-          var alvo = B.gac[d] ? (verm ? CFG.COR.VERMELHO : CFG.COR.BRANCO) : (verm ? CFG.COR.QG_VERM : CFG.COR.QG_PRETA);
+          var alvo = B.gacResumo[d] ? (verm ? CFG.COR.VERMELHO : CFG.COR.BRANCO) : (verm ? CFG.COR.QG_VERM : CFG.COR.QG_PRETA);
           if (alvo !== bg) (cores[alvo] = cores[alvo] || []).push(a1);
         }
       }

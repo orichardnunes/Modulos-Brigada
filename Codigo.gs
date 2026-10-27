@@ -225,6 +225,14 @@ function lerAba_(sh, mes, ano) {
     for (var dd = 1; dd <= A.nDias; dd++) {
       B.gac[dd] = B.gacRow != null ? String(A.bgs[B.gacRow][colDia_(dd)]).toLowerCase() === CFG.COR.LARANJA : !!A.gac[dd];
     }
+    /* o cabeçalho do próprio bloco (laranja = serviço do 21º GAC, azul = outra unidade) manda; se ainda estiver cinza (Guarnição não importada), vale a linha-resumo */
+    B.gacResumo = {}; for (var dr = 1; dr <= A.nDias; dr++) B.gacResumo[dr] = B.gac[dr]; /* só pela linha-resumo (usado pela importação) */
+    var nLar = 0, nAzul = 0;
+    for (var dh = 1; dh <= A.nDias; dh++) {
+      var hb = String(A.bgs[B.hdr][colDia_(dh)]).toLowerCase();
+      if (hb === CFG.COR.LARANJA) nLar++; else if (hb === CFG.COR.AZUL) nAzul++;
+    }
+    if (nLar + nAzul > 0) for (var d3 = 1; d3 <= A.nDias; d3++) B.gac[d3] = String(A.bgs[B.hdr][colDia_(d3)]).toLowerCase() === CFG.COR.LARANJA;
   });
   return A;
 }
