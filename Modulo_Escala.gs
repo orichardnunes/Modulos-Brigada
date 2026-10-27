@@ -186,7 +186,7 @@ function planejarServicos_(A, pr, proxA, antA) {
     for (var bi = 0; bi < A.blocos.length; bi++) {
       var B = A.blocos[bi], par = ehPar_(B), t = vermelho_(A, B, d) ? 1 : 0;
       var seg = par && ehSegundoPar_(A, B, d), c = colDia_(d);
-      var V = [], CL = [], INV = [], VERDE = [];
+      var V = [], CL = [], INV = [], VERDE = [], APR = []; /* APR: dia de apresentação (só pode ser escalado no dia seguinte) */
       B.rows.forEach(function (R, ri) {
         if (!participa_(A, B, R, d) || ehTexto_(A, R.r, c)) { V[ri] = undefined; return; }
         var st = ST[bi][ri], disp = num_(A.vals[R.r][c]), cl = classeCel_(A, R.r, c);
@@ -199,6 +199,7 @@ function planejarServicos_(A, pr, proxA, antA) {
         else if (inv || st.dirty[t] || disp == null) v = st.last[t] == null ? ((inv || disp == null) ? 1 : disp) : st.last[t] + 1;
         else v = disp;
         V[ri] = v; CL[ri] = cl; INV[ri] = inv; VERDE[ri] = forcado || cl === 'verde';
+        APR[ri] = String(A.bgs[R.r][c]).toLowerCase() === A.leg.apres.bg && disp !== 0;
       });
 
       var sel = plano.resumo[bi].sel && d >= dIni && d <= dFim;
@@ -249,7 +250,7 @@ function planejarServicos_(A, pr, proxA, antA) {
       function escolherDia_() {
         var elig = [], rel = [];
         B.rows.forEach(function (R, ri) {
-          if (V[ri] === undefined || V[ri] == null || V[ri] === 0 || CL[ri] === 'afast') return;
+          if (V[ri] === undefined || V[ri] == null || V[ri] === 0 || CL[ri] === 'afast' || APR[ri]) return;
           var s = svc[R.key] || {};
           if (pr.evOutra && s[d]) return;
           if (pr.evAdj && (s[d - 1] || s[d + 1])) return;
@@ -288,7 +289,8 @@ function planejarServicos_(A, pr, proxA, antA) {
         }
         var cands = [];
         B.rows.forEach(function (R, ri) {
-          if (V[ri] === undefined || V[ri] == null || V[ri] === 0 || CL[ri] === 'afast') return;
+          if (V[ri] === undefined || V[ri] == null || V[ri] === 0 || CL[ri] === 'afast' || APR[ri]) return;
+          if (!cruza && String(A.bgs[R.r][c2]).toLowerCase() === A.leg.apres.bg) return; /* 2º dia do par em dia de apresentação */
           var s = svc[R.key] || {};
           if (s[d] || s[d2]) return;
           if ((svcB[bi + '|' + R.key] || []).some(function (z) { return z >= d - 1 && z <= d2 + 1; })) return;
