@@ -44,7 +44,7 @@ function flagResumo_(A, igual, dia, prefixoBloco) {
   if (!A) return false;
   var achou = false;
   A.resumo.forEach(function (S) {
-    var lab = semAcento_(S.label);
+    var lab = baseResumo_(S.label);
     if (lab === igual && !achou) achou = String(A.bgs[S.r][colDia_(dia)]).toLowerCase() === CFG.COR.LARANJA;
   });
   if (achou || !prefixoBloco) return achou;
@@ -93,8 +93,8 @@ function PREVIA_CAL(datas, tick) {
     var dia = d.getDate(), G = carregarAbaPrevia_(ctx, d, CFG.TIPO_GRAD), C = carregarAbaPrevia_(ctx, d, CFG.TIPO_CNDT);
     var vermG = G && G.topo != null ? String(G.bgs[G.topo + 1][colDia_(dia)]).toLowerCase() === CFG.COR.VERMELHO : ehVermelhoData_(d);
     var vermC = C && C.blocos.length ? vermelho_(C, C.blocos[0], dia) : vermG;
-    var linha = [serialData_(d), flagResumo_(G, 'CMT GD GRAGOATA', dia, 'CMT GD'), flagResumo_(G, 'CB GD GRAGOATA', dia, 'CB GD'), flagResumo_(G, 'GD GRAGOATA', dia, 'SD GD'),
-      flagResumo_(G, 'MOTORISTA A POMN', dia, 'MOTORISTA'), flagResumo_(G, 'OF DIA GRAGOATA', dia, 'OF DIA'), vermG, vermC];
+    var linha = [serialData_(d), flagResumo_(G, 'CMT GD', dia, 'CMT GD'), flagResumo_(G, 'CB GD', dia, 'CB GD'), flagResumo_(G, 'GD', dia, 'SD GD'),
+      flagResumo_(G, 'MOTORISTA A POMN', dia, 'MOTORISTA'), flagResumo_(G, 'OF DIA', dia, 'OF DIA'), vermG, vermC];
     var p12 = [], p24 = [], ctrl = [], cb = [];
     if (G) {
       G.blocos.forEach(function (B) {

@@ -9,11 +9,11 @@
 
 /* ordem fixa das 5 colunas de OM da escala da Guarnição */
 var GUARNICAO_MAPA = [
-  { rotulo: 'OF DIA GRAGOATA', fonte: 'OF DE DIA' },
-  { rotulo: 'CMT GD GRAGOATA', fonte: 'CMT GD' },
-  { rotulo: 'CB GD GRAGOATA', fonte: 'CB GD' },
-  { rotulo: 'GD GRAGOATA', fonte: 'SENTINELA' },
-  { rotulo: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' }
+  { rotulo: 'OF DIA QG', chave: 'OF DIA', fonte: 'OF DE DIA' },
+  { rotulo: 'CMT GD QG', chave: 'CMT GD', fonte: 'CMT GD' },
+  { rotulo: 'CB GD QG', chave: 'CB GD', fonte: 'CB GD' },
+  { rotulo: 'SD GD QG', chave: 'GD', fonte: 'SENTINELA' },
+  { rotulo: 'MOTORISTA À POMN', chave: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' }
 ];
 
 /* ============================================================ MENU */
@@ -139,10 +139,10 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
 
   /* linhas-resumo do topo */
   var resumoPorRotulo = {};
-  A.resumo.forEach(function (S) { resumoPorRotulo[semAcento_(S.label)] = S; });
+  A.resumo.forEach(function (S) { var k = baseResumo_(S.label); if (!resumoPorRotulo[k]) resumoPorRotulo[k] = S; });
   var plano = [], texto = [], relEsc = [];
   GUARNICAO_MAPA.forEach(function (m, k) {
-    var S = resumoPorRotulo[m.rotulo];
+    var S = resumoPorRotulo[m.chave];
     if (!S) { avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
     var laranja = [], azul = [];
     dias.forEach(function (dd) {
@@ -249,8 +249,8 @@ function ajustarBlocosQG_(sh) {
   var A = lerAba_(sh), grupos = {}, avulsas = [], limpar = [], cores = {}, novos = 0, removidos = 0, preservados = 0;
   A.blocos.forEach(function (B) { /* blocos comuns (ex.: CMT GD) com cabeçalho cinza: colore pela linha-resumo correspondente */
     if (B.kind === 'qg' || String(A.bgs[B.hdr][colDia_(1)]).toLowerCase() !== CFG.COR.CINZA_CAB) return;
-    var base = semAcento_(B.titulo).trim(), S = null;
-    A.resumo.forEach(function (x) { if (!S && semAcento_(x.label).replace(/\s*GRAGOATA\s*$/, '').trim() === base) S = x; });
+    var base = baseResumo_(B.titulo), S = null;
+    A.resumo.forEach(function (x) { if (!S && baseResumo_(x.label) === base) S = x; });
     if (!S) return;
     for (var dc = 1; dc <= A.nDias; dc++) {
       var lar = String(A.bgs[S.r][colDia_(dc)]).toLowerCase() === CFG.COR.LARANJA;
@@ -328,7 +328,7 @@ function htmlImportacao_(modo, destino) {
     'else h+="<div class=card><b>"+R.qgBlocos.length+"</b><span>bloco(s) QG a ajustar</span></div>";' +
     'h+="</div>";' +
     'h+="<table><tr><th>Escala</th><th>21º GAC</th><th>%</th><th>OUTRAS OM</th><th>Dias do 21º GAC</th></tr>";' +
-    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(({"OF DIA GRAGOATA":"OF DIA QG","CMT GD GRAGOATA":"CMT GD QG","CB GD GRAGOATA":"CB GD QG","GD GRAGOATA":"SD GD QG AD","MOTORISTA A POMN":"MOTORISTA À POMN"})[e.rotulo]||e.rotulo)+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=num>"+Math.round(100*e.gac.length/Math.max(1,e.gac.length+e.outra))+"%</td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
+    'R.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.rotulo)+"</b></td><td><span class=lar>"+e.gac.length+"</span></td><td class=num>"+Math.round(100*e.gac.length/Math.max(1,e.gac.length+e.outra))+"%</td><td class=mu>"+e.outra+"</td><td class=mu>"+(e.gac.length?esc(e.gac.join(", ")):"—")+"</td></tr>"});' +
     'h+="</table>";' +
     'if(R.diverge.length){h+="<details open><summary class=erro>⚠ Tipo do dia divergente ("+R.diverge.length+")</summary><ul>";' +
     'R.diverge.forEach(function(x){h+="<li>Dia "+x.d+": Guarnição = escala "+x.fonte+", aba = escala "+x.aba+"</li>"});' +

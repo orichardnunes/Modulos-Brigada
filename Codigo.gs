@@ -215,11 +215,10 @@ function lerAba_(sh, mes, ano) {
   }
   A.blocos.forEach(function (B) {
     if (B.kind !== 'qg') return;
-    var base = semAcento_(B.titulo).replace(/\s*QG AD\/1\s*/, '').trim();
+    var base = baseResumo_(B.titulo);
     B.gacRow = null;
     A.resumo.forEach(function (S) {
-      var lab = semAcento_(S.label).replace(/\s*GRAGOATA\s*$/, '').trim();
-      if (B.gacRow == null && (lab === base || 'SD ' + lab === base)) B.gacRow = S.r;
+      if (B.gacRow == null && baseResumo_(S.label) === base) B.gacRow = S.r;
     });
     B.gac = {};
     B.todosDias = /^(CB|SD) GD/.test(semAcento_(B.titulo)); /* CB GD e SD GD (QG): a folga conta em todos os dias, mesmo nos que não são do 21º GAC */
@@ -236,6 +235,12 @@ function lerAba_(sh, mes, ano) {
     if (nLar + nAzul > 0) for (var d3 = 1; d3 <= A.nDias; d3++) B.gac[d3] = String(A.bgs[B.hdr][colDia_(d3)]).toLowerCase() === CFG.COR.LARANJA;
   });
   return A;
+}
+
+/** chave de uma linha-resumo do topo / título de bloco QG: aceita "OF DIA GRAGOATÁ" (antigo) e "OF DIA QG" (atual); "SD GD" = "GD" */
+function baseResumo_(txt) {
+  var b = semAcento_(txt).replace(/\s*QG AD\/1\s*$/, '').replace(/\s*(GRAGOATA|QG)\s*$/, '').trim();
+  return b === 'SD GD' ? 'GD' : b;
 }
 
 function diaDe_(v) { /* célula de cabeçalho -> nº do dia (aceita Date) */
@@ -431,7 +436,7 @@ function mnuSobre() {
     '<h2>📥 Importar escala da Guarnição</h2>' +
     '<p><b>Aba de destino:</b> escolhida numa lista dentro da própria janela de importação (vem selecionada a aba “&lt;Mês&gt; Grad” aberta). <b>Via Google Drive:</b> lê direto a planilha da Guarnição (acha a aba pelo título “ESCALAS DE SERVIÇO – MÊS DE ANO”, mesmo que o nome da aba esteja desatualizado). ' +
     '<b>Via documento:</b> PDF, xlsx, xls, ods ou csv; mostra a tabela lida, onde você corrige qualquer célula e o tipo (PRETA/VERM) antes de aplicar. ' +
-    'A importação pinta as linhas OF DIA / CMT GD / CB GD / GD GRAGOATÁ / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
+    'A importação pinta as linhas OF DIA QG / CMT GD QG / CB GD QG / SD GD QG / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
     'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
     '<h2>📅 Prévia semanal</h2>' +
     '<p><b>Adicionar prévia:</b> escolha a semana na lista (quarta a terça; a sugerida vem marcada); o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +

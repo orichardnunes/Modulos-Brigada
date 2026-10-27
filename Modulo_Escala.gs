@@ -813,11 +813,11 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
     escreverCabecalho_(novo, N, N.topo, mes, ano, n, dm, grad ? CFG.COR.CINZA_CAB : CFG.COR.AZUL);
 /* linhas-resumo do topo (OF DIA, CMT GD ... Gragoatá) */
     var rotImp = {};
-    GUARNICAO_MAPA.forEach(function (m) { rotImp[m.rotulo] = true; });
+    GUARNICAO_MAPA.forEach(function (m) { rotImp[m.chave] = true; });
     for (var i = N.topo + 2; i < primeiroBloco; i++) {
       if (diaDe_(N.vals[i][colDia_(1)]) == null || String(N.vals[i].slice(0, 5).join('')).trim() === '') continue;
       var vals = [], lab = '';
-      for (var cc = 0; cc <= 4 && !lab; cc++) lab = semAcento_(N.vals[i][cc]);
+      for (var cc = 0; cc <= 4 && !lab; cc++) lab = baseResumo_(N.vals[i][cc]);
       var comoData = N.vals[i][colDia_(1)] instanceof Date; /* célula formatada como data: o dia 1 é a data de verdade (1/mês/ano), exibida só como o número do dia */
       for (var d = 1; d <= n; d++) vals.push(d === 1 ? (comoData ? new Date(ano, mes, 1) : 1) : '=' + a1_(i, colDia_(d - 1)) + '+1');
       var rgS = novo.getRange(i + 1, F1, 1, n).setValues([vals]);
