@@ -391,7 +391,7 @@ function mnuSobre() {
     '<li>Cabeçalho do topo: laranja = dia do 21º GAC na escala da Guarnição; azul = outra unidade; cinza = ainda não carregado.</li></ul>' +
     '<h3>Regras que o módulo respeita</h3><ul>' +
     '<li>Adicionar serviços nunca mexe em dias até hoje; retirar vale de hoje em diante.</li>' +
-    '<li>Folga mínima entre dois serviços do mesmo militar (em qualquer escala e entre meses): 48 h (padrão) = serviço no dia 30, primeiro dia possível 3.</li>' +
+    '<li>Folga mínima entre dois serviços do mesmo militar (em qualquer escala e entre meses): 48 h (padrão) = 2 dias livres (serviço no dia 14, primeiro dia possível 17).</li>' +
     '<li>Não escala quem está de afastamento, já de serviço em outra escala no dia, ou de serviço no dia anterior/seguinte (as duas últimas podem ser desligadas).</li>' +
     '<li>Nenhuma função apaga fórmula de folga por conta própria: o “0” volta a ser fórmula quando o serviço é retirado.</li></ul>' +
     '<h3>Cuidados gerais</h3><ul>' +

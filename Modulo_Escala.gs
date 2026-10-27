@@ -112,8 +112,8 @@ function apiServicos(modo, p, aplicar) {
 function planejarServicos_(A, pr, proxA, antA) {
   var n = A.nDias, hoje1 = primeiroDiaAdicionar_(A);
   var dIni = Math.max(pr.dIni, hoje1), dFim = Math.min(pr.dFim, n);
-  /* serviço de 24h: 48 h de folga = 2 dias inteiros livres depois do dia seguinte ao serviço (30/10 → primeiro dia possível 3/11) */
-  var gapMin = Math.ceil(pr.folgaH / 24) + 2;
+  /* folga de 48 h = 2 dias livres entre os serviços (serviço dia 14 → primeiro dia possível 17) */
+  var gapMin = Math.ceil(pr.folgaH / 24) + 1;
   var vagasDe = {};
   pr.blocos.forEach(function (b) { vagasDe[b.hdr] = b.vagas; });
   var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [], itens: [] };
@@ -264,7 +264,7 @@ function planejarServicos_(A, pr, proxA, antA) {
           rel.slice(0, need - out.length).forEach(function (x) {
             out.push(x);
             plano.avisos.push(('0' + d).slice(-2) + '/' + ('0' + (A.mes + 1)).slice(-2) + ' ' + B.titulo + ': ' + B.rows[x.ri].nome +
-              ' só ' + (Math.max(0, x.md - 2) * 24) + ' h de folga.');
+              ' só ' + (Math.max(0, x.md - 1) * 24) + ' h de folga.');
           });
         }
         return out;
