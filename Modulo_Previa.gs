@@ -472,3 +472,96 @@ function mnuAdicionarPrevia() {
     'google.script.run.withSuccessHandler(resp).withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message;$("ok").disabled=false}).apiCriarPrevia(v)}</script>';
   mostrarHtml_(h, 'Adicionar prévia', 520, 560);
 }
+
+/* ============================================================ HORÁRIO DA PARADA DIÁRIA */
+var PARADA_ALERTA_ = '⚠';
+
+function textoParada_(h, m) { return 'PARADA DIÁRIA: ' + h + 'h' + (m ? ('0' + m).slice(-2) : ''); }
+
+function lerParada_(txt) { /* "PARADA DIÁRIA: 7h30 ⚠" -> {h, m} */
+  var x = /(\d{1,2})\s*h\s*(\d{2})?/i.exec(String(txt));
+  return x ? { h: Number(x[1]), m: x[2] ? Number(x[2]) : 0 } : null;
+}
+
+/** grava o horário na linha 4 da coluna col (1-based); fora do normal, acrescenta ⚠ (vermelho na escala preta, amarelo na vermelha) */
+function gravarParada_(sh, col, h, m, verm) {
+  var cel = sh.getRange(4, col), base = cel.getTextStyle(), normal = verm ? 7 : 8, fora = !(h === normal && !m);
+  var tx = textoParada_(h, m) + (fora ? ' ' + PARADA_ALERTA_ : '');
+  var b = SpreadsheetApp.newRichTextValue().setText(tx).setTextStyle(0, tx.length, base);
+  if (fora) b.setTextStyle(tx.length - 1, tx.length, base.copy().setForegroundColor(verm ? '#ffff00' : '#cc0000').setBold(true).build());
+  cel.setRichTextValue(b.build());
+  return { fora: fora, texto: tx };
+}
+
+function previasEditaveis_() { /* semana atual ou posteriores, nunca anteriores */
+  var hoje = new Date(), h0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate()), out = [];
+  abasPrevia_().forEach(function (sh) {
+    if (sh.isSheetHidden() || /Modelo/i.test(sh.getName())) return;
+    var v = sh.getRange('C2').getValue();
+    if (!(v instanceof Date)) return;
+    var ini = new Date(v.getFullYear(), v.getMonth(), v.getDate()), fim = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + 6);
+    if (fim < h0) return;
+    out.push({ nome: sh.getName(), ini: ini.getTime(), rotulo: rotuloSemana_(ini), atual: ini <= h0 && h0 <= fim });
+  });
+  out.sort(function (a, b) { return a.ini - b.ini; });
+  return out;
+}
+
+function apiParadaPrevias() { return previasEditaveis_(); }
+
+function apiParadaDias(nome) {
+  var sh = ss_().getSheetByName(nome);
+  if (!sh) throw new Error('Aba "' + nome + '" não encontrada.');
+  var datas = datasPrevia_(sh), bg = sh.getRange(2, 3, 1, 7).getBackgrounds()[0], tx = sh.getRange(4, 3, 1, 7).getValues()[0];
+  return datas.map(function (d, i) {
+    var verm = String(bg[i]).toLowerCase() === PREVIA_COR.CAB_VERMELHO, p = lerParada_(tx[i]) || { h: verm ? 7 : 8, m: 0 };
+    return { col: 3 + i, d: ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2), sem: CFG.DIAS[d.getDay()], verm: verm,
+      h: p.h, m: p.m, padrao: verm ? '07:00' : '08:00', atual: ('0' + p.h).slice(-2) + ':' + ('0' + p.m).slice(-2) };
+  });
+}
+
+/** itens: [{col, h, m}] */
+function apiDefinirParada(nome, itens) {
+  var sh = ss_().getSheetByName(nome);
+  if (!sh) throw new Error('Aba "' + nome + '" não encontrada.');
+  if (!previasEditaveis_().some(function (x) { return x.nome === nome; })) throw new Error('Só é possível alterar a prévia da semana atual ou de semanas posteriores.');
+  if (!itens || !itens.length) throw new Error('Marque ao menos um dia.');
+  var dias = apiParadaDias(nome), rel = [];
+  itens.forEach(function (it) {
+    var h = Number(it.h), m = Number(it.m) || 0;
+    if (isNaN(h) || h < 0 || h > 23 || m < 0 || m > 59) throw new Error('Horário inválido.');
+    var dia = dias.filter(function (x) { return x.col === Number(it.col); })[0];
+    if (!dia) return;
+    var r = gravarParada_(sh, dia.col, h, m, dia.verm);
+    rel.push({ d: dia.d, sem: dia.sem, verm: dia.verm, antes: textoParada_(dia.h, dia.m).replace('PARADA DIÁRIA: ', ''), depois: textoParada_(h, m).replace('PARADA DIÁRIA: ', ''), fora: r.fora });
+  });
+  SpreadsheetApp.flush();
+  return { nome: nome, itens: rel };
+}
+
+function mnuDefinirParada() {
+  var h = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#5f6368;color:#fff;font-weight:600;padding:0 8px}.lar.vm{background:#cc0000}' +
+    '.dia{display:flex;align-items:center;gap:10px;border-bottom:1px solid #f1f3f4;padding:6px 2px}.dia input[type=checkbox]{accent-color:#1a73e8;width:15px;height:15px}.dia .n{width:78px;font-weight:600}.dia .at{width:70px;color:#80868b}' +
+    '.al{font-weight:700;font-size:15px}.al.pr{color:#cc0000}.al.vm{color:#e6b800;background:#cc0000;border-radius:6px;padding:0 4px}</style>' +
+    '<h3 style="margin-top:0">Definir horário da parada diária</h3>' +
+    '<p style="color:#5f6368;margin:2px 0 8px">Escolha a prévia (semana atual ou posterior) e os dias a alterar. Fora do horário normal (escala preta 8h, vermelha 7h), aparece ⚠ ao lado: <b style="color:#cc0000">vermelho</b> na escala preta e <b style="background:#cc0000;color:#ffff00;padding:0 4px;border-radius:4px">amarelo</b> na vermelha.</p>' +
+    '<div class="bar"><b class="lb" style="min-width:0">Prévia</b><select id="pv" onchange="dias()"></select></div>' +
+    '<div id="dias" style="margin:6px 0">Carregando…</div>' +
+    '<div id="acoes"><button class="p" id="ok" onclick="aplicar()">Aplicar</button><button onclick="google.script.host.close()">Cancelar</button></div>' +
+    '<div id="out" style="margin-top:10px"></div>' +
+    '<script>function $(i){return document.getElementById(i)}function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}var D=[];' +
+    'function falha(e){$("out").className="erro";$("out").textContent="ERRO: "+(e&&e.message?e.message:e)}' +
+    'google.script.run.withSuccessHandler(function(l){if(!l.length){$("dias").textContent="Nenhuma prévia da semana atual ou posterior.";$("ok").disabled=true;return}var h="";l.forEach(function(p){h+="<option value=\\""+esc(p.nome)+"\\">"+esc(p.nome)+(p.atual?" (atual)":"")+"</option>"});$("pv").innerHTML=h;dias()}).withFailureHandler(falha).apiParadaPrevias();' +
+    'function dias(){$("dias").textContent="Carregando…";google.script.run.withSuccessHandler(function(r){D=r;var h="";r.forEach(function(x,i){' +
+    'h+="<div class=dia><input type=checkbox id=c"+i+" onchange=\\"$(\'t\'+"+i+").disabled=!this.checked\\"><span class=n>"+x.d+" "+x.sem+"</span><span class=\\"lar"+(x.verm?" vm":"")+"\\">"+(x.verm?"vermelha":"preta")+"</span><span class=at>atual "+x.atual+"</span>"+' +
+    '"<input type=time id=t"+i+" value="+x.atual+" disabled><span class=mu style=\\"cursor:pointer;color:#1a73e8\\" onclick=\\"$(\'t"+i+"\').value=\'"+x.padrao+"\'\\">padrão ("+x.padrao+")</span></div>"});$("dias").innerHTML=h}).withFailureHandler(falha).apiParadaDias($("pv").value)}' +
+    'function aplicar(){var it=[];D.forEach(function(x,i){if($("c"+i).checked){var v=$("t"+i).value.split(":");it.push({col:x.col,h:v[0],m:v[1]})}});if(!it.length){falha("Marque ao menos um dia.");return}' +
+    '$("ok").disabled=true;$("out").className="";$("out").textContent="Aplicando…";google.script.run.withSuccessHandler(resp).withFailureHandler(function(e){$("ok").disabled=false;falha(e)}).apiDefinirParada($("pv").value,it)}' +
+    'function resp(r){var fo=r.itens.filter(function(x){return x.fora}).length,h="";$("dias").style.display="none";$("acoes").style.display="none";' +
+    'h+="<div class=\\"ban okb\\"><b>✅ Horário definido</b><br><span class=mu>"+esc(r.nome)+"</span></div>";' +
+    'h+="<div class=cards><div class=card><b>"+r.itens.length+"</b><span>dia(s) alterado(s)</span></div><div class=card><b>"+fo+"</b><span>fora do horário normal (⚠)</span></div></div>";' +
+    'h+="<table><tr><th>Dia</th><th>Escala</th><th>Antes</th><th>Agora</th></tr>";' +
+    'r.itens.forEach(function(x){h+="<tr><td class=num>"+x.d+" <span class=mu>"+x.sem+"</span></td><td><span class=\\"lar"+(x.verm?" vm":"")+"\\">"+(x.verm?"vermelha":"preta")+"</span></td><td class=mu>"+x.antes+"</td><td><b>"+x.depois+"</b>"+(x.fora?" <span class=\\"al "+(x.verm?"vm":"pr")+"\\">⚠</span>":"")+"</td></tr>"});' +
+    '$("out").className="";$("out").innerHTML=h+"</table><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>"}</script>';
+  mostrarHtml_(h, 'Definir horário da parada diária', 540, 600);
+}
