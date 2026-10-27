@@ -387,7 +387,7 @@ function criarPrevia_(ini) {
   if (!modelo) throw new Error('A aba "Prévia - Modelo" não existe.');
   var nome = nomePrevia_(ini);
   if (ss.getSheetByName(nome)) throw new Error('A aba "' + nome + '" já existe.');
-  var sh = modelo.copyTo(ss);
+  var sh = modelo.copyTo(ss), avisos = [];
   try {
     sh.setName(nome);
     sh.showSheet();
@@ -407,10 +407,18 @@ function criarPrevia_(ini) {
     ss.setActiveSheet(sh);
     ss.moveActiveSheet(primeira ? primeira.getIndex() : ss.getNumSheets());
     migrarPrevia_(sh);
-    atualizarExternosPrevia_(sh, true);
+    var ax = atualizarExternosPrevia_(sh, true);
+    avisos = ax.avisos || [];
   } catch (e) { ss.deleteSheet(sh); throw e; }
   SpreadsheetApp.flush();
-  return nome;
+  Utilities.sleep(2000); /* tempo para o IMPORTRANGE carregar antes de contar as pendências */
+  var pend = { n: 0, linhas: {} };
+  try { pend = pendenciasPrevia_(sh); } catch (e) { /* o relatório segue sem a contagem */ }
+  var flags = vermelhoFlags_(ini), dias = flags.map(function (v, i) {
+    var dt = new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i);
+    return { d: ('0' + dt.getDate()).slice(-2) + '/' + ('0' + (dt.getMonth() + 1)).slice(-2), sem: CFG.DIAS[dt.getDay()], verm: v, parada: v ? '7h' : '8h' };
+  });
+  return { nome: nome, rotulo: rotuloSemana_(ini), dias: dias, avisos: avisos, pend: pend.n, pendLinhas: Object.keys(pend.linhas).map(function (k) { return k + ' (' + pend.linhas[k].join(', ').replace(/\s+/g, ' ') + ')'; }) };
 }
 
 function rotuloSemana_(ini) {
@@ -434,25 +442,33 @@ function apiPreviaSemanas() {
   return out;
 }
 
-function apiCriarPrevia(iso) {
-  var nome = criarPrevia_(parseIso_(iso));
-  return 'Prévia "' + nome + '" criada, com as colunas de sábado, domingo e feriado em vermelho.';
-}
+function apiCriarPrevia(iso) { return criarPrevia_(parseIso_(iso)); }
 
 function mnuAdicionarPrevia() {
   var h = '<style>.g{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.w{border:1px solid #dadce0;border-radius:10px;padding:9px 12px;cursor:pointer;position:relative;margin:0}' +
     '.w:has(input:checked){border-color:#1a73e8;background:#e8f0fe}.w input{display:none}.w b{display:block;font-size:15px}.w small{color:#5f6368}' +
     '.w.ex{opacity:.45;cursor:not-allowed;background:#f1f3f4}.tag{position:absolute;right:8px;top:8px;font-size:10px;border-radius:8px;padding:1px 7px;background:#e6f4ea;color:#137333}' +
-    '.tag.at{background:#fef7e0;color:#b06000}.tag.cx{background:#f1f3f4;color:#5f6368}.ano{grid-column:1/-1;color:#5f6368;font-size:11px;text-transform:uppercase;margin-top:4px}</style>' +
-    '<h3 style="margin-top:0">Adicionar prévia semanal</h3><p style="color:#5f6368;margin:2px 0">Escolha a semana (quarta a terça). A aba é criada a partir de “Prévia - Modelo”.</p>' +
-    '<div class="g" id="g">Carregando…</div><button class="p" id="ok" disabled onclick="criar()">Criar prévia</button><button onclick="google.script.host.close()">Cancelar</button>' +
-    '<pre id="out" style="display:none"></pre>' +
+    '.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.lar{display:inline-block;min-width:22px;text-align:center;border-radius:10px;background:#5f6368;color:#fff;font-weight:600;padding:0 8px}.lar.vm{background:#cc0000}.tag.at{background:#fef7e0;color:#b06000}.tag.cx{background:#f1f3f4;color:#5f6368}.ano{grid-column:1/-1;color:#5f6368;font-size:11px;text-transform:uppercase;margin-top:4px}</style>' +
+    '<h3 style="margin-top:0">Adicionar prévia semanal</h3><p id="sub" style="color:#5f6368;margin:2px 0">Escolha a semana (quarta a terça). A aba é criada a partir de “Prévia - Modelo”.</p>' +
+    '<div class="g" id="g">Carregando…</div><button class="p" id="ok" disabled onclick="criar()">Criar prévia</button><button id="cancel" onclick="google.script.host.close()">Cancelar</button>' +
+    '<div id="out" style="display:none;margin-top:10px"></div>' +
     '<script>function $(i){return document.getElementById(i)}var ESC=null;' +
     'google.script.run.withSuccessHandler(function(l){var h="",ano=0;l.forEach(function(s,i){if(s.ano!==ano){ano=s.ano;h+="<div class=ano>"+ano+"</div>"}' +
     'h+="<label class=\\"w"+(s.existe?" ex":"")+"\\"><input type=radio name=s value="+s.iso+(s.existe?" disabled":"")+(s.sugerida?" checked":"")+" onchange=sel()><b>"+s.rotulo+"</b><small>"+(s.atual?"semana atual":"quarta a terça")+"</small>"+' +
     '(s.existe?"<span class=\\"tag cx\\">já criada</span>":s.sugerida?"<span class=tag>sugerida</span>":s.atual?"<span class=\\"tag at\\">atual</span>":"")+"</label>"});$("g").innerHTML=h;sel()}).apiPreviaSemanas();' +
     'function sel(){$("ok").disabled=!document.querySelector("input[name=s]:checked")}' +
-    'function criar(){var v=document.querySelector("input[name=s]:checked").value;$("ok").disabled=true;$("out").style.display="block";$("out").textContent="Criando…";' +
-    'google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},2200)}).withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message;$("ok").disabled=false}).apiCriarPrevia(v)}</script>';
+    'function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}' +
+    'function resp(r){var h="",nv=r.dias.filter(function(x){return x.verm}).length;$("g").style.display="none";$("ok").style.display="none";$("cancel").style.display="none";$("sub").style.display="none";' +
+    'var o=$("out");o.style.display="block";o.className="";' +
+    'h+="<div class=\\"ban okb\\"><b>✅ Prévia criada</b><br><span class=mu>"+esc(r.nome)+" · semana "+esc(r.rotulo)+"</span></div>";' +
+    'h+="<div class=cards><div class=card><b>7</b><span>dias (quarta a terça)</span></div><div class=card><b>"+nv+"</b><span>dia(s) de escala vermelha</span></div><div class=\\"card"+(r.pend?" bad":"")+"\\"><b>"+r.pend+"</b><span>célula(s) pendente(s)</span></div></div>";' +
+    'h+="<table><tr><th>Dia</th><th>Semana</th><th>Escala</th><th>Parada diária</th></tr>";' +
+    'r.dias.forEach(function(x){h+="<tr><td class=num>"+x.d+"</td><td>"+esc(x.sem)+"</td><td><span class=\\""+(x.verm?"lar vm":"lar")+"\\">"+(x.verm?"vermelha":"preta")+"</span></td><td class=mu>"+x.parada+"</td></tr>"});h+="</table>";' +
+    'if(r.pend){h+="<details open><summary class=erro>Pendências ("+r.pend+")</summary><ul>";r.pendLinhas.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul><p class=mu>Sgt Dia e Manobreiro leem os arquivos externos: se continuarem PENDENTE, clique nas células cinzas J2:J3 e escolha “Permitir acesso”. Depois use “Atualizar prévia”.</p></details>"}' +
+    'if(r.avisos.length){h+="<details open><summary class=erro>⚠ Avisos ("+r.avisos.length+")</summary><ul>";r.avisos.forEach(function(a){h+="<li>"+esc(a)+"</li>"});h+="</ul></details>"}' +
+    'h+="<p class=mu>A célula J1 da prévia mostra a hora da última atualização feita pelo script.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";' +
+    'o.innerHTML=h}' +
+    'function criar(){var v=document.querySelector("input[name=s]:checked").value;$("ok").disabled=true;$("out").style.display="block";$("out").textContent="Criando a prévia… (pode levar alguns segundos)";' +
+    'google.script.run.withSuccessHandler(resp).withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message;$("ok").disabled=false}).apiCriarPrevia(v)}</script>';
   mostrarHtml_(h, 'Adicionar prévia', 520, 560);
 }
