@@ -372,7 +372,15 @@ function atualizarTabelasOnChange() {
   if (agora - Number(props.getProperty('PV_ULT') || 0) < 20000) return;
   props.setProperty('PV_ULT', String(agora));
   abasPrevia_().forEach(function (sh) {
-    if (sh.isSheetHidden() || /Modelo/i.test(sh.getName())) return;
+    if (sh.isSheetHidden()) return; /* inclui a "Prévia - Modelo" */
+    try { atualizarTabelasInternas_(sh); } catch (e) { Logger.log(sh.getName() + ': ' + e.message); }
+  });
+}
+
+/* cores e anotações (trocas) das escalas da própria planilha: edição de anotação não dispara "onChange", então um gatilho leve a cada 5 min garante o lançamento */
+function atualizarTrocasTrigger() {
+  abasPrevia_().forEach(function (sh) {
+    if (sh.isSheetHidden()) return;
     try { atualizarTabelasInternas_(sh); } catch (e) { Logger.log(sh.getName() + ': ' + e.message); }
   });
 }
@@ -381,6 +389,9 @@ function garantirTriggerExternos_() {
   var tr = ScriptApp.getProjectTriggers(), novo = false;
   if (!tr.some(function (t) { return t.getHandlerFunction() === 'atualizarExternosTrigger'; })) {
     ScriptApp.newTrigger('atualizarExternosTrigger').timeBased().everyMinutes(10).create(); novo = true;
+  }
+  if (!tr.some(function (t) { return t.getHandlerFunction() === 'atualizarTrocasTrigger'; })) {
+    ScriptApp.newTrigger('atualizarTrocasTrigger').timeBased().everyMinutes(5).create(); novo = true;
   }
   if (!tr.some(function (t) { return t.getHandlerFunction() === 'atualizarTabelasOnChange'; })) {
     ScriptApp.newTrigger('atualizarTabelasOnChange').forSpreadsheet(SpreadsheetApp.getActiveSpreadsheet()).onChange().create(); novo = true;

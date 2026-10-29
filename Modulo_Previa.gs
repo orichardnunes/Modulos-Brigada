@@ -364,7 +364,7 @@ function mnuAtualizarPrevia() {
     if (!pend.length && existentes.length) h += '<p class="mu">Abas de cache que não são mais usadas (pode apagá-las): ' + esc_(existentes.join(', ')) + '.</p>';
     h += '<details><summary>Como a prévia se mantém atualizada</summary><ul>' +
       '<li><b>Escalas da própria planilha:</b> tempo real (fórmulas).</li>' +
-      '<li><b>Cores e anotações</b> (portões, CB DIA, trocas): a cada alteração da planilha (até 1x a cada 20 s).</li>' +
+      '<li><b>Cores e anotações</b> (portões, CB DIA, trocas): a cada alteração da planilha (até 1x a cada 20 s) e a cada 5 min — anotação nova não dispara o aviso de alteração, então pode levar até 5 min ou use “Atualizar prévia”.</li>' +
       '<li><b>Of Dia, Atendimento e trocas dos arquivos externos:</b> lidos por script a cada 10 min' + (novoGatilho ? ' <i>(gatilho criado agora)</i>' : '') + ', ou ao rodar esta função.</li>' +
       '<li><b>Sgt Dia e Manobreiro:</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J3 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
       '<li>Em cada prévia, a célula <b>J1</b> (cinza, à direita da tabela) mostra a hora da última atualização feita pelo script.</li></ul></details>' +
