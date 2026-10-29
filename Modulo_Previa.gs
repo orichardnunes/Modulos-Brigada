@@ -242,8 +242,11 @@ function ajustarFormulaPrevia_(f) { return estenderDia31_(cbDiaParaX_(opcionaisP
 
 /* ============================================================ PERMANÊNCIA PNR (escala na aba Grad, em tempo real) */
 function fxPermanencia_(L) {
+  /* título do bloco ("PERMANÊNCIA PNR"): procura nas colunas E, D, B, C e A; primeiro o texto completo, depois só "PNR" */
+  var lblPnr = 'NA()', cols = ['A', 'C', 'B', 'D', 'E'], pad = ['*PNR*', '*PERMAN*PNR*'];
+  pad.forEach(function (pt) { cols.forEach(function (c) { lblPnr = 'IFERROR(MATCH("' + pt + '",INDIRECT("\'"&aba&"\'!' + c + ':' + c + '"),0),' + lblPnr + ')'; }); });
   return '=IFERROR(LET(d,' + L + '$2,aba,CHOOSE(MONTH(d),"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez")&" Grad",col,DAY(d)+5,' +
-    'lbl,IFERROR(MATCH("*PNR*",INDIRECT("\'"&aba&"\'!B:B"),0),IFERROR(MATCH("*PNR*",INDIRECT("\'"&aba&"\'!A:A"),0),MATCH("*PNR*",INDIRECT("\'"&aba&"\'!C:C"),0))),' +
+    'lbl,' + lblPnr + ',' +
     'faixa,INDIRECT("\'"&aba&"\'!E"&(lbl+2)&":E"&(lbl+61)),' +
     'fim,IFERROR(MATCH(TRUE,ARRAYFORMULA(TRIM(faixa)=""),0),60)-1,' +
     'nomes,INDIRECT("\'"&aba&"\'!E"&(lbl+2)&":E"&(lbl+1+fim)),' +
