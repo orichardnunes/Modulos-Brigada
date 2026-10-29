@@ -242,8 +242,8 @@ function ajustarFormulaPrevia_(f) { return estenderDia31_(cbDiaParaX_(opcionaisP
 
 /* ============================================================ PERMANÊNCIA PNR (escala na aba Grad, em tempo real) */
 function fxPermanencia_(L) {
-  /* título do bloco ("PERMANÊNCIA PNR"): procura nas colunas E, D, B, C e A; primeiro o texto completo, depois só "PNR" */
-  var lblPnr = 'NA()', cols = ['A', 'C', 'B', 'D', 'E'], pad = ['*PNR*', '*PERMAN*PNR*'];
+  /* título do bloco ("PERMANÊNCIA PNR"): procura nas colunas E, D, B, C e A; somente o texto "PERMANÊNCIA PNR" (sem aceitar outros blocos com PNR) */
+  var lblPnr = 'NA()', cols = ['A', 'C', 'B', 'D', 'E'], pad = ['*PERMAN*PNR*']; /* só o título completo: "PNR ARARIBOIA" é outra escala */
   pad.forEach(function (pt) { cols.forEach(function (c) { lblPnr = 'IFERROR(MATCH("' + pt + '",INDIRECT("\'"&aba&"\'!' + c + ':' + c + '"),0),' + lblPnr + ')'; }); });
   return '=IFERROR(LET(d,' + L + '$2,aba,CHOOSE(MONTH(d),"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez")&" Grad",col,DAY(d)+5,' +
     'lbl,' + lblPnr + ',' +
