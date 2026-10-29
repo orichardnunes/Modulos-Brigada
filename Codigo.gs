@@ -441,7 +441,7 @@ function mnuSobre() {
     '<h2>📅 Prévia semanal</h2>' +
     '<p><b>Adicionar prévia:</b> escolha a semana na lista (quarta a terça; a sugerida vem marcada); o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +
     '<b>Atualizar prévia:</b> religa as fórmulas à planilha (sem abas de cache) e ativa o recálculo a cada minuto. ' +
-    'As escalas feitas na própria planilha (ADJ OF DIA, CMT GD, CH PI, CB GD, AUX PI, Condutor, Supervisor, QG AD/1…) são lidas direto das abas do mês em tempo real. ' +
+    'As escalas feitas na própria planilha (PERMANÊNCIA PNR — bloco “PNR” da aba Grad, com trocas —, ADJ OF DIA, CMT GD, CH PI, CB GD, AUX PI, Condutor, Supervisor, QG AD/1…) são lidas direto das abas do mês em tempo real. ' +
     'Cores e anotações — portões (azul-claro 12h / azul-escuro 24h), CB DIA por posição e trocas de serviço (“*”, nota da célula) — são lidos por script e gravados em colunas ocultas da própria prévia: a cada alteração da planilha (no máximo 1 vez a cada 20 s), a cada 10 min e ao usar Atualizar prévia. Serviços opcionais sem ninguém (Condutor, Controle de acesso, Supervisor e CB DIA com menos vagas) aparecem como X. ' +
     'Sgt Dia, Manobreiro e Atendimento vêm por IMPORTRANGE (tempo real; o Google pede “Permitir acesso” uma vez por arquivo). Of Dia (cor da célula) e as trocas anotadas nesses arquivos são lidos por um gatilho a cada 10 min e ficam em colunas ocultas da prévia; as abas *_CACHE podem ser apagadas depois de Atualizar prévia.</p>' +
     '<h2>✅ Verificação do sistema</h2><p>Confere se todas as funções estão instaladas no projeto, se a legenda foi lida e quais abas mensais existem. Use depois de colar/atualizar o código.</p>';
@@ -454,7 +454,7 @@ function mnuVerificarSistema() {
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
-    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'atualizarExternosTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
+    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',

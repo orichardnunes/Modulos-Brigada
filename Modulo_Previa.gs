@@ -239,6 +239,31 @@ function estenderDia31_(f) { return /IMPORTRANGE/i.test(f) ? f.replace(/:AH(?=")
 
 function ajustarFormulaPrevia_(f) { return estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f))))); }
 
+
+/* ============================================================ PERMANÊNCIA PNR (escala na aba Grad, em tempo real) */
+function fxPermanencia_(L) {
+  return '=IFERROR(LET(d,' + L + '$2,aba,CHOOSE(MONTH(d),"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez")&" Grad",col,DAY(d)+5,' +
+    'lbl,IFERROR(MATCH("*PNR*",INDIRECT("\'"&aba&"\'!B:B"),0),IFERROR(MATCH("*PNR*",INDIRECT("\'"&aba&"\'!A:A"),0),MATCH("*PNR*",INDIRECT("\'"&aba&"\'!C:C"),0))),' +
+    'faixa,INDIRECT("\'"&aba&"\'!E"&(lbl+2)&":E"&(lbl+61)),' +
+    'fim,IFERROR(MATCH(TRUE,ARRAYFORMULA(TRIM(faixa)=""),0),60)-1,' +
+    'nomes,INDIRECT("\'"&aba&"\'!E"&(lbl+2)&":E"&(lbl+1+fim)),' +
+    'valores,INDIRECT("\'"&aba&"\'!"&ADDRESS(lbl+2,col)&":"&ADDRESS(lbl+1+fim,col)),' +
+    'sel,IFERROR(FILTER(nomes,valores=0),""),' +
+    'IF(INDEX(sel,1)="","X",TEXTJOIN(" / ",TRUE,MAP(sel,LAMBDA(n,' +
+    'IFERROR(INDEX($AI$2:$AI$400,MATCH(1,ARRAYFORMULA(($AG$2:$AG$400=d)*($AH$2:$AH$400=TRIM(n))),0)),REGEXREPLACE(TRIM(n)," *\\(.*\\) *$",""))))))),"PENDENTE")';
+}
+
+/** preenche a linha "PERMANÊNCIA PNR" da prévia (C:I) com a fórmula que lê o bloco PNR da aba Grad do mês */
+function preencherPermanencia_(sh) {
+  var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 2).getValues(), achou = 0;
+  for (var r = 3; r < lr; r++) {
+    if (semAcento_(v[r][0] + ' ' + v[r][1]).indexOf('PERMANENCIA PNR') >= 0) { achou = r + 1; break; }
+  }
+  if (!achou) return false;
+  for (var c = 0; c < 7; c++) sh.getRange(achou, 3 + c).setFormula(localizarFormula_(fxPermanencia_(colLetra_(2 + c))));
+  return true;
+}
+
 /** Troca as referências às abas CAL/TROCAS/ESCALADOS_CACHE por fórmulas locais. Devolve {alteradas, externas[]}. */
 function migrarPrevia_(sh) {
   var lr = sh.getLastRow(), rg = sh.getRange(1, 1, lr, 9), forms = rg.getFormulas(), alteradas = 0, externas = {};
@@ -253,6 +278,7 @@ function migrarPrevia_(sh) {
     }
   }
   instalarAuxPrevia_(sh);
+  try { preencherPermanencia_(sh); } catch (e) { Logger.log('Permanência PNR: ' + e.message); }
   return { alteradas: alteradas, externas: Object.keys(externas) };
 }
 
