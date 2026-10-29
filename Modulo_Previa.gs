@@ -251,7 +251,7 @@ function fxPermanencia_(L) {
     'fim,IFERROR(MATCH(TRUE,ARRAYFORMULA(TRIM(faixa)=""),0),60)-1,' +
     'nomes,INDIRECT("\'"&aba&"\'!E"&(lbl+2)&":E"&(lbl+1+fim)),' +
     'valores,INDIRECT("\'"&aba&"\'!"&ADDRESS(lbl+2,col)&":"&ADDRESS(lbl+1+fim,col)),' +
-    'sel,IFERROR(FILTER(nomes,valores=0),""),' +
+    'sel,IFERROR(FILTER(nomes,ISNUMBER(valores)*(valores=0)),""),' /* célula vazia = 0 no Sheets: só conta 0 numérico */ +
     'IF(INDEX(sel,1)="","X",TEXTJOIN(" / ",TRUE,MAP(sel,LAMBDA(n,' +
     'IFERROR(INDEX($AI$2:$AI$400,MATCH(1,ARRAYFORMULA(($AG$2:$AG$400=d)*($AH$2:$AH$400=TRIM(n))),0)),REGEXREPLACE(TRIM(n)," *\\(.*\\) *$",""))))))),"PENDENTE")';
 }
