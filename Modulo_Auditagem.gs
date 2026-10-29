@@ -36,7 +36,7 @@ function apiQuantitativoOpcoes(meses, tipos) {
   };
 }
 
-function resolverNomeNota_(nota, chaves) {
+function resolverNomeNota_(nota, chaves, livre) {
   function limpa(t) { return semAcento_(String(t).replace(/\*/g, '')).replace(/[^A-Z0-9 .]/g, ' ').replace(/\s+/g, ' ').trim(); }
   var n = limpa(nota);
   if (!n) return null;
@@ -51,7 +51,12 @@ function resolverNomeNota_(nota, chaves) {
   var unicos = {};
   lista.forEach(function (c) { unicos[c.key] = c; });
   var ks = Object.keys(unicos);
-  return ks.length === 1 ? unicos[ks[0]] : null;
+  if (ks.length === 1) return unicos[ks[0]];
+  /* militar que não consta nas escalas do mês (outra unidade/aba): na prévia, aceita o texto da nota se parecer um nome com graduação */
+  if (livre && !ks.length && n.length <= 40 && /^(\d )?(SD|CB|SGT|SUBTEN|ST|TEN|CAP|MAJ|TC|CEL|ASP)( |$)/.test(n)) {
+    return { key: n, nome: String(nota).replace(/\*/g, ' ').replace(/\s+/g, ' ').trim().toUpperCase(), livre: true };
+  }
+  return null;
 }
 
 /**

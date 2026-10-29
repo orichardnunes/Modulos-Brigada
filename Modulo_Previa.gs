@@ -40,6 +40,13 @@ function carregarAbaPrevia_(ctx, d, tipo) {
   return ctx.abas[nome];
 }
 
+/** o substituto pode ser de qualquer escala do mês (Grad ou Cndt e Praia): une os nomes das duas abas */
+function unirChaves_(ctx, d) {
+  var abas = [carregarAbaPrevia_(ctx, d, CFG.TIPO_GRAD), carregarAbaPrevia_(ctx, d, CFG.TIPO_CNDT)].filter(function (x) { return x; }), vistos = {}, todas = [];
+  abas.forEach(function (A) { (A.chavesPropr || A.chaves).forEach(function (c) { if (!vistos[c.key]) { vistos[c.key] = true; todas.push(c); } }); });
+  abas.forEach(function (A) { if (!A.chavesPropr) A.chavesPropr = A.chaves; A.chaves = todas; });
+}
+
 function flagResumo_(A, igual, dia, prefixoBloco) {
   if (!A) return false;
   var achou = false;
@@ -59,7 +66,7 @@ function flagResumo_(A, igual, dia, prefixoBloco) {
 function nomeComTroca_(A, R, c) {
   var nota = A.notas[R.r][c];
   if (nota && String(nota).trim()) {
-    var t = resolverNomeNota_(nota, A.chaves);
+    var t = resolverNomeNota_(nota, A.chaves, true);
     if (t && t.key !== R.key) return t.nome.replace(/\s+/g, ' ').trim() + ' *';
   }
   return R.nome.replace(/\s+/g, ' ').trim();
@@ -91,6 +98,7 @@ function PREVIA_CAL(datas, tick) {
   achatar_(datas).forEach(function (d) {
     if (!(d instanceof Date)) return;
     var dia = d.getDate(), G = carregarAbaPrevia_(ctx, d, CFG.TIPO_GRAD), C = carregarAbaPrevia_(ctx, d, CFG.TIPO_CNDT);
+    unirChaves_(ctx, d);
     var vermG = G && G.topo != null ? String(G.bgs[G.topo + 1][colDia_(dia)]).toLowerCase() === CFG.COR.VERMELHO : ehVermelhoData_(d);
     var vermC = C && C.blocos.length ? vermelho_(C, C.blocos[0], dia) : vermG;
     var linha = [serialData_(d), flagResumo_(G, 'CMT GD', dia, 'CMT GD'), flagResumo_(G, 'CB GD', dia, 'CB GD'), flagResumo_(G, 'GD', dia, 'SD GD'),
@@ -131,6 +139,7 @@ function PREVIA_TROCAS(datas, tick) {
   achatar_(datas).forEach(function (d) {
     if (!(d instanceof Date)) return;
     var dia = d.getDate();
+    unirChaves_(ctx, d);
     [CFG.TIPO_GRAD, CFG.TIPO_CNDT].forEach(function (tipo) {
       var A = carregarAbaPrevia_(ctx, d, tipo);
       if (!A) return;
@@ -141,7 +150,7 @@ function PREVIA_TROCAS(datas, tick) {
           if (String(A.bgs[R.r][c]).toLowerCase() === A.leg.outra.bg) return;
           var nota = A.notas[R.r][c];
           if (!nota || !String(nota).trim()) return;
-          var t = resolverNomeNota_(nota, A.chaves);
+          var t = resolverNomeNota_(nota, A.chaves, true);
           if (t && t.key !== R.key) out.push([serialData_(d), R.nome.replace(/\s+/g, ' ').trim(), t.nome.replace(/\s+/g, ' ').trim() + ' *', B.titulo]);
         });
       });
@@ -237,7 +246,10 @@ function cbDiaParaX_(f) {
 /* meses de 31 dias: a coluna do dia 31 é a AI (dia + 3); intervalos até AH deixavam o último dia PENDENTE */
 function estenderDia31_(f) { return /IMPORTRANGE/i.test(f) ? f.replace(/:AH(?=")/g, ':AI') : f; }
 
-function ajustarFormulaPrevia_(f) { return estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f))))); }
+/* célula vazia = 0 no Sheets: FILTER(nomes, valores=0) pegaria militares sem serviço; só vale 0 numérico */
+function zeroNumerico_(f) { return f.replace(/FILTER\(\s*nomes\s*([,;])\s*valores\s*=\s*0\s*\)/g, 'FILTER(nomes$1 ISNUMBER(valores)*(valores=0))'); }
+
+function ajustarFormulaPrevia_(f) { return zeroNumerico_(estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f)))))); }
 
 
 /* ============================================================ PERMANÊNCIA PNR (escala na aba Grad, em tempo real) */

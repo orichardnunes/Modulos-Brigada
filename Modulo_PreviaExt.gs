@@ -172,7 +172,7 @@ function zerosExt_(X, listaPessoas) {
 function trocaExt_(X, p, chaves) { /* nome do militar que assumiu, pela anotação da célula */
   var nota = X.D.notes[p.r][X.loc.col];
   if (!nota || !String(nota).trim()) return null;
-  var t = resolverNomeNota_(String(nota).replace(/\bVAI\s+(TIRAR|PEGAR|ASSUMIR)\b.*$/i, ''), chaves);
+  var t = resolverNomeNota_(String(nota).replace(/\bVAI\s+(TIRAR|PEGAR|ASSUMIR)\b.*$/i, ''), chaves, true);
   return t && t.key !== semAcento_(p.nome) ? t : null;
 }
 
