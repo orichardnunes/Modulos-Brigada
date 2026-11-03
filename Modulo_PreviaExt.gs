@@ -19,6 +19,7 @@ EXT_ANO_SEM_ANO['1gUmzvpaKpwBUR1gwui_JStd7lBLr4FYrsqA1ZBrcqoQ'] = 0;
 EXT_ANO_SEM_ANO['1-pqXgo2_2ZHQAoXwc84JsO8wu_aXyGaf4CmTRLySffU'] = 2026;
 EXT_ANO_SEM_ANO['1uSGJcXE51OrZ4NiZooFYRpOYF8e0pZdT9ivlDQ0XBPs'] = 2025;
 EXT_ANO_SEM_ANO['16EwNWRSbggX2rJQD4Jqw-5DFNaRDVfNRyBuWkMqyZms'] = 2025;
+EXT_ANO_SEM_ANO['1Hy3XYlFacKEutSP4DSuzgtH7WEULxU6s1UpoYNiR8OU'] = 2026;
 var MES_FULL_ = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 var MES_ABR_ = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
 var PREVIA_EXT = { OF: { data: 'AL', unid: 'AM', qg: 'AN' }, TRC: { data: 'AP', orig: 'AQ', assume: 'AR', tag: 'AS' }, AT: { data: 'AU', at: 'AV', aux: 'AW' } };
@@ -286,10 +287,13 @@ function fxAtend_(colLetra, bloco) { /* lê da tabela oculta AU:AW, preenchida p
  * qualquer que seja o nº de militares. Na célula do dia: 0 = escalado; nome = esse militar pegou o serviço do escalado.
  * tipo 'dia' = bloco "MOT DE DIA"; tipo 'pomn' = bloco "MOT POMN" (só nos dias laranja do QG; fora deles, X).
  */
-function fxMotorista_(colLetra, tipo) {
+function fxMotorista_(colLetra, tipo, sh) {
+  if (!sh) return '="PENDENTE"';
   var pomn = tipo === 'pomn', rot = pomn ? 'MOT POMN' : 'MOT DE DIA';
-  var nucleo = 'LET(d,' + colLetra + '$2,aba,CHOOSE(MONTH(d),"JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"),col,DAY(d)+4,' +
-    'dados,IMPORTRANGE("' + urlExt_(EXT.MOT) + '",aba&"!A1:AI60"),' +
+  /* intervalo dentro dos limites da aba (IMPORTRANGE falha se passar da grade) */
+  var rng = "'" + sh.getName().replace(/'/g, "''") + "'!A1:" + colLetra_(Math.max(5, sh.getMaxColumns()) - 1) + Math.max(10, Math.min(sh.getMaxRows(), 80));
+  var nucleo = 'LET(d,' + colLetra + '$2,col,DAY(d)+4,' +
+    'dados,IMPORTRANGE("' + urlExt_(EXT.MOT) + '","' + rng + '"),' +
     'lbl,MATCH("' + rot + '",INDEX(dados,0,1),0),' +
     'nomeAll,ARRAYFORMULA(TRIM(INDEX(dados,0,4))),linhas,SEQUENCE(ROWS(dados)),' +
     'ini,IF(UPPER(INDEX(nomeAll,lbl))="NOME DE GUERRA",lbl+1,lbl),' +
@@ -362,8 +366,11 @@ function gerarFormulasExternas_(sh, datas) {
     else avisos.push('Sgt Dia sem aba/coluna para ' + fmtData_(dt));
     var M = lerMano_(dt);
     if (M) ponha(rMano, fxMano_(M, L), 'MANOBREIRO'); else avisos.push('Manobreiro sem aba/coluna para ' + fmtData_(dt));
-    ponha(rMotDia, fxMotorista_(L, 'dia'), 'MOT DIA');
-    ponha(rMotPomn, fxMotorista_(L, 'pomn'), 'MOT AMBU GU (POMN)');
+    var shMot = null;
+    try { shMot = achaAbaExt_(abrirExt_(EXT.MOT), dt.getMonth(), dt.getFullYear(), EXT_ANO_SEM_ANO[EXT.MOT]); } catch (e) { shMot = null; }
+    if (!shMot) avisos.push('Motorista (garagem): aba de ' + fmtData_(dt) + ' não encontrada no arquivo.');
+    ponha(rMotDia, fxMotorista_(L, 'dia', shMot), 'MOT DIA');
+    ponha(rMotPomn, fxMotorista_(L, 'pomn', shMot), 'MOT AMBU GU (POMN)');
     ponha(rAt, fxAtend_(L, 1), 'ATENDIMENTO');
     ponha(rAux, fxAtend_(L, 2), 'AUX ATENDIMENTO');
   });
