@@ -378,7 +378,7 @@ function mnuAtualizarPrevia() {
       '<li><b>Escalas da própria planilha:</b> tempo real (fórmulas).</li>' +
       '<li><b>Cores e anotações</b> (portões, CB DIA, trocas): a cada alteração da planilha (até 1x a cada 20 s) e a cada 5 min — anotação nova não dispara o aviso de alteração, então pode levar até 5 min ou use “Atualizar prévia”.</li>' +
       '<li><b>Of Dia, Atendimento e trocas dos arquivos externos:</b> lidos por script a cada 10 min' + (novoGatilho ? ' <i>(gatilho criado agora)</i>' : '') + ', ou ao rodar esta função.</li>' +
-      '<li><b>Sgt Dia e Manobreiro:</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J3 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
+      '<li><b>Sgt Dia, Manobreiro e Motoristas (Mot Dia e Mot PoMN):</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J4 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
       '<li>Em cada prévia, a célula <b>J1</b> (cinza, à direita da tabela) mostra a hora da última atualização feita pelo script.</li></ul></details>' +
       '<button class="p" onclick="google.script.host.close()">OK</button>';
     mostrarHtml_(h, 'Atualizar prévia', 560, 560);
@@ -505,7 +505,7 @@ function mnuAdicionarPrevia() {
     'h+="<div class=cards><div class=card><b>7</b><span>dias (quarta a terça)</span></div><div class=card><b>"+nv+"</b><span>dia(s) de escala vermelha</span></div><div class=\\"card"+(r.pend?" bad":"")+"\\"><b>"+r.pend+"</b><span>célula(s) pendente(s)</span></div></div>";' +
     'h+="<table><tr><th>Dia</th><th>Semana</th><th>Escala</th><th>Parada diária</th></tr>";' +
     'r.dias.forEach(function(x){h+="<tr><td class=num>"+x.d+"</td><td>"+esc(x.sem)+"</td><td><span class=\\""+(x.verm?"lar vm":"lar")+"\\">"+(x.verm?"vermelha":"preta")+"</span></td><td class=mu>"+x.parada+"</td></tr>"});h+="</table>";' +
-    'if(r.pend){h+="<details open><summary class=erro>Pendências ("+r.pend+")</summary><ul>";r.pendLinhas.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul><p class=mu>Sgt Dia e Manobreiro leem os arquivos externos: se continuarem PENDENTE, clique nas células cinzas J2:J3 e escolha “Permitir acesso”. Depois use “Atualizar prévia”.</p></details>"}' +
+    'if(r.pend){h+="<details open><summary class=erro>Pendências ("+r.pend+")</summary><ul>";r.pendLinhas.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul><p class=mu>Sgt Dia e Manobreiro leem os arquivos externos: se continuarem PENDENTE, clique nas células cinzas J2:J4 e escolha “Permitir acesso”. Depois use “Atualizar prévia”.</p></details>"}' +
     'if(r.avisos.length){h+="<details open><summary class=erro>⚠ Avisos ("+r.avisos.length+")</summary><ul>";r.avisos.forEach(function(a){h+="<li>"+esc(a)+"</li>"});h+="</ul></details>"}' +
     'h+="<p class=mu>A célula J1 da prévia mostra a hora da última atualização feita pelo script.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";' +
     'o.innerHTML=h}' +

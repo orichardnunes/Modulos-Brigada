@@ -11,7 +11,8 @@ var EXT = {
   OFDIA: '1gUmzvpaKpwBUR1gwui_JStd7lBLr4FYrsqA1ZBrcqoQ',
   SGT: '1-pqXgo2_2ZHQAoXwc84JsO8wu_aXyGaf4CmTRLySffU',
   MANO: '1uSGJcXE51OrZ4NiZooFYRpOYF8e0pZdT9ivlDQ0XBPs',
-  ATEND: '16EwNWRSbggX2rJQD4Jqw-5DFNaRDVfNRyBuWkMqyZms'
+  ATEND: '16EwNWRSbggX2rJQD4Jqw-5DFNaRDVfNRyBuWkMqyZms',
+  MOT: '1Hy3XYlFacKEutSP4DSuzgtH7WEULxU6s1UpoYNiR8OU'
 };
 var EXT_ANO_SEM_ANO = {};
 EXT_ANO_SEM_ANO['1gUmzvpaKpwBUR1gwui_JStd7lBLr4FYrsqA1ZBrcqoQ'] = 0;
@@ -279,6 +280,32 @@ function fxAtend_(colLetra, bloco) { /* lê da tabela oculta AU:AW, preenchida p
   return '=IFERROR(IF(' + idx + '="",' + vazio + ',' + idx + '),"PENDENTE")';
 }
 
+
+/**
+ * Motorista de Dia / Motorista POMN (arquivo da garagem): lê o bloco inteiro (do cabeçalho até a primeira linha sem nome),
+ * qualquer que seja o nº de militares. Na célula do dia: 0 = escalado; nome = esse militar pegou o serviço do escalado.
+ * tipo 'dia' = bloco "MOT DE DIA"; tipo 'pomn' = bloco "MOT POMN" (só nos dias laranja do QG; fora deles, X).
+ */
+function fxMotorista_(colLetra, tipo) {
+  var pomn = tipo === 'pomn', rot = pomn ? 'MOT POMN' : 'MOT DE DIA';
+  var nucleo = 'LET(d,' + colLetra + '$2,aba,CHOOSE(MONTH(d),"JANEIRO","FEVEREIRO","MARÇO","ABRIL","MAIO","JUNHO","JULHO","AGOSTO","SETEMBRO","OUTUBRO","NOVEMBRO","DEZEMBRO"),col,DAY(d)+4,' +
+    'dados,IMPORTRANGE("' + urlExt_(EXT.MOT) + '",aba&"!A1:AI60"),' +
+    'lbl,MATCH("' + rot + '",INDEX(dados,0,1),0),' +
+    'nomeAll,ARRAYFORMULA(TRIM(INDEX(dados,0,4))),linhas,SEQUENCE(ROWS(dados)),' +
+    'ini,IF(UPPER(INDEX(nomeAll,lbl))="NOME DE GUERRA",lbl+1,lbl),' +
+    'vazias,FILTER(linhas,linhas>=ini,nomeAll=""),fim,IFERROR(INDEX(vazias,1),ROWS(dados)+1),' +
+    'sel,(linhas>=ini)*(linhas<fim),' +
+    'grads,FILTER(INDEX(dados,0,3),sel=1),nomes,FILTER(nomeAll,sel=1),valores,FILTER(INDEX(dados,0,col),sel=1),' +
+    'pos_zero,IFERROR(MATCH(TRUE,ARRAYFORMULA(((valores="0")+(ISNUMBER(valores)*(valores=0)))>0),0),),' +
+    'pos_subst,IFERROR(MATCH(TRUE,ARRAYFORMULA((NOT(ISNUMBER(valores)))*(valores<>"X")*(valores<>"")*(valores<>"***")>0),0),),' +
+    'nomeFinal,IF(ISNUMBER(pos_zero),INDEX(nomes,pos_zero),IF(ISNUMBER(pos_subst),INDEX(valores,pos_subst),"")),' +
+    'gradFinal,IF(ISNUMBER(pos_zero),INDEX(grads,pos_zero),IF(ISNUMBER(pos_subst),IFERROR(INDEX(grads,MATCH(INDEX(valores,pos_subst),nomes,0)),"' + (pomn ? 'CB' : 'SD') + '"),"")),' +
+    'gradExibida,' + (pomn ? 'gradFinal' : 'IF(ISNUMBER(FIND("EV",gradFinal)),"SD EV",IF(gradFinal="SD","SD EP",gradFinal))') + ',' +
+    'IF(nomeFinal="","PENDENTE",TRIM(gradExibida&" "&nomeFinal)))';
+  if (pomn) return '=IFERROR(LET(d,' + colLetra + '$2,ehLaranja,INDEX($P$2:$P$8,MATCH(d,$L$2:$L$8,0)),IF(NOT(ehLaranja),"X",' + nucleo + ')),"PENDENTE")';
+  return '=IFERROR(' + nucleo + ',"PENDENTE")';
+}
+
 function fxOf_(colLetra, qg) {
   var E = PREVIA_EXT.OF, rng = '$' + (qg ? E.qg : E.unid) + '$2:$' + (qg ? E.qg : E.unid) + '$8', idx = 'INDEX(' + rng + ',MATCH(' + colLetra + '$2,$' + E.data + '$2:$' + E.data + '$8,0))';
   return '=IFERROR(IF(' + idx + '="",' + (qg ? '"X"' : '"PENDENTE"') + ',' + idx + '),"PENDENTE")';
@@ -321,6 +348,8 @@ function gerarFormulasExternas_(sh, datas) {
   mapa.forEach(function (m) { por[m.secao + '|' + m.label + '|' + m.pos] = m.r; });
   function linha(sec, label, pos) { return por[sec + '|' + label + '|' + (pos || 1)]; }
   var rOf = linha('SV UNIDADE', 'OF DIA'), rQg = linha('QG AD/1', 'OF DIA'), rMano = linha('SV UNIDADE', 'MANOBREIRO');
+  function porRotulo(rot) { var f = mapa.filter(function (m) { return m.label === rot; })[0]; return f ? f.r : null; }
+  var rMotDia = linha('SV UNIDADE', 'MOT DIA') || porRotulo('MOT DIA'), rMotPomn = porRotulo('MOT AMBU GU');
   var rAt = linha('SV UNIDADE', 'ATENDIMENTO'), rAux = linha('SV UNIDADE', 'AUX ATENDIMENTO');
   var rS1 = linha('SV SUBUNIDADES', 'SGT DIA 1ª/2ª BO'), rS2 = linha('SV SUBUNIDADES', 'SGT DIA BIA C/DMSF');
   datas.forEach(function (dt, i) {
@@ -333,6 +362,8 @@ function gerarFormulasExternas_(sh, datas) {
     else avisos.push('Sgt Dia sem aba/coluna para ' + fmtData_(dt));
     var M = lerMano_(dt);
     if (M) ponha(rMano, fxMano_(M, L), 'MANOBREIRO'); else avisos.push('Manobreiro sem aba/coluna para ' + fmtData_(dt));
+    ponha(rMotDia, fxMotorista_(L, 'dia'), 'MOT DIA');
+    ponha(rMotPomn, fxMotorista_(L, 'pomn'), 'MOT AMBU GU (POMN)');
     ponha(rAt, fxAtend_(L, 1), 'ATENDIMENTO');
     ponha(rAux, fxAtend_(L, 2), 'AUX ATENDIMENTO');
   });
@@ -342,7 +373,7 @@ function gerarFormulasExternas_(sh, datas) {
 
 /** células visíveis (J2:J4) para o Google pedir "Permitir acesso" a cada arquivo (IFERROR esconderia o pedido) */
 function escreverPermissoes_(sh) {
-  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO]];
+  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO], ['Motorista (garagem)', EXT.MOT]];
   itens.forEach(function (it, i) {
     sh.getRange(2 + i, 10).setFormula(localizarFormula_('=IMPORTRANGE("' + urlExt_(it[1]) + '","A1")')).setFontColor('#9aa0a6').setFontSize(7);
     sh.getRange(2 + i, 11).setValue('↖ ' + it[0] + ': se aparecer "Permitir acesso", clique').setFontColor('#9aa0a6').setFontSize(8);
