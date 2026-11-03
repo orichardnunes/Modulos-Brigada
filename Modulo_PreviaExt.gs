@@ -22,7 +22,7 @@ EXT_ANO_SEM_ANO['16EwNWRSbggX2rJQD4Jqw-5DFNaRDVfNRyBuWkMqyZms'] = 2025;
 EXT_ANO_SEM_ANO['1Hy3XYlFacKEutSP4DSuzgtH7WEULxU6s1UpoYNiR8OU'] = 2026;
 var MES_FULL_ = ['JANEIRO', 'FEVEREIRO', 'MARCO', 'ABRIL', 'MAIO', 'JUNHO', 'JULHO', 'AGOSTO', 'SETEMBRO', 'OUTUBRO', 'NOVEMBRO', 'DEZEMBRO'];
 var MES_ABR_ = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-var PREVIA_EXT = { OF: { data: 'AL', unid: 'AM', qg: 'AN' }, TRC: { data: 'AP', orig: 'AQ', assume: 'AR', tag: 'AS' }, AT: { data: 'AU', at: 'AV', aux: 'AW' } };
+var PREVIA_EXT = { OF: { data: 'AL', unid: 'AM', qg: 'AN' }, TRC: { data: 'AP', orig: 'AQ', assume: 'AR', tag: 'AS' }, AT: { data: 'AU', at: 'AV', aux: 'AW' }, MT: { data: 'AY', dia: 'AZ', pomn: 'BA' } };
 
 /* ============================================================ ABAS E COLUNAS DOS ARQUIVOS EXTERNOS */
 var CACHE_EXT_ = { ss: {}, dados: {}, mapas: {} };
@@ -188,7 +188,7 @@ function datasPrevia_(sh) {
 }
 
 function tabelasExternas_(datas) {
-  var of = [], trc = [], at = [], avisos = [];
+  var of = [], trc = [], at = [], mt = [], avisos = [];
   datas.forEach(function (dt) {
     var s = serialData_(dt), unid = '', qg = '';
     var O = lerOfDia_(dt);
@@ -229,8 +229,12 @@ function tabelasExternas_(datas) {
       if (zX.length) nomeAux = qm(zX[0]);
     } else avisos.push('Atendimento: aba/coluna de ' + fmtData_(dt) + ' não encontrada no arquivo.');
     at.push([s, nomeAt, nomeAux]);
+    var MT = null;
+    try { MT = lerMot_(dt); } catch (e) { avisos.push('Motorista (garagem): ' + e.message); }
+    if (!MT) avisos.push('Motorista (garagem): aba de ' + fmtData_(dt) + ' não encontrada no arquivo.');
+    mt.push([s, MT ? MT.dia : '', MT ? MT.pomn : '']);
   });
-  return { of: of, trc: trc, at: at, avisos: avisos };
+  return { of: of, trc: trc, at: at, mt: mt, avisos: avisos };
 }
 
 function escreverTabelasExternas_(sh, tabelas) {
@@ -238,6 +242,8 @@ function escreverTabelasExternas_(sh, tabelas) {
   sh.getRange(E.OF.data + '1:' + E.OF.qg + '1').setValues([['Of Dia: data', 'Of Dia: Unidade', 'Of Dia: QG AD/1']]);
   sh.getRange(E.TRC.data + '1:' + E.TRC.tag + '1').setValues([['Trocas (arquivos externos): data', 'Quem estava na escala', 'Quem assume (*)', 'Fonte']]);
   sh.getRange(E.AT.data + '1:' + E.AT.aux + '1').setValues([['Atendimento: data', 'Atendimento', 'Auxiliar Atendimento']]);
+  sh.getRange(E.MT.data + '1:' + E.MT.pomn + '1').setValues([['Motorista (garagem): data', 'Mot Dia', 'Mot PoMN']]);
+  sh.getRange(E.MT.data + '2:' + E.MT.pomn + '8').setValues(tabelas.mt);
   sh.getRange(E.OF.data + '2:' + E.OF.qg + '8').setValues(tabelas.of);
   sh.getRange(E.AT.data + '2:' + E.AT.aux + '8').setValues(tabelas.at);
   var lim = sh.getRange(E.TRC.data + '2:' + E.TRC.tag + '300');
@@ -282,32 +288,55 @@ function fxAtend_(colLetra, bloco) { /* lê da tabela oculta AU:AW, preenchida p
 }
 
 
+/** Mot Dia / Mot PoMN: lidos da tabela oculta AY:BA (preenchida por script a partir do arquivo da garagem); POMN só nos dias laranja do QG */
+function fxMotorista_(colLetra, tipo) {
+  var E = PREVIA_EXT.MT, c = tipo === 'pomn' ? E.pomn : E.dia, rng = '$' + c + '$2:$' + c + '$8';
+  var idx = 'INDEX(' + rng + ',MATCH(' + colLetra + '$2,$' + E.data + '$2:$' + E.data + '$8,0))';
+  var base = 'IF(' + idx + '="","PENDENTE",' + idx + ')';
+  if (tipo === 'pomn') return '=IFERROR(IF(NOT(INDEX($P$2:$P$8,MATCH(' + colLetra + '$2,$L$2:$L$8,0))),"X",' + base + '),"PENDENTE")';
+  return '=IFERROR(' + base + ',"PENDENTE")';
+}
+
 /**
- * Motorista de Dia / Motorista POMN (arquivo da garagem): lê o bloco inteiro (do cabeçalho até a primeira linha sem nome),
- * qualquer que seja o nº de militares. Na célula do dia: 0 = escalado; nome = esse militar pegou o serviço do escalado.
- * tipo 'dia' = bloco "MOT DE DIA"; tipo 'pomn' = bloco "MOT POMN" (só nos dias laranja do QG; fora deles, X).
+ * Arquivo da garagem (Motorista de Dia / POMN): aba do mês; blocos com título na coluna A ("MOT DE DIA", "MOT POMN"),
+ * cabeçalho "NOME DE GUERRA" na coluna D, dias a partir de "DIA 01". Célula 0 = escalado; nome = pegou o serviço do escalado.
+ * Devolve { dia: 'GRAD NOME', pomn: '...' } (vazio se não achar).
  */
-function fxMotorista_(colLetra, tipo, sh) {
-  if (!sh) return '="PENDENTE"';
-  var pomn = tipo === 'pomn', rot = pomn ? 'MOT POMN' : 'MOT DE DIA';
-  /* intervalo dentro dos limites da aba (IMPORTRANGE falha se passar da grade) */
-  var rng = "'" + sh.getName().replace(/'/g, "''") + "'!A1:" + colLetra_(Math.max(5, sh.getMaxColumns()) - 1) + Math.max(10, Math.min(sh.getMaxRows(), 80));
-  var nucleo = 'LET(d,' + colLetra + '$2,col,DAY(d)+4,' +
-    'dados,IMPORTRANGE("' + urlExt_(EXT.MOT) + '","' + rng + '"),' +
-    'lbl,MATCH("' + rot + '",INDEX(dados,0,1),0),' +
-    'nomeAll,ARRAYFORMULA(TRIM(INDEX(dados,0,4))),linhas,SEQUENCE(ROWS(dados)),' +
-    'ini,IF(UPPER(INDEX(nomeAll,lbl))="NOME DE GUERRA",lbl+1,lbl),' +
-    'vazias,FILTER(linhas,linhas>=ini,nomeAll=""),fim,IFERROR(INDEX(vazias,1),ROWS(dados)+1),' +
-    'sel,(linhas>=ini)*(linhas<fim),' +
-    'grads,FILTER(INDEX(dados,0,3),sel=1),nomes,FILTER(nomeAll,sel=1),valores,FILTER(INDEX(dados,0,col),sel=1),' +
-    'pos_zero,IFERROR(MATCH(TRUE,ARRAYFORMULA(((valores="0")+(ISNUMBER(valores)*(valores=0)))>0),0),),' +
-    'pos_subst,IFERROR(MATCH(TRUE,ARRAYFORMULA((NOT(ISNUMBER(valores)))*(valores<>"X")*(valores<>"")*(valores<>"***")>0),0),),' +
-    'nomeFinal,IF(ISNUMBER(pos_zero),INDEX(nomes,pos_zero),IF(ISNUMBER(pos_subst),INDEX(valores,pos_subst),"")),' +
-    'gradFinal,IF(ISNUMBER(pos_zero),INDEX(grads,pos_zero),IF(ISNUMBER(pos_subst),IFERROR(INDEX(grads,MATCH(INDEX(valores,pos_subst),nomes,0)),"' + (pomn ? 'CB' : 'SD') + '"),"")),' +
-    'gradExibida,' + (pomn ? 'gradFinal' : 'IF(ISNUMBER(FIND("EV",gradFinal)),"SD EV",IF(gradFinal="SD","SD EP",gradFinal))') + ',' +
-    'IF(nomeFinal="","PENDENTE",TRIM(gradExibida&" "&nomeFinal)))';
-  if (pomn) return '=IFERROR(LET(d,' + colLetra + '$2,ehLaranja,INDEX($P$2:$P$8,MATCH(d,$L$2:$L$8,0)),IF(NOT(ehLaranja),"X",' + nucleo + ')),"PENDENTE")';
-  return '=IFERROR(' + nucleo + ',"PENDENTE")';
+function lerMot_(dt) {
+  var sh = achaAbaExt_(abrirExt_(EXT.MOT), dt.getMonth(), dt.getFullYear(), EXT_ANO_SEM_ANO[EXT.MOT]);
+  if (!sh) return null;
+  var D = dadosAba_(sh), v = D.vals, out = { dia: '', pomn: '', aba: sh.getName() };
+  function bloco(rotulo) {
+    var lbl = -1;
+    for (var r = 0; r < v.length && lbl < 0; r++) if (semAcento_(v[r][0]) === rotulo) lbl = r;
+    if (lbl < 0) return null;
+    var ini = semAcento_(v[lbl][3]) === 'NOME DE GUERRA' ? lbl + 1 : lbl, hdr = ini - 1, base = 4;
+    for (var cc = 0; cc < v[Math.max(hdr, 0)].length; cc++) if (/^DIA\s*0?1$/.test(semAcento_(v[Math.max(hdr, 0)][cc]))) { base = cc; break; }
+    var pessoas = [];
+    for (var x = ini; x < v.length && String(v[x][3]).trim() !== ''; x++) pessoas.push({ r: x, grad: String(v[x][2]).trim(), nome: String(v[x][3]).replace(/\s+/g, ' ').trim() });
+    return { pessoas: pessoas, col: base + dt.getDate() - 1 };
+  }
+  function resolve(B, gradPadrao) {
+    if (!B) return '';
+    var zero = null, subst = null;
+    B.pessoas.forEach(function (p) {
+      var c = v[p.r][B.col];
+      if (c === undefined) return;
+      var t = String(c).trim();
+      if (c === 0 || t === '0') { if (!zero) zero = p; }
+      else if (t !== '' && t !== '***' && semAcento_(t) !== 'X' && isNaN(Number(t.replace(',', '.')))) { if (!subst) subst = t.replace(/\s+/g, ' '); }
+    });
+    if (zero) return dispGrad_(zero.grad, zero.nome);
+    if (subst) {
+      var chave = semAcento_(subst).replace(/[^A-Z0-9]/g, ''), achou = null;
+      B.pessoas.forEach(function (p) { if (!achou && semAcento_(p.nome).replace(/[^A-Z0-9]/g, '') === chave) achou = p; });
+      return dispGrad_(achou ? achou.grad : gradPadrao, subst);
+    }
+    return '';
+  }
+  out.dia = resolve(bloco('MOT DE DIA'), 'SD');
+  out.pomn = resolve(bloco('MOT POMN'), 'CB');
+  return out;
 }
 
 function fxOf_(colLetra, qg) {
@@ -366,11 +395,8 @@ function gerarFormulasExternas_(sh, datas) {
     else avisos.push('Sgt Dia sem aba/coluna para ' + fmtData_(dt));
     var M = lerMano_(dt);
     if (M) ponha(rMano, fxMano_(M, L), 'MANOBREIRO'); else avisos.push('Manobreiro sem aba/coluna para ' + fmtData_(dt));
-    var shMot = null;
-    try { shMot = achaAbaExt_(abrirExt_(EXT.MOT), dt.getMonth(), dt.getFullYear(), EXT_ANO_SEM_ANO[EXT.MOT]); } catch (e) { shMot = null; }
-    if (!shMot) avisos.push('Motorista (garagem): aba de ' + fmtData_(dt) + ' não encontrada no arquivo.');
-    ponha(rMotDia, fxMotorista_(L, 'dia', shMot), 'MOT DIA');
-    ponha(rMotPomn, fxMotorista_(L, 'pomn', shMot), 'MOT AMBU GU (POMN)');
+    ponha(rMotDia, fxMotorista_(L, 'dia'), 'MOT DIA');
+    ponha(rMotPomn, fxMotorista_(L, 'pomn'), 'MOT AMBU GU (POMN)');
     ponha(rAt, fxAtend_(L, 1), 'ATENDIMENTO');
     ponha(rAux, fxAtend_(L, 2), 'AUX ATENDIMENTO');
   });
@@ -380,7 +406,7 @@ function gerarFormulasExternas_(sh, datas) {
 
 /** células visíveis (J2:J4) para o Google pedir "Permitir acesso" a cada arquivo (IFERROR esconderia o pedido) */
 function escreverPermissoes_(sh) {
-  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO], ['Motorista (garagem)', EXT.MOT]];
+  var itens = [['Sgt Dia', EXT.SGT], ['Manobreiro', EXT.MANO]];
   itens.forEach(function (it, i) {
     sh.getRange(2 + i, 10).setFormula(localizarFormula_('=IMPORTRANGE("' + urlExt_(it[1]) + '","A1")')).setFontColor('#9aa0a6').setFontSize(7);
     sh.getRange(2 + i, 11).setValue('↖ ' + it[0] + ': se aparecer "Permitir acesso", clique').setFontColor('#9aa0a6').setFontSize(8);

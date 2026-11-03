@@ -189,7 +189,7 @@ var CABECALHO_CAL_ = ['Data', 'QG: CMT GD (laranja)', 'QG: CB GD (laranja)', 'QG
   'Dia vermelho (Cndt)', 'Portão 12h #1', 'Portão 12h #2', 'Portão 24h #1', 'Portão 24h #2', 'Portão 24h #3', 'Controle #1', 'Controle #2', 'Controle #3',
   'CB DIA #1 (2ª BO)', 'CB DIA #2 (1ª BO)', 'CB DIA #3 (DMSF)', 'CB DIA #4 (BIA C)'];
 
-/** títulos, formato de data e aviso nas colunas ocultas (L:AW); só apresentação, não altera os dados */
+/** títulos, formato de data e aviso nas colunas ocultas (L:BA); só apresentação, não altera os dados */
 function formatarAuxPrevia_(sh) {
   var cab = '#e8eaed';
   sh.getRange(1, 12, 1, 20).setValues([CABECALHO_CAL_]).setFontWeight('bold').setBackground(cab).setWrap(true);
@@ -197,15 +197,16 @@ function formatarAuxPrevia_(sh) {
   sh.getRange('AL1:AN1').setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AP1:AS1').setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AU1:AW1').setFontWeight('bold').setBackground(cab).setWrap(true);
-  ['L2:L8', 'AG2:AG300', 'AL2:AL8', 'AP2:AP300', 'AU2:AU8'].forEach(function (a) { sh.getRange(a).setNumberFormat('dd/mm/yyyy'); });
+  sh.getRange('AY1:BA1').setFontWeight('bold').setBackground(cab).setWrap(true);
+  ['L2:L8', 'AG2:AG300', 'AL2:AL8', 'AP2:AP300', 'AU2:AU8', 'AY2:AY8'].forEach(function (a) { sh.getRange(a).setNumberFormat('dd/mm/yyyy'); });
   sh.getRange('L10').setValue('Área auxiliar da prévia: preenchida por script (a cada alteração da planilha, a cada 10 min e em "Atualizar prévia"). Não edite.').setFontColor('#80868b');
 }
 
 function instalarAuxPrevia_(sh) {
-  var precisa = 49 - sh.getMaxColumns();
+  var precisa = 53 - sh.getMaxColumns();
   if (precisa > 0) sh.insertColumnsAfter(sh.getMaxColumns(), precisa);
-  sh.getRange(1, 10, sh.getMaxRows(), 40).clearContent(); /* limpa colunas auxiliares (J:AW), inclusive restos de versões antigas */
-  sh.hideColumns(12, 38);
+  sh.getRange(1, 10, sh.getMaxRows(), 44).clearContent(); /* limpa colunas auxiliares (J:BA), inclusive restos de versões antigas */
+  sh.hideColumns(12, 42);
   atualizarTabelasInternas_(sh);
   formatarAuxPrevia_(sh);
 }
@@ -216,7 +217,7 @@ function colNum_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 +
 function normalizarHelpers_(f) {
   var out = f.replace(/INDEX\(\s*\$([A-Z]+)\$2:\$\1\$8\s*([,;])\s*MATCH\(\s*([^,;()]+?)\s*[,;]\s*\$([A-Z]+)\$2:\$\4\$8\s*[,;]\s*0\s*\)\s*\)/g,
     function (m, x, sep, arg, y) {
-      if (y === 'AL' || y === 'AU') return m; /* tabelas do Of Dia (AL) e do Atendimento (AU) não são a tabela por dia */
+      if (y === 'AL' || y === 'AU' || y === 'AY') return m; /* tabelas do Of Dia (AL) e do Atendimento (AU) não são a tabela por dia */
       var nx = 12 + colNum_(x) - colNum_(y);
       if (nx < 12 || nx > 31) return m;
       var L = colLetra_(nx - 1);
@@ -377,8 +378,8 @@ function mnuAtualizarPrevia() {
     h += '<details><summary>Como a prévia se mantém atualizada</summary><ul>' +
       '<li><b>Escalas da própria planilha:</b> tempo real (fórmulas).</li>' +
       '<li><b>Cores e anotações</b> (portões, CB DIA, trocas): a cada alteração da planilha (até 1x a cada 20 s) e a cada 5 min — anotação nova não dispara o aviso de alteração, então pode levar até 5 min ou use “Atualizar prévia”.</li>' +
-      '<li><b>Of Dia, Atendimento e trocas dos arquivos externos:</b> lidos por script a cada 10 min' + (novoGatilho ? ' <i>(gatilho criado agora)</i>' : '') + ', ou ao rodar esta função.</li>' +
-      '<li><b>Sgt Dia, Manobreiro e Motoristas (Mot Dia e Mot PoMN):</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J4 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
+      '<li><b>Of Dia, Atendimento, Mot Dia, Mot PoMN e trocas dos arquivos externos:</b> lidos por script a cada 10 min' + (novoGatilho ? ' <i>(gatilho criado agora)</i>' : '') + ', ou ao rodar esta função.</li>' +
+      '<li><b>Sgt Dia e Manobreiro:</b> IMPORTRANGE em tempo real. Se ficar PENDENTE, clique nas células cinzas J2:J4 da prévia e escolha “Permitir acesso” (uma vez por arquivo).</li>' +
       '<li>Em cada prévia, a célula <b>J1</b> (cinza, à direita da tabela) mostra a hora da última atualização feita pelo script.</li></ul></details>' +
       '<button class="p" onclick="google.script.host.close()">OK</button>';
     mostrarHtml_(h, 'Atualizar prévia', 560, 560);
