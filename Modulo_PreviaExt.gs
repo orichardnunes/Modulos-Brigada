@@ -93,10 +93,20 @@ function acharColunaExt_(id, dt, linhaHdr, primeiraCol) {
   for (var i = 0; i < cand.length; i++) {
     var d2 = new Date(dt.getFullYear(), dt.getMonth() + cand[i], 1), sh = achaAbaExt_(ss, d2.getMonth(), d2.getFullYear(), EXT_ANO_SEM_ANO[id]);
     if (!sh) continue;
-    var k = id + '|' + sh.getSheetId() + '|map';
-    if (!CACHE_EXT_.mapas[k]) CACHE_EXT_.mapas[k] = mapaColunas_(dadosAba_(sh).vals[linhaHdr] || [], primeiraCol, d2.getMonth(), d2.getFullYear());
+    var vals = dadosAba_(sh).vals, hdr = linhaHdr;
+    if (hdr === 'auto') { /* linha dos números dos dias: a que tem mais números 1–31 a partir da primeira coluna de dias */
+      var melhor = -1;
+      hdr = 0;
+      for (var r = 0; r < Math.min(8, vals.length); r++) {
+        var n = 0;
+        for (var j = primeiraCol; j < vals[r].length; j++) { var x = vals[r][j]; if (x instanceof Date || (x !== '' && Number(x) >= 1 && Number(x) <= 31 && Number(x) % 1 === 0)) n++; }
+        if (n > melhor) { melhor = n; hdr = r; }
+      }
+    }
+    var k = id + '|' + sh.getSheetId() + '|map|' + hdr;
+    if (!CACHE_EXT_.mapas[k]) CACHE_EXT_.mapas[k] = mapaColunas_(vals[hdr] || [], primeiraCol, d2.getMonth(), d2.getFullYear());
     var col = CACHE_EXT_.mapas[k][serialData_(dt)];
-    if (col != null) return { sh: sh, col: col };
+    if (col != null) return { sh: sh, col: col, hdr: hdr };
   }
   return null;
 }
@@ -122,13 +132,22 @@ function lerSgt_(dt) {
 }
 
 function lerMano_(dt) {
-  var loc = acharColunaExt_(EXT.MANO, dt, 0, 3);
+  var loc = acharColunaExt_(EXT.MANO, dt, 'auto', 3);
   if (!loc) return null;
-  var D = dadosAba_(loc.sh), pessoas = [];
-  for (var r = 2; r < D.vals.length; r++) {
+  var D = dadosAba_(loc.sh), pessoas = [], r;
+  /* pessoas: linhas com nº de ordem na coluna A; se a aba não numerar, usa o formato antigo (a partir de 2 linhas abaixo do cabeçalho) */
+  for (r = loc.hdr + 1; r < D.vals.length; r++) {
+    if (!(Number(D.vals[r][0]) > 0)) { if (pessoas.length) break; continue; }
     var nome = String(D.vals[r][2]).trim();
     if (!nome) break;
     pessoas.push({ r: r, nome: dispGrad_(D.vals[r][1], nome) });
+  }
+  if (!pessoas.length) {
+    for (r = loc.hdr + 2; r < D.vals.length; r++) {
+      var n2 = String(D.vals[r][2]).trim();
+      if (!n2) break;
+      pessoas.push({ r: r, nome: dispGrad_(D.vals[r][1], n2) });
+    }
   }
   return { loc: loc, D: D, pessoas: pessoas };
 }
