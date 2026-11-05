@@ -709,10 +709,25 @@ function apiCriarAbas(mm, aaaa) {
 }
 
 function mnuCriarAbasProximoMes() {
-  var ui = SpreadsheetApp.getUi(), hoje = new Date();
-  var alvo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1);
-  try { ui.alert('Abas do próximo mês', apiCriarAbas(alvo.getMonth() + 1, alvo.getFullYear()), ui.ButtonSet.OK); }
-  catch (e) { ui.alert('Não foi possível criar as abas', e.message, ui.ButtonSet.OK); }
+  var hoje = new Date(), alvo = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 1), nomes, erro = '';
+  try { nomes = criarAbasMes_(alvo.getMonth(), alvo.getFullYear()); } catch (e) { erro = e.message; }
+  var css = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.offb{background:#fce8e6;color:#b00020}.stk{margin-top:6px}</style>';
+  var h = css + '<h3 style="margin-top:0">Criar abas do próximo mês</h3>';
+  if (erro) {
+    h += '<div class="ban offb"><b>Não foi possível criar as abas</b><br><span class="mu">' + esc_(erro) + '</span></div>';
+  } else {
+    var pend = INFO_PEND_.filter(function (x) { return !/^ERRO/.test(x); }), errosP = INFO_PEND_.filter(function (x) { return /^ERRO/.test(x); });
+    h += '<div class="ban okb"><b>✅ Abas criadas</b><br><span class="mu">' + CFG.MESES[alvo.getMonth()] + '/' + alvo.getFullYear() + '</span></div>' +
+      '<div class="cards"><div class="card"><b>' + nomes.length + '</b><span>aba(s) criada(s)</span></div>' +
+      '<div class="card"><b>' + pend.length + '</b><span>afastamento(s) pendente(s) lançado(s)</span></div>' +
+      '<div class="card' + (errosP.length ? ' bad' : '') + '"><b>' + errosP.length + '</b><span>erro(s)</span></div></div>' +
+      '<table><tr><th>Aba</th></tr>' + nomes.map(function (n) { return '<tr><td><b>' + esc_(n) + '</b></td></tr>'; }).join('') + '</table>';
+    if (pend.length) h += '<details open><summary>Afastamentos lançados</summary><ul>' + pend.map(function (x) { return '<li>' + esc_(x) + '</li>'; }).join('') + '</ul></details>';
+    if (errosP.length) h += '<details open><summary class="erro">⚠ Erros ao lançar pendências</summary><ul>' + errosP.map(function (x) { return '<li>' + esc_(x) + '</li>'; }).join('') + '</ul></details>';
+    h += '<p class="mu">Próximos passos: importe a escala da Guarnição, digite os zeros e impedimentos do mês e use “Adicionar serviços”.</p>';
+  }
+  h += '<div class="stk"><button class="p" onclick="google.script.host.close()">Concluir</button></div>';
+  mostrarHtml_(h, 'Abas do próximo mês', 520, 480);
 }
 
 var INFO_PEND_ = [];
@@ -871,30 +886,40 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
 /* ----- gatilho */
 function textoHora_(h) { return ('0' + h).slice(-2) + ':00'; }
 
+function apiGatAbas() { return JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO') || 'null'); }
+
 function mnuConfigGatilho() {
-  var atual = JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO') || 'null');
   var dias = '', horas = '', i;
   for (i = 1; i <= 28; i++) dias += '<option value="' + i + '">dia ' + i + '</option>';
   for (i = 0; i <= 23; i++) horas += '<option value="' + i + '"' + (i === CFG.HORA_GATILHO ? ' selected' : '') + '>' + textoHora_(i) + '</option>';
   var amanha = new Date(); amanha.setDate(amanha.getDate() + 1);
-  var h = '<style>.op{display:block;border:1px solid #ddd;border-radius:8px;padding:10px 12px;margin:8px 0;cursor:pointer}.op:has(input:checked){border-color:#1a73e8;background:#e8f0fe}' +
-    '.op small{display:block;color:#5f6368;margin:2px 0 0 22px}.op select,.op input[type=date]{margin-left:6px}.top{color:#5f6368;margin:0 0 6px}</style>' +
+  var h = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.okb{background:#e6f4ea;color:#137333}.offb{background:#fce8e6;color:#b00020}.inf{background:#e8f0fe;color:#174ea6}' +
+    '.sec{font-size:11px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368;margin:12px 0 4px}.sub{color:#5f6368;margin:-2px 0 10px}.stk{position:sticky;bottom:0;background:#fff;padding:6px 0 2px;margin-top:6px}' +
+    '.op{display:block;border:1px solid #e0e0e0;border-radius:10px;padding:8px 12px;margin:6px 0;cursor:pointer}.op:has(input:checked){border-color:#1a73e8;background:#e8f0fe}' +
+    '.op small{display:block;color:#5f6368;margin:2px 0 0 22px}.op select,.op input[type=date]{margin-left:6px}</style>' +
     '<h3 style="margin-top:0">Gatilho de criação automática das abas</h3>' +
-    '<div class="top" style="border:1px solid #e0e0e0;border-radius:10px;padding:8px 12px;margin-bottom:8px">' + (atual ?
-      '<b>Ativo:</b> ' + esc_(atual.texto) + '<br><span class="mu">Última execução: ' + esc_(atual.ultima || 'nunca') + '</span><br>' +
-      '<button style="margin:6px 0 0;color:#b00020" onclick="desativar()">Desativar gatilho</button>' : 'Nenhum gatilho definido.') + '</div>' +
+    '<p class="sub">Cria sozinho as abas “&lt;Mês&gt; Grad” e “&lt;Mês&gt; Cndt e Praia”, lançando os afastamentos pendentes.</p>' +
+    '<div id="st"><div class="ban inf">Carregando…</div></div>' +
+    '<div class="sec">Quando</div>' +
     '<label class="op"><input type="radio" name="t" value="DIA" checked> Todo mês, no <select id="dia">' + dias + '</select><small>Cria as abas do mês seguinte.</small></label>' +
     '<label class="op"><input type="radio" name="t" value="DATA"> Uma única vez, em <input type="date" id="data" value="' + isoData_(amanha) + '"><small>Cria as abas do mês seguinte, na data escolhida.</small></label>' +
     '<label class="op"><input type="radio" name="t" value="PDU"> No primeiro dia útil de cada mês<small>Cria as abas do mês corrente, se ainda não existirem.</small></label>' +
-    '<label style="display:block;margin:10px 0">Horário: <select id="hora">' + horas + '</select></label>' +
-    '<button class="p" onclick="salvar()">Salvar gatilho</button><button onclick="google.script.host.close()">Cancelar</button><pre id="out" style="display:none"></pre>' +
-    '<script>function $(i){return document.getElementById(i)}' +
-    'function salvar(){var t=document.querySelector("input[name=t]:checked").value;var p={tipo:t,dia:$("dia").value,data:$("data").value,hora:$("hora").value};' +
-    '$("out").style.display="block";$("out").textContent="Salvando…";google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},1800)})' +
-    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDefinirGatilho(p)}' +
-    'function desativar(){$("out").style.display="block";$("out").textContent="Desativando…";google.script.run.withSuccessHandler(function(m){$("out").textContent="✅ "+m;setTimeout(function(){google.script.host.close()},1400)})' +
-    '.withFailureHandler(function(e){$("out").textContent="ERRO: "+e.message}).apiDesativarGatilho()}</script>';
-  mostrarHtml_(h, 'Configuração de Gatilho Automático', 480, 560);
+    '<div class="sec">Horário</div><div class="bar"><select id="hora">' + horas + '</select></div>' +
+    '<div class="stk"><button class="p" onclick="salvar()">Salvar gatilho</button><span id="bt"></span><button onclick="google.script.host.close()">Fechar</button></div>' +
+    '<div id="out" style="margin-top:6px"></div>' +
+    '<script>function $(i){return document.getElementById(i)}function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}' +
+    'var TP={DIA:"Todo mês",DATA:"Única vez",PDU:"1º dia útil"};' +
+    'function fal(e){$("out").className="erro";$("out").textContent="ERRO: "+(e&&e.message?e.message:e)}' +
+    'function pinta(c){if(!c){$("st").innerHTML="<div class=\\"ban offb\\"><b>● Nenhum gatilho definido</b><br><span class=mu>Escolha quando criar e clique em Salvar gatilho.</span></div>";$("bt").innerHTML="";return}' +
+    'var x="<div class=\\"ban okb\\"><b>● Ativo</b><br><span class=mu>"+esc(c.texto)+"</span></div>";' +
+    'x+="<div class=cards><div class=card><b style=\\"font-size:15px\\">"+esc(TP[c.tipo]||c.tipo)+"</b><span>frequência</span></div><div class=card><b>"+("0"+c.hora).slice(-2)+":00</b><span>horário</span></div></div>";' +
+    'x+=c.ultima?"<table><tr><th>Última execução</th></tr><tr><td class=mu>"+esc(c.ultima)+"</td></tr></table>":"<p class=mu>Ainda não executou.</p>";$("st").innerHTML=x;' +
+    '$("bt").innerHTML="<button style=\\"color:#b00020\\" onclick=\\"desativar()\\">Desativar gatilho</button>"}' +
+    'google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiGatAbas();' +
+    'function salvar(){var t=document.querySelector("input[name=t]:checked").value;var p={tipo:t,dia:$("dia").value,data:$("data").value,hora:$("hora").value};$("out").className="";$("out").textContent="Salvando…";' +
+    'google.script.run.withSuccessHandler(function(){$("out").textContent="";google.script.run.withSuccessHandler(pinta).apiGatAbas()}).withFailureHandler(fal).apiDefinirGatilho(p)}' +
+    'function desativar(){$("out").className="";$("out").textContent="Desativando…";google.script.run.withSuccessHandler(function(){$("out").textContent="";pinta(null)}).withFailureHandler(fal).apiDesativarGatilho()}</script>';
+  mostrarHtml_(h, 'Configuração de Gatilho Automático', 500, 600);
 }
 
 function apiDefinirGatilho(p) {

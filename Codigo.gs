@@ -390,6 +390,14 @@ function mostrarHtml_(corpo, titulo, w, h) {
   SpreadsheetApp.getUi().showModalDialog(html, titulo);
 }
 
+/** erro no padrão visual do módulo (faixa vermelha + Fechar), no lugar da caixa de alerta simples */
+function mostrarErro_(titulo, msg) {
+  var h = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.offb{background:#fce8e6;color:#b00020}</style><h3 style="margin-top:0">' + esc_(titulo) + '</h3>' +
+    '<div class="ban offb"><b>Não foi possível concluir</b><br><span class="mu">' + esc_(msg) + '</span></div>' +
+    '<button class="p" onclick="google.script.host.close()">Fechar</button>';
+  mostrarHtml_(h, titulo, 480, 260);
+}
+
 function esc_(s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
 /* ============================================================ SOBRE */
@@ -458,7 +466,7 @@ function mnuVerificarSistema() {
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
-    'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
+    'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiGatAbas', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });

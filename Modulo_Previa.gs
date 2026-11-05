@@ -384,7 +384,7 @@ function mnuAtualizarPrevia() {
       '<button class="p" onclick="google.script.host.close()">OK</button>';
     mostrarHtml_(h, 'Atualizar prévia', 560, 560);
 
-  } catch (e) { ui.alert('Não foi possível atualizar a prévia', e.message, ui.ButtonSet.OK); }
+  } catch (e) { mostrarErro_('Atualizar prévia', e.message); }
 }
 
 function vermelhoParaData_(dt) {

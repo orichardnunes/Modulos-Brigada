@@ -37,7 +37,7 @@ function mnuImportarDocumento() { abrirImportacao_('doc'); }
 
 function abrirImportacao_(modo) {
   var sh;
-  try { sh = destinoImportacao_(); } catch (e) { SpreadsheetApp.getUi().alert(e.message); return; }
+  try { sh = destinoImportacao_(); } catch (e) { mostrarErro_('Importar escala', e.message); return; }
   mostrarHtml_(htmlImportacao_(modo, sh.getName()), modo === 'drive' ? 'Importar via Google Drive' : 'Importar via documento', 760, 680);
 }
 
