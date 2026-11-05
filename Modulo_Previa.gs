@@ -607,3 +607,80 @@ function mnuDefinirParada() {
     '$("out").className="";$("out").innerHTML=h+"</table><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>"}</script>';
   mostrarHtml_(h, 'Definir horário da parada diária', 540, 600);
 }
+
+/* ============================================================ GATILHO DE CRIAÇÃO AUTOMÁTICA DA PRÉVIA */
+var DIAS_GAT_ = [['SUNDAY', 'Domingo'], ['MONDAY', 'Segunda-feira'], ['TUESDAY', 'Terça-feira'], ['WEDNESDAY', 'Quarta-feira'], ['THURSDAY', 'Quinta-feira'], ['FRIDAY', 'Sexta-feira'], ['SATURDAY', 'Sábado']];
+
+function cfgGatPrevia_() { return JSON.parse(PropertiesService.getDocumentProperties().getProperty('GATILHO_PREVIA') || 'null'); }
+
+function removerGatPrevia_() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'gatilhoCriarPrevia') ScriptApp.deleteTrigger(t); });
+}
+
+function instalarGatPrevia_(cfg) {
+  removerGatPrevia_();
+  ScriptApp.newTrigger('gatilhoCriarPrevia').timeBased().onWeekDay(ScriptApp.WeekDay[DIAS_GAT_[cfg.dow][0]]).atHour(cfg.hora).create();
+}
+
+/** roda sozinho: cria a prévia da semana seguinte à última existente (sem avisos; o resultado aparece como nova aba) */
+function gatilhoCriarPrevia() {
+  var props = PropertiesService.getDocumentProperties(), cfg = cfgGatPrevia_();
+  if (!cfg || !cfg.ativo) return;
+  var texto;
+  try {
+    var ult = null, hoje = new Date(), h0 = new Date(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+    abasPrevia_().forEach(function (sh) {
+      if (sh.isSheetHidden() || /Modelo/i.test(sh.getName())) return;
+      var v = sh.getRange('C2').getValue();
+      if (v instanceof Date && (!ult || v > ult)) ult = new Date(v.getFullYear(), v.getMonth(), v.getDate());
+    });
+    var ini;
+    if (ult) ini = new Date(ult.getFullYear(), ult.getMonth(), ult.getDate() + 7);
+    else { ini = new Date(h0); ini.setDate(ini.getDate() - ((ini.getDay() + 4) % 7)); } /* sem prévias: a quarta-feira desta semana */
+    if (ss_().getSheetByName(nomePrevia_(ini))) texto = 'já existia: ' + nomePrevia_(ini);
+    else texto = 'criada: ' + criarPrevia_(ini).nome;
+  } catch (e) { texto = 'ERRO: ' + e.message; }
+  cfg.ultima = Utilities.formatDate(new Date(), 'America/Sao_Paulo', 'dd/MM/yyyy HH:mm') + ' — ' + texto;
+  props.setProperty('GATILHO_PREVIA', JSON.stringify(cfg));
+}
+
+function apiGatPrevia() { return cfgGatPrevia_(); }
+
+function apiSalvarGatPrevia(dow, hora) {
+  dow = Number(dow); hora = Number(hora);
+  if (isNaN(dow) || dow < 0 || dow > 6 || isNaN(hora) || hora < 0 || hora > 23) throw new Error('Dia ou horário inválido.');
+  var cfg = { ativo: true, dow: dow, hora: hora, ultima: (cfgGatPrevia_() || {}).ultima || '' };
+  instalarGatPrevia_(cfg);
+  PropertiesService.getDocumentProperties().setProperty('GATILHO_PREVIA', JSON.stringify(cfg));
+  return cfg;
+}
+
+function apiAtivarGatPrevia(ativo) {
+  var cfg = cfgGatPrevia_();
+  if (!cfg) throw new Error('Defina o dia e o horário antes.');
+  cfg.ativo = !!ativo;
+  if (cfg.ativo) instalarGatPrevia_(cfg); else removerGatPrevia_();
+  PropertiesService.getDocumentProperties().setProperty('GATILHO_PREVIA', JSON.stringify(cfg));
+  return cfg;
+}
+
+function mnuGatilhoPrevia() {
+  var dias = DIAS_GAT_.map(function (d, i) { return '<option value="' + i + '"' + (i === 1 ? ' selected' : '') + '>' + d[1] + '</option>'; }).join('');
+  var horas = ''; for (var i = 0; i < 24; i++) horas += '<option value="' + i + '"' + (i === 5 ? ' selected' : '') + '>' + ('0' + i).slice(-2) + ':00</option>';
+  var h = '<style>.st{border:1px solid #e0e0e0;border-radius:10px;padding:8px 12px;margin:4px 0 10px}.on{color:#137333;font-weight:600}.off{color:#b00020;font-weight:600}</style>' +
+    '<h3 style="margin-top:0">Gatilho de criação automática da prévia</h3>' +
+    '<p style="color:#5f6368;margin:2px 0 8px">No dia e horário escolhidos, o módulo cria sozinho a prévia da semana seguinte à última prévia existente. Nenhum aviso é enviado: a nova aba aparece na planilha.</p>' +
+    '<div class="st" id="st">Carregando…</div>' +
+    '<div class="bar"><b class="lb" style="min-width:0">Todo(a)</b><select id="dow">' + dias + '</select><b class="lb" style="min-width:0">às</b><select id="hora">' + horas + '</select></div>' +
+    '<button class="p" onclick="salvar()">Salvar e ativar</button><span id="bt"></span><button onclick="google.script.host.close()">Fechar</button>' +
+    '<div id="out" style="margin-top:8px"></div>' +
+    '<script>function $(i){return document.getElementById(i)}function esc(s){return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;")}var D=' + JSON.stringify(DIAS_GAT_.map(function (d) { return d[1]; })) + ';' +
+    'function fal(e){$("out").className="erro";$("out").textContent="ERRO: "+(e&&e.message?e.message:e)}' +
+    'function pinta(c){if(!c){$("st").innerHTML="<span class=off>Nenhum gatilho definido.</span>";$("bt").innerHTML="";return}' +
+    '$("dow").value=c.dow;$("hora").value=c.hora;$("st").innerHTML=(c.ativo?"<span class=on>● Ativo</span>":"<span class=off>● Desativado</span>")+" — todo(a) "+esc(D[c.dow].toLowerCase())+", às "+("0"+c.hora).slice(-2)+":00"+(c.ultima?"<br><span class=mu>Última execução: "+esc(c.ultima)+"</span>":"");' +
+    '$("bt").innerHTML="<button onclick=\\"ativar("+(c.ativo?"false":"true")+")\\">"+(c.ativo?"Desativar":"Ativar")+"</button>"}' +
+    'google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiGatPrevia();' +
+    'function salvar(){$("out").textContent="";google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiSalvarGatPrevia($("dow").value,$("hora").value)}' +
+    'function ativar(v){$("out").textContent="";google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiAtivarGatPrevia(v)}</script>';
+  mostrarHtml_(h, 'Gatilho da prévia', 480, 420);
+}

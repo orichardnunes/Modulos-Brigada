@@ -59,7 +59,8 @@ function onOpen() {
     .addSubMenu(ui.createMenu('📅 Prévia Semanal')
       .addItem('Atualizar prévia', 'mnuAtualizarPrevia')
       .addItem('Adicionar prévia', 'mnuAdicionarPrevia')
-      .addItem('Definir horário da parada diária', 'mnuDefinirParada'))
+      .addItem('Definir horário da parada diária', 'mnuDefinirParada')
+      .addItem('Gatilho de criação automática', 'mnuGatilhoPrevia'))
     .addSubMenu(ui.createMenu('🗂️ Abas Mensais')
       .addItem('Criar abas do próximo mês', 'mnuCriarAbasProximoMes')
       .addSubMenu(ui.createMenu('📥 Importar Escala')
@@ -454,7 +455,7 @@ function mnuVerificarSistema() {
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
-    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
+    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
