@@ -51,14 +51,20 @@ var CFG = {
 function onOpen() {
   var ui = SpreadsheetApp.getUi();
   ui.createMenu('Módulo Brigada')
+    .addItem('🏠 Painel', 'mnuPainel')
+    .addSeparator()
     .addSubMenu(ui.createMenu('✏️ Confecção')
       .addItem('Adicionar serviços', 'mnuAdicionarServicos')
       .addItem('Retirar serviços', 'mnuRetirarServicos')
+      .addItem('Troca de serviço', 'mnuTrocaServico')
       .addItem('Adicionar afastamento', 'mnuAdicionarAfastamento')
-      .addItem('Adicionar militar', 'mnuAdicionarMilitar'))
+      .addItem('Adicionar militar', 'mnuAdicionarMilitar')
+      .addItem('Remover / transferir militar', 'mnuMoverMilitar'))
     .addSubMenu(ui.createMenu('📅 Prévia Semanal')
       .addItem('Atualizar prévia', 'mnuAtualizarPrevia')
       .addItem('Adicionar prévia', 'mnuAdicionarPrevia')
+      .addItem('Conferir prévia', 'mnuConferirPrevia')
+      .addItem('Exportar prévia (PDF)', 'mnuExportarPrevia')
       .addItem('Definir horário da parada diária', 'mnuDefinirParada')
       .addItem('Gatilho de criação automática', 'mnuGatilhoPrevia'))
     .addSubMenu(ui.createMenu('🗂️ Abas Mensais')
@@ -69,6 +75,7 @@ function onOpen() {
       .addItem('Configuração de Gatilho Automático', 'mnuConfigGatilho'))
     .addSubMenu(ui.createMenu('🔍 Auditagem do Sistema')
       .addItem('📊 Verificação de serviços tirados', 'mnuQuantitativo')
+      .addItem('⚖️ Balanceamento do mês', 'mnuBalanceamento')
       .addItem('✅ Verificação do sistema', 'mnuVerificarSistema'))
     .addSeparator()
     .addItem('ℹ️ Sobre o Módulo Brigada ' + CFG.VERSAO, 'mnuSobre')
@@ -447,6 +454,12 @@ function mnuSobre() {
     '<b>Via documento:</b> PDF, xlsx, xls, ods ou csv; mostra a tabela lida, onde você corrige qualquer célula e o tipo (PRETA/VERM) antes de aplicar. ' +
     'A importação pinta as linhas OF DIA QG / CMT GD QG / CB GD QG / SD GD QG / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
     'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
+    '<h2>🧰 Painel, trocas e conferências</h2>' +
+    '<p><b>Painel:</b> resumo do mês (dia, pendências da prévia, afastamentos para o mês seguinte, gatilhos), os serviços de hoje e atalhos para todas as funções. ' +
+    '<b>Troca de serviço:</b> escolha a escala, o dia, quem sai e quem entra; o módulo sugere quem pode entrar (maior folga, sem serviço no dia e dentro da folga mínima, inclusive entre meses) e grava o nome do substituto na anotação do “0” de quem sai. ' +
+    '<b>Remover / transferir militar:</b> apaga a linha do militar nas escalas marcadas (refaz o nº de ordem e remove também dos meses seguintes já criados) ou troca a subunidade. ' +
+    '<b>Balanceamento do mês:</b> serviços por militar em cada escala comparados com a média. ' +
+    '<b>Conferir prévia:</b> lista as células PENDENTE por linha, com o motivo provável. <b>Exportar prévia (PDF):</b> gera o PDF e salva na pasta da planilha.</p>' +
     '<h2>📅 Prévia semanal</h2>' +
     '<p><b>Adicionar prévia:</b> escolha a semana na lista (quarta a terça; a sugerida vem marcada); o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +
     '<b>Atualizar prévia:</b> religa as fórmulas à planilha (sem abas de cache) e ativa o recálculo a cada minuto. ' +
@@ -462,6 +475,7 @@ function mnuVerificarSistema() {
   var esperadas = [
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
+    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',

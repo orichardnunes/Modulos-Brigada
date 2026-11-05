@@ -30,3 +30,7 @@ Teste primeiro numa **cópia** da planilha.
 - Feriados: `CFG.FERIADOS_FIXOS` (nacionais fixos) e `CFG.FERIADOS_EXTRAS` (AAAA-MM-DD). Ao criar aba nova, dias vermelhos = sáb/dom/feriados dessa lista; ajuste a cor manualmente se houver feriado local.
 - Gatilho `PDU`: cria as abas do **mês corrente** se ainda não existirem; dia/data criam o **mês seguinte**.
 - Blocos `QG AD/1` só têm vaga em dias com cabeçalho laranja (carregue a Guarnição antes).
+
+
+## Arquivos do projeto
+Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia).

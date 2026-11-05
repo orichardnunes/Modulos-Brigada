@@ -90,6 +90,7 @@ function apiServicos(modo, p, aplicar) {
       Object.keys(plano.resumo).forEach(function (bi) { var r = plano.resumo[bi]; if (r.sel) relAba.escalas.push({ titulo: r.titulo, n: r.esc, falta: r.falta }); });
       relAba.fix = plano.esc.filter(function (e) { return e.tipo === 'fix'; }).length;
       relAba.verdes = plano.esc.filter(function (e) { return e.tipo === 'verde'; }).length;
+      relAba.verdeCor = plano.esc.filter(function (e) { return e.tipo === 'verdeCor'; }).length;
       relAba.prox = plano.prox.length;
       relAba.avisos = plano.avisos;
       relAba.itens = plano.itens;
@@ -174,6 +175,11 @@ function planejarServicos_(A, pr, proxA, antA) {
       if (!participa_(A, Bj, Rj, d)) return;
       var c = colDia_(d);
       if (num_(A.vals[Rj.r][c]) === 0 || classeCel_(A, Rj.r, c) === 'afast') return;
+      /* QG x escala do próprio militar (ex.: CMT GD QG x CMT GD): só a cor verde, sem “0” — o serviço no QG não interfere na folga da escala original */
+      if (A.blocos[bi].kind === 'qg' && Bj.kind !== 'qg' && baseResumo_(A.blocos[bi].titulo) === baseResumo_(Bj.titulo)) {
+        plano.esc.push({ bi: o.bi, ri: o.ri, d: d, tipo: 'verdeCor' });
+        return;
+      }
       plano.esc.push({ bi: o.bi, ri: o.ri, d: d, tipo: 'verde' });
       if (atual && o.bi < bi) {
         var s = ST[o.bi][o.ri], tj = vermelho_(A, Bj, d) ? 1 : 0;
@@ -329,6 +335,8 @@ function textoPlano_(A, plano) {
   var verdes = plano.esc.filter(function (e) { return e.tipo === 'verde'; }).length;
   if (fix) l.push('♻ ' + fix + ' serviço(s) inválido(s) (cor de afastamento) refeito(s) pela fórmula de folga.');
   if (verdes) l.push('🟩 ' + verdes + ' "0" verde(s) em outras escalas.');
+  var verdesCor = plano.esc.filter(function (e) { return e.tipo === 'verdeCor'; }).length;
+  if (verdesCor) l.push('🟩 ' + verdesCor + ' dia(s) só em verde (sem "0") na escala própria do militar.');
   if (plano.prox.length) l.push('➡ ' + plano.prox.length + ' marcação(ões) do 2º dia do par na aba do mês seguinte.');
   if (plano.avisos.length) l.push('\n⚠ AVISOS:\n' + plano.avisos.join('\n'));
   if (plano.linhas.length) l.push('\nLISTA DIA A DIA:\n' + plano.linhas.join('\n'));
@@ -390,11 +398,12 @@ function formulaFolga_(A, B, R, d) {
 
 /** itens: {bi, ri, d, tipo:'servico'|'verde'|'fix'|'rem', keepBg, limparNota} */
 function escreverMarcas_(A, itens, opts) {
-  var sh = A.sh, rl = { servico: [], verde: [], branco: [], vermelho: [], notas: [] }, grupos = {}, av = [], porCorServ = {};
+  var sh = A.sh, rl = { servico: [], verde: [], verdeCor: [], branco: [], vermelho: [], notas: [] }, grupos = {}, av = [], porCorServ = {};
   itens.forEach(function (it) {
     var B = A.blocos[it.bi], R = B.rows[it.ri], a1 = a1_(R.r, colDia_(it.d));
     if (it.tipo === 'servico') { var ck = it.cor || A.leg.servico.bg; (porCorServ[ck] = porCorServ[ck] || []).push(a1); return; }
     if (it.tipo === 'verde') { rl.verde.push(a1); return; }
+    if (it.tipo === 'verdeCor') { rl.verdeCor.push(a1); return; }
     var f = formulaFolga_(A, B, R, it.d);
     if (!f) { av.push(R.nome + ' dia ' + it.d); f = { a1: '=1' }; }
     if (f.r1c1) (grupos[f.r1c1] = grupos[f.r1c1] || []).push(a1);
@@ -406,6 +415,7 @@ function escreverMarcas_(A, itens, opts) {
     sh.getRangeList(porCorServ[ck]).setValue(0).setBackground(ck).setFontColor(ck === '#1c4587' ? CFG.COR.BRANCO : A.leg.servico.fg);
   });
   if (rl.verde.length) sh.getRangeList(rl.verde).setValue(0).setBackground(A.leg.outra.bg).setFontColor(A.leg.outra.fg);
+  if (rl.verdeCor.length) sh.getRangeList(rl.verdeCor).setBackground(A.leg.outra.bg).setFontColor(A.leg.outra.fg);
   Object.keys(grupos).forEach(function (f) { sh.getRangeList(grupos[f]).setFormulaR1C1(f); });
   if (rl.branco.length) sh.getRangeList(rl.branco).setBackground(CFG.COR.BRANCO).setFontColor(CFG.COR.PRETO);
   if (rl.vermelho.length) sh.getRangeList(rl.vermelho).setBackground(CFG.COR.VERMELHO).setFontColor(CFG.COR.PRETO);
@@ -1045,7 +1055,7 @@ function htmlServicos_(modo) {
     'R.abas.forEach(function(a){\n' +
     'h+="<table><tr><th>Escala</th><th>"+(ADD?"Escalados":"Serviços")+"</th>"+(ADD?"<th>Sem militar</th>":"")+"</tr>";\n' +
     'a.escalas.forEach(function(e){h+="<tr><td><b>"+esc(e.titulo)+"</b></td><td><span class=lar>"+e.n+"</span></td>"+(ADD?"<td class=\\""+(e.falta?"erro":"mu")+"\\">"+(e.falta||"—")+"</td>":"")+"</tr>"});h+="</table>";\n' +
-    'var ex=[];if(a.fix)ex.push("♻ "+a.fix+" serviço(s) inválido(s) refeito(s) pela fórmula de folga");if(a.verdes)ex.push("🟩 "+a.verdes+" “0” verde(s) em outras escalas");if(a.prox)ex.push("➡ "+a.prox+" marcação(ões) do 2º dia do par no mês seguinte");\n' +
+    'var ex=[];if(a.fix)ex.push("♻ "+a.fix+" serviço(s) inválido(s) refeito(s) pela fórmula de folga");if(a.verdes)ex.push("🟩 "+a.verdes+" “0” verde(s) em outras escalas");if(a.verdeCor)ex.push("🟩 "+a.verdeCor+" dia(s) só em verde, sem “0”");if(a.prox)ex.push("➡ "+a.prox+" marcação(ões) do 2º dia do par no mês seguinte");\n' +
     'if(ex.length)h+="<p class=mu>"+ex.map(esc).join(" · ")+"</p>";\n' +
     'if(a.avisos.length){h+="<details open><summary class=erro>⚠ Avisos ("+a.avisos.length+")</summary><ul>";a.avisos.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul></details>"}\n' +
     'if(a.itens&&a.itens.length){var por={},ord=[];a.itens.forEach(function(i){if(!por[i.d]){por[i.d]=[];ord.push(i.d)}por[i.d].push(i)});\n' +
