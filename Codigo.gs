@@ -397,6 +397,17 @@ function mostrarHtml_(corpo, titulo, w, h) {
   SpreadsheetApp.getUi().showModalDialog(html, titulo);
 }
 
+/** UrlFetchApp com mensagem clara quando o manifesto do projeto não tem o escopo script.external_request */
+function buscarUrl_(url, opcoes) {
+  try { return UrlFetchApp.fetch(url, opcoes); }
+  catch (e) {
+    if (/external_request/i.test(String(e.message))) {
+      throw new Error('Falta a permissão "script.external_request" no projeto. No Apps Script: Configurações do projeto → marcar "Mostrar arquivo de manifesto appsscript.json" → abrir o appsscript.json e incluir "https://www.googleapis.com/auth/script.external_request" em oauthScopes (veja o appsscript.json do projeto no GitHub) → salvar e tentar de novo, autorizando quando o Google pedir.');
+    }
+    throw e;
+  }
+}
+
 /** erro no padrão visual do módulo (faixa vermelha + Fechar), no lugar da caixa de alerta simples */
 function mostrarErro_(titulo, msg) {
   var h = '<style>.ban{border-radius:10px;padding:8px 12px;margin:4px 0 8px}.offb{background:#fce8e6;color:#b00020}</style><h3 style="margin-top:0">' + esc_(titulo) + '</h3>' +

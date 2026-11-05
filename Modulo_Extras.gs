@@ -401,7 +401,7 @@ function apiExportarPrevia(nome, paisagem) {
   for (var r = 0; r < v.length; r++) if (v[r].some(function (x) { return String(x).trim() !== ''; })) ult = r + 1;
   var url = 'https://docs.google.com/spreadsheets/d/' + ss_().getId() + '/export?format=pdf&gid=' + sh.getSheetId() + '&size=A4&portrait=' + (paisagem ? 'false' : 'true') +
     '&fitw=true&gridlines=false&printtitle=false&sheetnames=false&pagenumbers=false&top_margin=0.4&bottom_margin=0.4&left_margin=0.4&right_margin=0.4&range=' + encodeURIComponent('A1:I' + ult);
-  var resp = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+  var resp = buscarUrl_(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
   if (resp.getResponseCode() !== 200) throw new Error('Falha ao gerar o PDF (HTTP ' + resp.getResponseCode() + ').');
   var blob = resp.getBlob().setName(nome + '.pdf'), pasta = null;
   try { pasta = pastaDaPlanilha_(); } catch (e) { pasta = null; }

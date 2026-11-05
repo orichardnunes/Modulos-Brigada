@@ -226,7 +226,7 @@ function apiExportarQuantitativo(p, formato) {
   etapa_('Conversão', function () {
     if (formato === 'pdf') blob = arq.getAs(MimeType.PDF).setName(nome + '.pdf');
     else {
-      var resp = UrlFetchApp.fetch('https://docs.google.com/document/d/' + docId + '/export?format=docx',
+      var resp = buscarUrl_('https://docs.google.com/document/d/' + docId + '/export?format=docx',
         { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
       if (resp.getResponseCode() !== 200) throw new Error('HTTP ' + resp.getResponseCode() + ' ao gerar o .docx');
       blob = resp.getBlob().setName(nome + '.docx');
