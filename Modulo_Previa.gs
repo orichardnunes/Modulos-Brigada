@@ -318,15 +318,28 @@ function preencherPermanencia_(sh) {
 
 /** Troca as referências às abas CAL/TROCAS/ESCALADOS_CACHE por fórmulas locais. Devolve {alteradas, externas[]}. */
 function migrarPrevia_(sh) {
-  var lr = sh.getLastRow(), rg = sh.getRange(1, 1, lr, 9), forms = rg.getFormulas(), alteradas = 0, externas = {};
+  var lr = sh.getLastRow(), forms = sh.getRange(1, 1, lr, 9).getFormulas(), alteradas = 0, externas = {};
   for (var r = 0; r < forms.length; r++) {
+    var novos = forms[r].slice(), mudou = false;
     for (var c = 0; c < 9; c++) {
       var f = forms[r][c];
       if (!f) continue;
       var novo = ajustarFormulaPrevia_(f);
-      if (novo !== f) { sh.getRange(r + 1, c + 1).setFormula(novo); alteradas++; }
+      if (novo !== f) { novos[c] = novo; mudou = true; alteradas++; }
       var m = /(OF_DIA|SGT_DIA|MANOBREIRO|ATENDIMENTO|CAL|TROCAS|ESCALADOS)_CACHE/.exec(novo);
       if (m) externas[m[1]] = true;
+    }
+    if (!mudou) continue;
+    /* grava em blocos de células consecutivas que são fórmulas (uma chamada por trecho, em vez de uma por célula) */
+    var c0 = 0;
+    while (c0 < 9) {
+      if (!forms[r][c0]) { c0++; continue; }
+      var c1 = c0;
+      while (c1 + 1 < 9 && forms[r][c1 + 1]) c1++;
+      var ch = false;
+      for (var q = c0; q <= c1; q++) if (novos[q] !== forms[r][q]) ch = true;
+      if (ch) sh.getRange(r + 1, c0 + 1, 1, c1 - c0 + 1).setFormulas([novos.slice(c0, c1 + 1)]);
+      c0 = c1 + 1;
     }
   }
   instalarAuxPrevia_(sh);
@@ -373,11 +386,12 @@ function mnuAtualizarPrevia() {
   var ui = SpreadsheetApp.getUi();
   try {
     ss_().setRecalculationInterval(SpreadsheetApp.RecalculationInterval.MINUTE);
-    var tot = 0, previas = [], avisos = [], pendentes = {}, objs = [];
+    var tot = 0, previas = [], avisos = [], pendentes = {}, objs = [], ajustes = {};
     abasPrevia_().forEach(function (sh) {
       var r;
       try { r = migrarPrevia_(sh); } catch (e) { avisos.push(sh.getName() + ': ' + e.message); return; }
       tot += r.alteradas;
+      ajustes[sh.getName()] = r.alteradas;
       try {
         var x = atualizarExternosPrevia_(sh, true);
         x.avisos.forEach(function (a) { avisos.push(sh.getName() + ': ' + a); });
@@ -401,7 +415,7 @@ function mnuAtualizarPrevia() {
       '<div class="card' + (totPend ? ' bad' : '') + '"><b>' + totPend + '</b><span>célula(s) pendente(s)</span></div></div>';
     h += totPend ? '<p class="erro"><b>Ainda há pendências.</b> Veja abaixo onde estão.</p>' : '<p class="ok"><b>✔ Prévia atualizada.</b> Nenhuma célula pendente.</p>';
     previas.forEach(function (x) {
-      h += '<details' + (x.p.n ? ' open' : '') + '><summary>' + esc_(x.nome) + ' — ' + (x.p.n ? '<span class="erro">' + x.p.n + ' pendente(s)</span>' : '<span class="ok">completa</span>') + '</summary>';
+      h += '<details' + (x.p.n ? ' open' : '') + '><summary>' + esc_(x.nome) + ' — ' + (x.p.n ? '<span class="erro">' + x.p.n + ' pendente(s)</span>' : '<span class="ok">completa</span>') + ' <span class="mu">· ' + (ajustes[x.nome] || 0) + ' fórmula(s) ajustada(s)</span></summary>';
       var ks = Object.keys(x.p.linhas);
       if (!ks.length) h += '<p class="mu">Todas as linhas preenchidas.</p>';
       else { h += '<table><tr><th>Linha</th><th>Dias pendentes</th></tr>'; ks.forEach(function (k) { h += '<tr><td>' + esc_(k) + '</td><td>' + esc_(x.p.linhas[k].join(' · ').replace(/\s+/g, ' ')) + '</td></tr>'; }); h += '</table>'; }

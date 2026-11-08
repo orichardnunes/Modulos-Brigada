@@ -106,7 +106,9 @@ function acharColunaExt_(id, dt, linhaHdr, primeiraCol) {
     var k = id + '|' + sh.getSheetId() + '|map|' + hdr;
     if (!CACHE_EXT_.mapas[k]) CACHE_EXT_.mapas[k] = mapaColunas_(vals[hdr] || [], primeiraCol, d2.getMonth(), d2.getFullYear());
     var col = CACHE_EXT_.mapas[k][serialData_(dt)];
-    if (col != null) return { sh: sh, col: col, hdr: hdr };
+    var idx1 = -1;
+    for (var j1 = primeiraCol; j1 < (vals[hdr] || []).length; j1++) if (vals[hdr][j1] !== '' && Number(vals[hdr][j1]) === 1) { idx1 = j1; break; }
+    if (col != null) return { sh: sh, col: col, hdr: hdr, idx1: idx1 };
   }
   return null;
 }
@@ -284,8 +286,15 @@ function fxTroca_(col) { /* aplica a troca anotada (tabela oculta AP:AS) ao nome
   return 'IFERROR(INDEX($' + E.assume + '$2:$' + E.assume + '$300,MATCH(1,ARRAYFORMULA(($' + E.data + '$2:$' + E.data + '$300=' + col + '$2)*($' + E.orig + '$2:$' + E.orig + '$300=nome)),0)),nome)';
 }
 
+/** nº (1-based) da coluna do dia dentro do IMPORTRANGE: relativo ao "1" do cabeçalho, para acompanhar colunas inseridas no arquivo de origem */
+function colDiaFx_(loc) {
+  if (loc.idx1 == null || loc.idx1 < 0) return String(loc.col + 1);
+  var off = loc.col - loc.idx1;
+  return '(MATCH(1,INDEX(dados,' + (loc.hdr + 1) + ',0),0)' + (off ? (off > 0 ? '+' : '') + off : '') + ')';
+}
+
 function fxSgt_(S, colLetra, posicao) { /* os 2 sargentos do dia, em ordem de antiguidade (ordem das linhas), independente da SU */
-  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh) + ',v,INDEX(dados,0,' + (S.loc.col + 1) + '),n,INDEX(dados,0,2),' +
+  return '=IFERROR(LET(dados,' + importExt_(EXT.SGT, S.loc.sh) + ',v,INDEX(dados,0,' + colDiaFx_(S.loc) + '),n,INDEX(dados,0,2),' +
     'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,' + posicao + ')),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
@@ -295,7 +304,7 @@ function fxGradNome_(colGrad, colNome) { /* fragmento de LET: define g, gm e n (
 }
 
 function fxMano_(M, colLetra) {
-  return '=IFERROR(LET(dados,' + importExt_(EXT.MANO, M.loc.sh) + ',v,INDEX(dados,0,' + (M.loc.col + 1) + '),' + fxGradNome_(2, 3) + ',' +
+  return '=IFERROR(LET(dados,' + importExt_(EXT.MANO, M.loc.sh) + ',v,INDEX(dados,0,' + colDiaFx_(M.loc) + '),' + fxGradNome_(2, 3) + ',' +
     'f,FILTER(n,ISNUMBER(v)*(v=0)),nome,TRIM(INDEX(f,1)),' + fxTroca_(colLetra) + '),"PENDENTE")';
 }
 
@@ -364,9 +373,12 @@ function fxOf_(colLetra, qg) {
 }
 
 /** a planilha em português usa ";" como separador de argumentos; em inglês, ",". Converte (fora de textos entre aspas). */
+var LOCALE_PLAN_ = null;
 function localizarFormula_(f) {
-  var loc = '';
-  try { loc = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetLocale(); } catch (e) { loc = ''; }
+  if (LOCALE_PLAN_ === null) { /* uma consulta por execução (cada chamada à planilha é lenta) */
+    try { LOCALE_PLAN_ = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetLocale() || ''; } catch (e) { LOCALE_PLAN_ = ''; }
+  }
+  var loc = LOCALE_PLAN_;
   if (/^(en|ja|zh|ko|he|th|hi)/i.test(loc)) return f;
   var out = '', dentro = false;
   for (var i = 0; i < f.length; i++) {
@@ -434,7 +446,6 @@ function escreverPermissoes_(sh) {
 
 /** Atualiza uma aba de prévia: tabelas (Of Dia e trocas) e, opcionalmente, as fórmulas dos blocos externos. */
 function atualizarExternosPrevia_(sh, comFormulas) {
-  CACHE_EXT_ = { ss: {}, dados: {}, mapas: {} };
   var datas = datasPrevia_(sh), tab = tabelasExternas_(datas), res = { n: 0, avisos: [] };
   if (comFormulas) res = gerarFormulasExternas_(sh, datas);
   escreverTabelasExternas_(sh, tab);
