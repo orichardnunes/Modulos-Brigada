@@ -29,7 +29,7 @@ function achatar_(v) {
 function carregarAbaPrevia_(ctx, d, tipo) {
   var nome = CFG.MESES[d.getMonth()] + ' ' + tipo;
   if (!(nome in ctx.abas)) {
-    var sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(nome);
+    var sh = ss_().getSheetByName(nome);
     ctx.abas[nome] = sh ? lerAba_(sh, d.getMonth(), d.getFullYear()) : null;
     if (ctx.abas[nome]) {
       ctx.abas[nome].notas = sh.getRange(1, 1, ctx.abas[nome].vals.length, ctx.abas[nome].vals[0].length).getNotes();
@@ -176,12 +176,27 @@ function trocarRefsCache_(f) {
   return out;
 }
 
+/** colunas inseridas à esquerda (ex.: DISP) em cada aba do mês: [data, k Grad, k Cndt e Praia]; as fórmulas da prévia somam esse deslocamento */
+function layoutPrevia_(datas) {
+  var out = [];
+  for (var i = 0; i < 7; i++) {
+    var d = datas[i], l = [serialData_(d), 0, 0];
+    [CFG.TIPO_GRAD, CFG.TIPO_CNDT].forEach(function (t, j) {
+      var sh = ss_().getSheetByName(CFG.MESES[d.getMonth()] + ' ' + t);
+      if (sh) { try { l[1 + j] = colunasExtras_(sh); } catch (e) { l[1 + j] = 0; } }
+    });
+    out.push(l);
+  }
+  return out;
+}
+
 /** grava (por script, que tem permissão total) a tabela por dia e as trocas internas nas colunas ocultas L:AE e AG:AJ */
 function atualizarTabelasInternas_(sh) {
   var datas = datasPrevia_(sh), cal = PREVIA_CAL([datas], 0), trc = PREVIA_TROCAS([datas], 0);
   sh.getRange(2, 12, cal.length, cal[0].length).setValues(cal);
   sh.getRange('AG2:AJ300').clearContent();
   sh.getRange(2, 33, trc.length, 4).setValues(trc);
+  sh.getRange('BC2:BE8').setValues(layoutPrevia_(datas));
   carimboPrevia_(sh);
 }
 
@@ -189,7 +204,7 @@ var CABECALHO_CAL_ = ['Data', 'QG: CMT GD (laranja)', 'QG: CB GD (laranja)', 'QG
   'Dia vermelho (Cndt)', 'Portão 12h #1', 'Portão 12h #2', 'Portão 24h #1', 'Portão 24h #2', 'Portão 24h #3', 'Controle #1', 'Controle #2', 'Controle #3',
   'CB DIA #1 (2ª BO)', 'CB DIA #2 (1ª BO)', 'CB DIA #3 (DMSF)', 'CB DIA #4 (BIA C)'];
 
-/** títulos, formato de data e aviso nas colunas ocultas (L:BA); só apresentação, não altera os dados */
+/** títulos, formato de data e aviso nas colunas ocultas (L:BE); só apresentação, não altera os dados */
 function formatarAuxPrevia_(sh) {
   var cab = '#e8eaed';
   sh.getRange(1, 12, 1, 20).setValues([CABECALHO_CAL_]).setFontWeight('bold').setBackground(cab).setWrap(true);
@@ -198,15 +213,16 @@ function formatarAuxPrevia_(sh) {
   sh.getRange('AP1:AS1').setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AU1:AW1').setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AY1:BA1').setFontWeight('bold').setBackground(cab).setWrap(true);
-  ['L2:L8', 'AG2:AG300', 'AL2:AL8', 'AP2:AP300', 'AU2:AU8', 'AY2:AY8'].forEach(function (a) { sh.getRange(a).setNumberFormat('dd/mm/yyyy'); });
+  sh.getRange('BC1:BE1').setValues([['Layout das abas: data', 'Colunas extras (Grad)', 'Colunas extras (Cndt e Praia)']]).setFontWeight('bold').setBackground(cab).setWrap(true);
+  ['L2:L8', 'AG2:AG300', 'AL2:AL8', 'AP2:AP300', 'AU2:AU8', 'AY2:AY8', 'BC2:BC8'].forEach(function (a) { sh.getRange(a).setNumberFormat('dd/mm/yyyy'); });
   sh.getRange('L10').setValue('Área auxiliar da prévia: preenchida por script (a cada alteração da planilha, a cada 10 min e em "Atualizar prévia"). Não edite.').setFontColor('#80868b');
 }
 
 function instalarAuxPrevia_(sh) {
-  var precisa = 53 - sh.getMaxColumns();
+  var precisa = 57 - sh.getMaxColumns();
   if (precisa > 0) sh.insertColumnsAfter(sh.getMaxColumns(), precisa);
-  sh.getRange(1, 10, sh.getMaxRows(), 44).clearContent(); /* limpa colunas auxiliares (J:BA), inclusive restos de versões antigas */
-  sh.hideColumns(12, 42);
+  sh.getRange(1, 10, sh.getMaxRows(), 48).clearContent(); /* limpa colunas auxiliares (J:BE), inclusive restos de versões antigas */
+  sh.hideColumns(12, 46);
   atualizarTabelasInternas_(sh);
   formatarAuxPrevia_(sh);
 }
@@ -217,7 +233,7 @@ function colNum_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 +
 function normalizarHelpers_(f) {
   var out = f.replace(/INDEX\(\s*\$([A-Z]+)\$2:\$\1\$8\s*([,;])\s*MATCH\(\s*([^,;()]+?)\s*[,;]\s*\$([A-Z]+)\$2:\$\4\$8\s*[,;]\s*0\s*\)\s*\)/g,
     function (m, x, sep, arg, y) {
-      if (y === 'AL' || y === 'AU' || y === 'AY') return m; /* tabelas do Of Dia (AL) e do Atendimento (AU) não são a tabela por dia */
+      if (y === 'AL' || y === 'AU' || y === 'AY' || y === 'BC') return m; /* tabelas do Of Dia (AL) e do Atendimento (AU) não são a tabela por dia */
       var nx = 12 + colNum_(x) - colNum_(y);
       if (nx < 12 || nx > 31) return m;
       var L = colLetra_(nx - 1);
@@ -250,13 +266,33 @@ function estenderDia31_(f) { return /IMPORTRANGE/i.test(f) ? f.replace(/:AH(?=")
 /* célula vazia = 0 no Sheets: FILTER(nomes, valores=0) pegaria militares sem serviço; só vale 0 numérico */
 function zeroNumerico_(f) { return f.replace(/FILTER\(\s*nomes\s*([,;])\s*valores\s*=\s*0\s*\)/g, 'FILTER(nomes$1 ISNUMBER(valores)*(valores=0))'); }
 
-function ajustarFormulaPrevia_(f) { return zeroNumerico_(estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f)))))); }
+/**
+ * Fórmulas que leem as abas do mês por INDIRECT (coluna do nome = E, nº = C, dias a partir da F) passam a somar o nº de colunas
+ * inseridas à esquerda (ex.: DISP), informado pelo script na tabela oculta BC:BE de cada prévia. Idempotente.
+ */
+function ajustarLayoutFormula_(f) {
+  if (!/INDIRECT/i.test(f)) return f;
+  var kref = /Cndt/i.test(f) ? '$BE$2:$BE$8' : '$BD$2:$BD$8';
+  var K = 'INDEX(' + kref + ',MATCH(d,$BC$2:$BC$8,0))';
+  function letra(base) { return 'SUBSTITUTE(ADDRESS(1,' + base + '+' + K + ',4),"1","")'; }
+  function loc(x) { return localizarFormula_(x); }
+  var out = f;
+  out = out.replace(/DAY\(d\)\s*\+\s*5(?!\s*\+\s*INDEX\(\$B[DE]\$2)/g, function () { return 'DAY(d) + 5 + ' + loc(K); });
+  out = out.replace(/"'!E:E"/g, function () { return loc('"\'!" & ' + letra(5) + ' & ":" & ' + letra(5)); });
+  out = out.replace(/"'!D:D"/g, function () { return loc('"\'!" & ' + letra(4) + ' & ":" & ' + letra(4)); });
+  out = out.replace(/"'!C:C"/g, function () { return loc('"\'!" & ' + letra(3) + ' & ":" & ' + letra(3)); });
+  out = out.replace(/"'!E"/g, function () { return loc('"\'!" & ' + letra(5)); });
+  out = out.replace(/":E"/g, function () { return loc('":" & ' + letra(5)); });
+  return out;
+}
+
+function ajustarFormulaPrevia_(f) { return ajustarLayoutFormula_(zeroNumerico_(estenderDia31_(cbDiaParaX_(opcionaisParaX_(normalizarHelpers_(trocarRefsCache_(f))))))); }
 
 
 /* ============================================================ PERMANÊNCIA PNR (escala na aba Grad, em tempo real) */
 function fxPermanencia_(L) {
   /* título do bloco ("PERMANÊNCIA PNR"): procura nas colunas E, D, B, C e A; somente o texto "PERMANÊNCIA PNR" (sem aceitar outros blocos com PNR) */
-  var lblPnr = 'NA()', cols = ['A', 'C', 'B', 'D', 'E'], pad = ['*PERMAN*PNR*']; /* só o título completo: "PNR ARARIBOIA" é outra escala */
+  var lblPnr = 'NA()', cols = ['C', 'D', 'E'], pad = ['*PERMAN*PNR*']; /* só o título completo: "PNR ARARIBOIA" é outra escala */
   pad.forEach(function (pt) { cols.forEach(function (c) { lblPnr = 'IFERROR(MATCH("' + pt + '",INDIRECT("\'"&aba&"\'!' + c + ':' + c + '"),0),' + lblPnr + ')'; }); });
   return '=IFERROR(LET(d,' + L + '$2,aba,CHOOSE(MONTH(d),"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez")&" Grad",col,DAY(d)+5,' +
     'lbl,' + lblPnr + ',' +
@@ -276,7 +312,7 @@ function preencherPermanencia_(sh) {
     if (semAcento_(v[r][0] + ' ' + v[r][1]).indexOf('PERMANENCIA PNR') >= 0) { achou = r + 1; break; }
   }
   if (!achou) return false;
-  for (var c = 0; c < 7; c++) sh.getRange(achou, 3 + c).setFormula(localizarFormula_(fxPermanencia_(colLetra_(2 + c))));
+  for (var c = 0; c < 7; c++) sh.getRange(achou, 3 + c).setFormula(localizarFormula_(ajustarLayoutFormula_(fxPermanencia_(colLetra_(2 + c)))));
   return true;
 }
 

@@ -89,7 +89,116 @@ function emDesenvolvimento_(nome) {
 }
 
 /* ============================================================ UTILITÁRIOS */
-function ss_() { return SpreadsheetApp.getActiveSpreadsheet(); }
+/* ============================================================ COLUNAS INSERIDAS À ESQUERDA (ex.: coluna DISP)
+ * O módulo trabalha com o layout padrão (dia 1 na coluna F, nome na E, SU na D, nº na C). Se o operador inserir colunas
+ * antes dos dias, cada aba mensal é "envolvida" por uma camada que traduz as colunas padrão para as colunas reais,
+ * tanto na leitura quanto na escrita (inclusive referências A1 dentro de fórmulas). Detecta sozinha, a cada execução. */
+var K_ABAS_ = {};
+
+function desembrulhar_(x) { return (x && x.__real) ? x.__real : x; }
+
+function numLetra_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + L.charCodeAt(i) - 64; return n; }
+
+/** nº de colunas inseridas antes dos dias em relação ao padrão (0 = layout padrão) */
+function colunasExtras_(sh) {
+  sh = desembrulhar_(sh);
+  var id = sh.getSheetId();
+  if (K_ABAS_[id] != null) return K_ABAS_[id];
+  var k = 0;
+  try {
+    var lr = Math.min(sh.getLastRow(), 80), lc = Math.min(sh.getLastColumn(), 14);
+    if (lr >= 2 && lc > CFG.COL_DIA1) {
+      var v = sh.getRange(1, 1, lr, lc).getValues(), achou = false;
+      for (var r = 0; r < lr - 1 && !achou; r++) {
+        for (var c = 3; c < lc; c++) {
+          if (diaDe_(v[r][c]) === 1 && CFG.DIAS.indexOf(String(v[r + 1][c]).trim().toLowerCase()) >= 0) { k = Math.max(0, c - CFG.COL_DIA1); achou = true; break; }
+        }
+      }
+    }
+  } catch (e) { k = 0; }
+  K_ABAS_[id] = k;
+  return k;
+}
+
+function deslocarA1_(a1, k) {
+  if (!k || typeof a1 !== 'string') return a1;
+  return a1.replace(/(\$?)([A-Z]{1,3})(?=\$?\d*(?::|$))/g, function (m, d, col) { return d + colLetra_(numLetra_(col) - 1 + k); });
+}
+
+function deslocarFormula_(f, k) {
+  if (typeof f !== 'string' || f.charAt(0) !== '=') return f;
+  return f.replace(/(?<![A-Za-z0-9_])('[^']+'!|[A-Za-z0-9_]+!)?(\$?)([A-Z]{1,3})(\$?)(\d+)(?![\d(A-Za-z_])/g, function (m, pre, d1, col, d2, row) {
+    var kk = k;
+    if (pre) {
+      var nome = pre.replace(/!$/, '').replace(/^'|'$/g, '').replace(/''/g, "'"), o = null;
+      try { o = ss_().getSheetByName(nome); } catch (e) { o = null; }
+      kk = o && nomeAba_(nome) ? colunasExtras_(o) : 0;
+    }
+    return (pre || '') + d1 + colLetra_(numLetra_(col) - 1 + kk) + d2 + row;
+  });
+}
+
+function envolverRange_(r, k) {
+  var self = new Proxy(r, {
+    get: function (t, p) {
+      if (p === '__real') return t;
+      var f = t[p];
+      if (typeof f !== 'function') return f;
+      if (p === 'setValue') return function (v) { t.setValue(deslocarFormula_(v, k)); return self; };
+      if (p === 'setFormula') return function (v) { t.setFormula(deslocarFormula_(v, k)); return self; };
+      if (p === 'setValues' || p === 'setFormulas') {
+        return function (vv) { t[p](vv.map(function (l) { return l.map(function (x) { return deslocarFormula_(x, k); }); })); return self; };
+      }
+      if (p === 'copyTo') return function (dest) { var a = Array.prototype.slice.call(arguments); a[0] = desembrulhar_(dest); t.copyTo.apply(t, a); return self; };
+      return function () { var out = f.apply(t, arguments); return out === t ? self : out; };
+    }
+  });
+  return self;
+}
+
+/** aba mensal com tradução de colunas (só para abas "<Mês> Grad" / "<Mês> Cndt e Praia") */
+function envolverAba_(sh) {
+  if (!sh || sh.__real || !nomeAba_(sh.getName())) return sh;
+  return new Proxy(sh, {
+    get: function (t, p) {
+      if (p === '__real') return t;
+      var f = t[p], k = function () { return colunasExtras_(t); };
+      if (typeof f !== 'function') return f;
+      switch (p) {
+        case 'getRange': return function () {
+          var kk = k(), a = Array.prototype.slice.call(arguments), real;
+          if (typeof a[0] === 'string') real = t.getRange(deslocarA1_(a[0], kk));
+          else { if (a.length >= 2) a[1] = a[1] + kk; real = t.getRange.apply(t, a); }
+          return kk ? envolverRange_(real, kk) : real;
+        };
+        case 'getRangeList': return function (l) { var kk = k(); return t.getRangeList(l.map(function (a) { return deslocarA1_(a, kk); })); };
+        case 'getLastColumn': return function () { return Math.max(0, t.getLastColumn() - k()); };
+        case 'getMaxColumns': return function () { return Math.max(0, t.getMaxColumns() - k()); };
+        case 'insertColumnsAfter': return function (c, n) { return t.insertColumnsAfter(c + k(), n); };
+        case 'deleteColumns': return function (c, n) { return t.deleteColumns(c + k(), n); };
+        case 'copyTo': return function (d) { return t.copyTo(desembrulhar_(d)); };
+        default: return f.bind(t);
+      }
+    }
+  });
+}
+
+/** planilha ativa; as abas mensais saem já com a tradução de colunas */
+function ss_() {
+  var real = SpreadsheetApp.getActiveSpreadsheet();
+  return new Proxy(real, {
+    get: function (t, p) {
+      if (p === '__real') return t;
+      var f = t[p];
+      if (typeof f !== 'function') return f;
+      if (p === 'getSheetByName') return function (n) { return envolverAba_(t.getSheetByName(n)); };
+      if (p === 'getSheets') return function () { return t.getSheets().map(envolverAba_); };
+      if (p === 'getActiveSheet') return function () { return envolverAba_(t.getActiveSheet()); };
+      if (p === 'setActiveSheet' || p === 'deleteSheet') return function (sh) { return f.call(t, desembrulhar_(sh)); };
+      return f.bind(t);
+    }
+  });
+}
 
 function norm_(s) { return String(s == null ? '' : s).replace(/\s+/g, ' ').trim().toUpperCase(); }
 
@@ -180,6 +289,7 @@ function lerLegenda_(sh) {
  * kind: 'dia' | 'qg' (só dias laranja) | 'par3' (Condutor: ter-qua, qui-sex, sáb-dom) | 'par1' (Praia: sáb-dom)
  */
 function lerAba_(sh, mes, ano) {
+  sh = envolverAba_(sh);
   var nm = nomeAba_(sh.getName());
   if (!nm) throw new Error('Aba "' + sh.getName() + '" não segue o padrão "<Mês> Grad" / "<Mês> Cndt e Praia".');
   var lr = sh.getLastRow(), lc = Math.max(sh.getLastColumn(), CFG.COL_DIA1 + 1);
@@ -188,6 +298,7 @@ function lerAba_(sh, mes, ano) {
     sh: sh, nome: sh.getName(), tipo: nm.tipo, mes: mes == null ? nm.mes : mes,
     vals: rg.getValues(), forms: rg.getFormulas(), bgs: rg.getBackgrounds(), fgs: rg.getFontColors()
   };
+  A.k = colunasExtras_(sh);
   A.leg = lerLegenda_(sh);
   var hdrs = achaCabecalhos_(A);
   A.ano = ano || inferirAno_(A, hdrs);
@@ -213,11 +324,13 @@ function lerAba_(sh, mes, ano) {
   /* linhas-resumo do topo (OF DIA GRAGOATÁ, CMT GD GRAGOATÁ...): laranja = dia do 21º GAC na escala da Guarnição */
   A.resumo = [];
   var pb = A.blocos.length ? A.blocos[0].hdr : A.vals.length;
+  /* rótulos das linhas-resumo ficam na coluna A real (mesclada), que a tradução de colunas não enxerga: lê as colunas reais à esquerda */
+  var rotulosBrutos = (A.k && sh.__real) ? sh.__real.getRange(1, 1, Math.min(lr, pb + 1), A.k + 5).getValues() : null;
   if (A.topo != null) {
     for (var i = A.topo + 2; i < pb; i++) {
       if (diaDe_(A.vals[i][CFG.COL_DIA1]) == null) continue;
       var lab = '';
-      for (var cc = 0; cc <= 4 && !lab; cc++) lab = norm_(A.vals[i][cc]);
+      for (var cc = 0; cc < (rotulosBrutos ? rotulosBrutos[i].length : 5) && !lab; cc++) lab = norm_(rotulosBrutos ? rotulosBrutos[i][cc] : A.vals[i][cc]);
       if (lab) A.resumo.push({ r: i, label: lab });
     }
   }
@@ -343,7 +456,7 @@ function vagasDiaBloco_(A, B) {
   var F1 = colDia_(1) + 1, ocupados = {};
   try {
     A.sh.getRange(B.hdr, F1, 1, A.nDias).getMergedRanges().forEach(function (m) {
-      var col = m.getColumn() - 5, v = norm_(A.vals[B.hdr - 1][m.getColumn() - 1]), mm = rx.exec(v);
+      var cc0 = m.getColumn() - (A.k || 0), col = cc0 - 5, v = norm_(A.vals[B.hdr - 1][cc0 - 1]), mm = rx.exec(v); /* coluna real -> padrão */
       for (var k = 0; k < m.getNumColumns(); k++) ocupados[col + k] = true;
       if (mm) for (var j = 0; j < m.getNumColumns(); j++) out[col + j] = Number(mm[1]);
     });
@@ -465,6 +578,9 @@ function mnuSobre() {
     '<b>Via documento:</b> PDF, xlsx, xls, ods ou csv; mostra a tabela lida, onde você corrige qualquer célula e o tipo (PRETA/VERM) antes de aplicar. ' +
     'A importação pinta as linhas OF DIA QG / CMT GD QG / CB GD QG / SD GD QG / MOTORISTA À POMN do topo (laranja = 21º GAC, azul = outra unidade), cria a fórmula de folga dos blocos QG AD/1 só nos dias laranja e confere o tipo do dia; se divergir, escolha “refazer fórmulas” ou “manter os tipos atuais”. ' +
     'Se a Guarnição ainda não publicou o mês, o módulo avisa.</p>' +
+    '<h2>🧱 Colunas inseridas nas abas do mês</h2>' +
+    '<p>Pode inserir colunas à esquerda do nome (como a coluna DISP): o módulo detecta sozinho onde estão os dias, o nome e a SU em cada aba e ajusta a leitura, a escrita e as fórmulas. ' +
+    'Nas prévias, rode <b>Atualizar prévia</b> uma vez depois de instalar esta versão; a partir daí, novas colunas são acompanhadas automaticamente (a tabela oculta BC:BE da prévia é atualizada a cada alteração da planilha).</p>' +
     '<h2>🧰 Painel, trocas e conferências</h2>' +
     '<p><b>Painel:</b> resumo do mês (dia, pendências da prévia, afastamentos para o mês seguinte, gatilhos), os serviços de hoje e atalhos para todas as funções. ' +
     '<b>Troca de serviço:</b> escolha a escala, o dia, quem sai e quem entra; o módulo sugere quem pode entrar (maior folga, sem serviço no dia e dentro da folga mínima, inclusive entre meses) e grava o nome do substituto na anotação do “0” de quem sai. ' +
@@ -492,7 +608,7 @@ function mnuVerificarSistema() {
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiGatAbas', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
-    'lerAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
+    'lerAba_', 'colunasExtras_', 'envolverAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });
   var meses = mesesDasAbas_(), tabela = [], g = null;

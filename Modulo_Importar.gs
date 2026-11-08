@@ -18,7 +18,7 @@ var GUARNICAO_MAPA = [
 
 /* ============================================================ MENU */
 function destinoImportacao_() {
-  var at = SpreadsheetApp.getActiveSheet(), n = nomeAba_(at.getName());
+  var at = ss_().getActiveSheet(), n = nomeAba_(at.getName());
   if (n && n.tipo === CFG.TIPO_GRAD) return at;
   var salvo = PropertiesService.getDocumentProperties().getProperty('ABA_DESTINO');
   var sh = salvo ? ss_().getSheetByName(salvo) : null;

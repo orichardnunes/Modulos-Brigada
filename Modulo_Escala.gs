@@ -651,6 +651,9 @@ function inserirMilitar_(A, pl, p, E) {
   B.rows.forEach(function (R) { if (R.r <= pl.apos) vizFmt = R; });
   var refFmt = vizFmt || B.rows[0], refLin = refFmt.r <= pl.apos ? refFmt.r + 1 : refFmt.r + 2, ultCol = colDia_(1) + n;
   sh.getRange(refLin, 1, 1, ultCol).copyTo(sh.getRange(nr, 1, 1, ultCol), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  if (A.k && sh.__real) { /* colunas extras à esquerda (ex.: OBS) também recebem o formato da linha vizinha */
+    sh.__real.getRange(refLin, 1, 1, A.k).copyTo(sh.__real.getRange(nr, 1, 1, A.k), SpreadsheetApp.CopyPasteType.PASTE_FORMAT, false);
+  }
   sh.getRange(nr, 4).setValue(p.sub);
   sh.getRange(nr, 5).setValue(E);
   /* SU: copia a formatação completa (cor, fonte e contorno) de uma célula da mesma escala */
@@ -760,7 +763,7 @@ function criarAbasMes_(mes, ano) {
       novo.showSheet();
       ss.setActiveSheet(novo);
       ss.moveActiveSheet(base + 1 + ti);
-      montarAbaNova_(novo, prev, mes, ano, anoAnt);
+      montarAbaNova_(envolverAba_(novo), prev, mes, ano, anoAnt);
     });
   } catch (e) {
     criadas.forEach(function (s) { try { ss.deleteSheet(s); } catch (x) { /* ignora */ } });
@@ -840,9 +843,9 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
     var rotImp = {};
     GUARNICAO_MAPA.forEach(function (m) { rotImp[m.chave] = true; });
     for (var i = N.topo + 2; i < primeiroBloco; i++) {
-      if (diaDe_(N.vals[i][colDia_(1)]) == null || String(N.vals[i].slice(0, 5).join('')).trim() === '') continue;
-      var vals = [], lab = '';
-      for (var cc = 0; cc <= 4 && !lab; cc++) lab = baseResumo_(N.vals[i][cc]);
+      var entRes = N.resumo.filter(function (x) { return x.r === i; })[0];
+      if (diaDe_(N.vals[i][colDia_(1)]) == null || !entRes) continue;
+      var vals = [], lab = baseResumo_(entRes.label);
       var comoData = N.vals[i][colDia_(1)] instanceof Date; /* célula formatada como data: o dia 1 é a data de verdade (1/mês/ano), exibida só como o número do dia */
       for (var d = 1; d <= n; d++) vals.push(d === 1 ? (comoData ? new Date(ano, mes, 1) : 1) : '=' + a1_(i, colDia_(d - 1)) + '+1');
       var rgS = novo.getRange(i + 1, F1, 1, n).setValues([vals]);
