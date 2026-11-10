@@ -225,6 +225,8 @@ function planejarServicos_(A, pr, proxA, antA) {
         var need = vagasHoje - exist;
         if (need > 0) {
           var escolhidos = par ? escolherPar_() : escolherDia_();
+          /* POMN em dia útil: azul-claro (12h) = os 2 mais antigos (mais acima na escala); azul-escuro (24h) = os demais, mais modernos */
+          if (!par && !t && semAcento_(B.titulo).indexOf('POMN') === 0) escolhidos.sort(function (a, b) { return a.ri - b.ri; });
           escolhidos.forEach(function (x, ix) {
             V[x.ri] = 0;
             var R = B.rows[x.ri];
