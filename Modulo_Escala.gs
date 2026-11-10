@@ -98,6 +98,7 @@ function apiServicos(modo, p, aplicar) {
       relAba.prox = plano.prox.length;
       relAba.avisos = plano.avisos;
       relAba.itens = plano.itens;
+      relAba.diag = plano.diag;
       if (aplicar) {
         escreverMarcas_(A, plano.esc);
         escreverProx_(A, proxA, plano.prox);
@@ -122,7 +123,7 @@ function planejarServicos_(A, pr, proxA, antA) {
   var vagasDe = {};
   var vagasVDe = {};
   pr.blocos.forEach(function (b) { vagasDe[b.hdr] = b.vagas; if (b.vagasV != null) vagasVDe[b.hdr] = b.vagasV; });
-  var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [], itens: [] };
+  var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [], itens: [], diag: [] };
 
   var svc = {}, svcB = {}, idx = {};
   function addSvc(bi, key, d, proprio) {
@@ -261,13 +262,18 @@ function planejarServicos_(A, pr, proxA, antA) {
 /* ------- escolha: escalas diárias */
       /* jshint loopfunc:true */
       function escolherDia_() {
-        var elig = [], rel = [];
+        var elig = [], rel = [], diag = [];
         B.rows.forEach(function (R, ri) {
-          if (V[ri] === undefined || V[ri] == null || V[ri] === 0 || CL[ri] === 'afast' || APR[ri]) return;
-          var s = svc[R.key] || {};
-          if (pr.evOutra && s[d]) return;
-          if (pr.evAdj && (s[d - 1] || s[d + 1])) return;
-          var x = { ri: ri, v: V[ri], md: minDist(Object.keys(svc[R.key] || {}).map(Number), d) };
+          if (V[ri] === undefined || V[ri] == null || V[ri] === 0) return;
+          var s = svc[R.key] || {}, motivo = '', md = minDist(Object.keys(svc[R.key] || {}).map(Number), d);
+          if (CL[ri] === 'afast') motivo = 'afastado no dia';
+          else if (APR[ri]) motivo = 'dia da apresentação';
+          else if (pr.evOutra && s[d]) motivo = 'já está de serviço em outra escala no dia';
+          else if (pr.evAdj && (s[d - 1] || s[d + 1])) motivo = 'serviço no dia anterior/seguinte';
+          else if (md < gapMin) motivo = 'intervalo de ' + (Math.max(0, md - 1) * 24) + ' h (mínimo ' + pr.folgaH + ' h)';
+          diag.push({ ri: ri, nome: R.nome.replace(/\s+/g, ' ').trim(), v: V[ri], motivo: motivo });
+          if (motivo && motivo.indexOf('intervalo') !== 0) return;
+          var x = { ri: ri, v: V[ri], md: md };
           (x.md >= gapMin ? elig : rel).push(x);
         });
         elig.sort(function (a, b) { return b.v - a.v || b.ri - a.ri; });
@@ -280,6 +286,13 @@ function planejarServicos_(A, pr, proxA, antA) {
               ' só ' + (Math.max(0, x.md - 1) * 24) + ' h de folga.');
           });
         }
+        /* critérios do dia (para conferir a escolha): quem tinha mais folga, quem foi escolhido e por que os demais ficaram de fora */
+        var esc = {};
+        out.forEach(function (x) { esc[x.ri] = true; });
+        diag.sort(function (a, b) { return b.v - a.v || b.ri - a.ri; });
+        plano.diag.push({ d: d, titulo: B.titulo, linhas: diag.filter(function (x, i) { return i < 8 || esc[x.ri]; }).map(function (x) {
+          return { nome: x.nome, v: x.v, ok: !!esc[x.ri], motivo: esc[x.ri] ? '' : (x.motivo || 'ficou de fora (menos folga ou mais antigo em empate)') };
+        }) });
         return out;
       }
 
@@ -1069,6 +1082,7 @@ function htmlServicos_(modo) {
     'var ex=[];if(a.fix)ex.push("♻ "+a.fix+" serviço(s) inválido(s) refeito(s) pela fórmula de folga");if(a.verdes)ex.push("🟩 "+a.verdes+" “0” verde(s) em outras escalas");if(a.verdeCor)ex.push("🟩 "+a.verdeCor+" dia(s) só em verde, sem “0”");if(a.prox)ex.push("➡ "+a.prox+" marcação(ões) do 2º dia do par no mês seguinte");\n' +
     'if(ex.length)h+="<p class=mu>"+ex.map(esc).join(" · ")+"</p>";\n' +
     'if(a.avisos.length){h+="<details open><summary class=erro>⚠ Avisos ("+a.avisos.length+")</summary><ul>";a.avisos.forEach(function(x){h+="<li>"+esc(x)+"</li>"});h+="</ul></details>"}\n' +
+    'if(a.diag&&a.diag.length){h+="<details><summary>Critérios de cada dia ("+a.diag.length+")</summary>";a.diag.forEach(function(x){h+="<p class=mu style=\\"margin:8px 0 2px\\"><b>"+("0"+x.d).slice(-2)+" · "+esc(x.titulo)+"</b></p><table><tr><th>Militar</th><th>Folga</th><th>Situação</th></tr>";x.linhas.forEach(function(l){h+="<tr><td>"+(l.ok?"<b>"+esc(l.nome)+"</b>":esc(l.nome))+"</td><td>"+l.v+"</td><td class="+(l.ok?"ok":"mu")+">"+(l.ok?"✔ escolhido":esc(l.motivo))+"</td></tr>"});h+="</table>"});h+="</details>"}\n' +
     'if(a.itens&&a.itens.length){var por={},ord=[];a.itens.forEach(function(i){if(!por[i.d]){por[i.d]=[];ord.push(i.d)}por[i.d].push(i)});\n' +
     'h+="<details><summary>Lista dia a dia ("+a.itens.length+")</summary><table><tr><th>Dia</th><th>Escala</th><th>Militar</th></tr>";\n' +
     'ord.forEach(function(d){por[d].forEach(function(i,k){h+="<tr><td class=num>"+(k?"":d)+"</td><td class=mu>"+esc(i.t)+"</td><td>"+esc(i.n)+"</td></tr>"})});h+="</table></details>"}});\n' +
