@@ -288,6 +288,7 @@ function ajustarBlocosQG_(sh) {
   if (limpar.length) sh.getRangeList(limpar).clearContent();
   Object.keys(cores).forEach(function (cor) { sh.getRangeList(cores[cor]).setBackground(cor); });
   SpreadsheetApp.flush();
+  try { recalcPrevisto_(sh); } catch (e) { /* conferência do efetivo é opcional */ }
   return { novos: novos, removidos: removidos, preservados: preservados, texto: 'QG AD/1: ' + novos + ' célula(s) de folga criada(s), ' + removidos + ' limpa(s) em dia de outra unidade' +
     (preservados ? ', ' + preservados + ' "0" mantido(s) em dia azul (confira)' : '') };
 }

@@ -777,6 +777,7 @@ function criarAbasMes_(mes, ano) {
     throw e;
   }
   SpreadsheetApp.flush();
+  criadas.forEach(function (s) { try { recalcPrevisto_(s); } catch (e) { /* conferência do efetivo é opcional */ } });
   INFO_PEND_ = [];
   try { INFO_PEND_ = aplicarPendencias_(criadas, mes, ano); } catch (e) { INFO_PEND_ = ['ERRO nas pendências: ' + e.message]; }
   SpreadsheetApp.flush();

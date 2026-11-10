@@ -137,6 +137,28 @@ var JS_CONF_ = 'google.script.run.withSuccessHandler(function(l){if(!l.length){$
   'o.innerHTML=h}\n';
 
 
+var HTML_EFET_ = '<h3 style="margin-top:0">Conferência do efetivo</h3>\n' +
+  '<p class="sub">Cria embaixo de cada escala duas linhas: o efetivo previsto por dia e o escalado (conta os “0”). Confere = verde “OK”; falta ou sobra = vermelho com o número escalado.</p>\n' +
+  '<div class="sec">Onde</div>\n' +
+  '<div class="bar"><select id="mes" onchange="carrega()"></select><label class="chip"><input type="checkbox" id="tG" checked onchange="carrega()">Grad</label><label class="chip"><input type="checkbox" id="tC" checked onchange="carrega()">Cndt e Praia</label></div>\n' +
+  '<div class="sec">Escalas <span class="mu" id="nb"></span></div>\n' +
+  '<div id="lista" class="lista" style="max-height:300px">Carregando…</div>\n' +
+  '<div class="stk"><button class="p" onclick="aplicar()">Criar / atualizar conferência</button></div>\n' +
+  '<div id="out" style="margin-top:8px"></div>\n';
+var JS_EFET_ = 'var D=[];\n' +
+  'google.script.run.withSuccessHandler(function(d){selMes(d,"mes");carrega()}).withFailureHandler(falha).apiAbas();\n' +
+  'function tipos(){var t=[];if($("tG").checked)t.push("Grad");if($("tC").checked)t.push("Cndt e Praia");return t}\n' +
+  'function carrega(){if(!tipos().length){$("lista").textContent="Marque Grad e/ou Cndt e Praia.";return}$("lista").textContent="Carregando…";\n' +
+  'google.script.run.withSuccessHandler(function(r){D=r;var h="";r.forEach(function(b,i){h+="<div class=it><input type=checkbox class=bk id=k"+i+" checked onchange=cont()><span style=\\"flex:1\\"><b>"+esc(b.titulo)+"</b> <span class=mu>"+esc(b.tipo)+"</span>"+(b.nota?" <span class=tg>"+esc(b.nota)+"</span>":"")+(b.tem?" <span class=\\"tg ok\\">já tem</span>":"")+"</span><span class=mu>previsto</span><input type=number min=0 id=p"+i+" value="+b.previsto+" style=\\"width:54px;text-align:center\\" oninput=\\"D["+i+"].mudou=true\\"></div>"});$("lista").innerHTML=h;cont()}).withFailureHandler(falha).apiEfetivoInfo($("mes").value,tipos())}\n' +
+  'function cont(){var n=0;D.forEach(function(b,i){if($("k"+i)&&$("k"+i).checked)n++});$("nb").textContent="— "+n+" de "+D.length}\n' +
+  'function aplicar(){var bl=[];D.forEach(function(b,i){if($("k"+i).checked)bl.push({aba:b.aba,hdr:b.hdr,previsto:$("p"+i).value,mudou:!!b.mudou})});if(!bl.length){falha("Marque ao menos uma escala.");return}\n' +
+  'var o=$("out");o.style.display="block";o.className="";o.textContent="Criando as linhas…";google.script.run.withSuccessHandler(resp).withFailureHandler(falha).apiEfetivoAplicar({blocos:bl})}\n' +
+  'function resp(r){var o=$("out"),h="",R=r.rel;o.className="";\n' +
+  'h+="<div class=\\"ban okb\\"><b>✅ Conferência criada</b><br><span class=mu>"+R.itens.length+" escala(s)</span></div>";\n' +
+  'h+="<table><tr><th>Aba</th><th>Escala</th><th>Previsto</th></tr>";R.itens.forEach(function(x){h+="<tr><td>"+esc(x.aba)+"</td><td><b>"+esc(x.escala)+"</b> "+(x.criado?"<span class=\\"tg ok\\">nova</span>":"<span class=tg>atualizada</span>")+"</td><td><span class=lar>"+x.previsto+"</span></td></tr>"});h+="</table>";\n' +
+  'h+="<p class=mu>Edite o previsto de qualquer dia direto na linha “Efetivo previsto”. Ao importar a Guarnição ou criar o mês, os dias previstos são refeitos.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
+  'o.innerHTML=h}\n';
+
 /* ============================================================ PAINEL */
 function mnuPainel() {
   var hoje = new Date(), mesId = CFG.MESES[hoje.getMonth()], props = PropertiesService.getDocumentProperties();
@@ -183,7 +205,7 @@ function mnuPainel() {
     ['Adicionar serviços', 'mnuAdicionarServicos', 'escala automática'], ['Troca de serviço', 'mnuTrocaServico', 'com sugestões'], ['Adicionar afastamento', 'mnuAdicionarAfastamento', 'férias, licença…'],
     ['Adicionar militar', 'mnuAdicionarMilitar', 'com folga inicial'], ['Remover / transferir', 'mnuMoverMilitar', 'militar ou SU'], ['Retirar serviços', 'mnuRetirarServicos', 'desfaz escalas'],
     ['Atualizar prévia', 'mnuAtualizarPrevia', 'religa fórmulas'], ['Conferir prévia', 'mnuConferirPrevia', 'pendências'], ['Exportar prévia (PDF)', 'mnuExportarPrevia', 'salva no Drive'],
-    ['Balanceamento', 'mnuBalanceamento', 'serviços x média'], ['Serviços tirados', 'mnuQuantitativo', 'ranking'], ['Verificação do sistema', 'mnuVerificarSistema', 'abas e funções']
+    ['Balanceamento', 'mnuBalanceamento', 'serviços x média'], ['Conferência do efetivo', 'mnuConferenciaEfetivo', 'previsto x escalado'], ['Serviços tirados', 'mnuQuantitativo', 'ranking'], ['Verificação do sistema', 'mnuVerificarSistema', 'abas e funções']
   ];
   h += '<div class="sec">Atalhos</div><div class="grid">' + atalhos.map(function (a) {
     return '<button class="at" onclick="go(\'' + a[1] + '\')">' + a[0] + '<small>' + a[2] + '</small></button>';
@@ -446,3 +468,122 @@ function apiConferirPrevia(nome) {
   return { nome: nome, total: total, linhas: linhas, carimbo: carimbo };
 }
 
+/* ============================================================ CONFERÊNCIA DO EFETIVO (embaixo de cada escala) */
+var ROT_PREV_ = 'EFETIVO PREVISTO', ROT_ESC_ = 'EFETIVO ESCALADO';
+
+function mnuConferenciaEfetivo() { mostrarHtml_(CSS_EXTRA_ + HTML_EFET_ + JS_COMUM_ + '<script>' + JS_EFET_ + '</script>', 'Conferência do efetivo', 700, 680); }
+
+/** linhas (0-based) "Efetivo previsto" / "Efetivo escalado" que ficam logo abaixo do bloco, depois de uma linha em branco */
+function acharLinhasEfetivo_(A, B) {
+  var ult = B.rows[B.rows.length - 1].r;
+  for (var r = ult + 2; r <= ult + 5 && r < A.vals.length; r++) {
+    if (norm_(A.vals[r][4]).indexOf(ROT_PREV_) === 0) return { prev: r, esc: r + 1 };
+  }
+  return null;
+}
+
+/** previsto por dia: QG só nos dias laranja; POMN dois-em-um 5/3; título "N ESCALA" por dia; demais, dias em que o bloco tem escala */
+function previstoDias_(A, B, base, mudou) {
+  var out = [], vd = {};
+  try { vd = vagasDiaBloco_(A, B); } catch (e) { vd = {}; }
+  for (var d = 1; d <= A.nDias; d++) {
+    var v = '';
+    if (B.kind === 'qg') v = B.gac[d] ? base : '';
+    else if (ehPomnDuplo_(B)) v = vermelho_(A, B, d) ? (mudou ? base : 3) : base;
+    else if (!mudou && vd[d] != null) v = vd[d];
+    else v = B.rows.some(function (R) { return participa_(A, B, R, d); }) ? base : '';
+    out.push(v);
+  }
+  return out;
+}
+
+function baseEfetivo_(A, B, ex) { /* valor mais frequente já digitado na linha "previsto"; senão, o sugerido pela escala */
+  if (ex) {
+    var cont = {}, mx = 0, base = null;
+    for (var d = 1; d <= A.nDias; d++) {
+      var x = num_(A.vals[ex.prev][colDia_(d)]);
+      if (x != null) { cont[x] = (cont[x] || 0) + 1; if (cont[x] > mx) { mx = cont[x]; base = x; } }
+    }
+    if (base != null) return base;
+  }
+  return vagasSugeridas_(A, B);
+}
+
+function escreverEfetivo_(A, B, base, mudou) {
+  var sh = A.sh, n = A.nDias, ex = acharLinhasEfetivo_(A, B), r2 = B.rows[B.rows.length - 1].r, rowPrev, rowEsc;
+  if (ex) { rowPrev = ex.prev + 1; rowEsc = ex.esc + 1; }
+  else { sh.insertRowsAfter(r2 + 2, 3); rowPrev = r2 + 3; rowEsc = r2 + 4; }
+  var F1 = colDia_(1) + 1, prev = previstoDias_(A, B, base, mudou), first = B.rows[0].r + 1, last = r2 + 1, form = [];
+  for (var d = 1; d <= n; d++) {
+    var L = colLetra_(colDia_(d)), rg = L + first + ':' + L + last;
+    form.push(localizarFormula_('=IF(' + L + rowPrev + '="","",IF(COUNTIF(' + rg + ',0)=' + L + rowPrev + ',"OK",COUNTIF(' + rg + ',0)))'));
+  }
+  sh.getRange(rowPrev, 5).setValue('Efetivo previsto');
+  sh.getRange(rowEsc, 5).setValue('Efetivo escalado');
+  sh.getRange(rowPrev, F1, 1, n).setValues([prev]);
+  sh.getRange(rowEsc, F1, 1, n).setFormulas([form]);
+  var rp = sh.getRange(rowPrev, 5, 1, F1 - 5 + n), re = sh.getRange(rowEsc, 5, 1, F1 - 5 + n);
+  rp.setFontSize(8).setFontColor('#5f6368').setHorizontalAlignment('center').setBackground('#ffffff');
+  re.setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center').setBackground('#ffffff').setFontColor('#000000');
+  sh.getRange(rowPrev, 5).setHorizontalAlignment('right');
+  sh.getRange(rowEsc, 5).setHorizontalAlignment('right');
+  sh.getRange(rowPrev, 5, 2, F1 - 5 + n).setBorder(true, true, true, true, true, true, '#999999', SpreadsheetApp.BorderStyle.SOLID);
+  /* verde "OK" quando confere; vermelho quando falta ou sobra (e há previsto) */
+  var real = sh.__real || sh, k = A.k || 0, area = sh.getRange(rowEsc, F1, 1, n), areaR = area.__real || area;
+  var topo = colLetra_(colDia_(1)) + rowEsc, fVerde = deslocarFormula_('=' + topo + '="OK"', k), fVerm = deslocarFormula_('=AND(' + topo + '<>"",' + topo + '<>"OK")', k);
+  var rowReal = areaR.getRow(), regras = real.getConditionalFormatRules().filter(function (r) {
+    var rs = r.getRanges(); return !(rs.length && rs[0].getRow() === rowReal && rs[0].getNumRows() === 1);
+  });
+  regras.push(SpreadsheetApp.newConditionalFormatRule().setRanges([areaR]).whenFormulaSatisfied(localizarFormula_(fVerde)).setBackground('#b7e1cd').setFontColor('#0b5394').build());
+  regras.push(SpreadsheetApp.newConditionalFormatRule().setRanges([areaR]).whenFormulaSatisfied(localizarFormula_(fVerm)).setBackground('#d93025').setFontColor('#ffffff').build());
+  real.setConditionalFormatRules(regras);
+  return { criado: !ex, previsto: base };
+}
+
+/** refaz a linha "previsto" das escalas que já têm conferência (ex.: depois de importar a Guarnição ou criar o mês) */
+function recalcPrevisto_(sh) {
+  var A = lerAba_(sh), blocos = A.blocos.filter(function (B) { return acharLinhasEfetivo_(A, B); });
+  blocos.sort(function (a, b) { return b.hdr - a.hdr; });
+  blocos.forEach(function (B) { escreverEfetivo_(A, B, baseEfetivo_(A, B, acharLinhasEfetivo_(A, B)), false); });
+  return blocos.length;
+}
+
+function apiEfetivoInfo(mesId, tipos) {
+  var out = [];
+  (tipos || []).forEach(function (t) {
+    var sh = ss_().getSheetByName(mesId + ' ' + t);
+    if (!sh) return;
+    var A = lerAba_(sh);
+    A.blocos.forEach(function (B) {
+      var ex = acharLinhasEfetivo_(A, B), vd = {};
+      try { vd = vagasDiaBloco_(A, B); } catch (e) { vd = {}; }
+      out.push({ aba: A.nome, tipo: t, hdr: B.hdr, titulo: B.titulo, previsto: baseEfetivo_(A, B, ex), tem: !!ex,
+        nota: B.kind === 'qg' ? 'só dias laranja' : ehPomnDuplo_(B) ? '5 úteis / 3 vermelhos' : (Object.keys(vd).length ? 'vagas pelo título do dia' : '') });
+    });
+  });
+  if (!out.length) throw new Error('Nenhuma aba encontrada para ' + mesId + '.');
+  return out;
+}
+
+/** p: {blocos:[{aba, hdr, previsto, mudou}]} */
+function apiEfetivoAplicar(p) {
+  if (!p.blocos || !p.blocos.length) throw new Error('Marque ao menos uma escala.');
+  var porAba = {}, itens = [];
+  p.blocos.forEach(function (b) { (porAba[b.aba] = porAba[b.aba] || []).push(b); });
+  Object.keys(porAba).forEach(function (nome) {
+    var sh = ss_().getSheetByName(nome);
+    if (!sh) throw new Error('Aba "' + nome + '" não encontrada.');
+    var A = lerAba_(sh), lista = porAba[nome].slice().sort(function (a, b) { return b.hdr - a.hdr; });
+    lista.forEach(function (b) {
+      var B = null;
+      A.blocos.forEach(function (x) { if (x.hdr === Number(b.hdr)) B = x; });
+      if (!B) return;
+      var base = Number(b.previsto);
+      if (isNaN(base) || base < 0) throw new Error('Efetivo previsto inválido em ' + B.titulo + '.');
+      var r = escreverEfetivo_(A, B, base, !!b.mudou);
+      itens.push({ aba: nome, escala: B.titulo, previsto: base, criado: r.criado });
+    });
+  });
+  SpreadsheetApp.flush();
+  return { rel: { itens: itens } };
+}

@@ -76,6 +76,7 @@ function onOpen() {
     .addSubMenu(ui.createMenu('🔍 Auditagem do Sistema')
       .addItem('📊 Verificação de serviços tirados', 'mnuQuantitativo')
       .addItem('⚖️ Balanceamento do mês', 'mnuBalanceamento')
+      .addItem('🧮 Conferência do efetivo', 'mnuConferenciaEfetivo')
       .addItem('✅ Verificação do sistema', 'mnuVerificarSistema'))
     .addSeparator()
     .addItem('ℹ️ Sobre o Módulo Brigada ' + CFG.VERSAO, 'mnuSobre')
@@ -602,7 +603,7 @@ function mnuVerificarSistema() {
   var esperadas = [
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
-    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
+    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuConferenciaEfetivo', 'apiEfetivoInfo', 'apiEfetivoAplicar', 'recalcPrevisto_', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'preencherCbDia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
