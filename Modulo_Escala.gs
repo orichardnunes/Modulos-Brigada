@@ -27,7 +27,7 @@ function apiBlocos(mesId, tipos) {
     A.blocos.forEach(function (B) {
       out.blocos.push({
         aba: A.nome, tipo: t, hdr: B.hdr, titulo: B.titulo, kind: B.kind, n: B.rows.length,
-        vagas: vagasSugeridas_(A, B),
+        vagas: vagasSugeridas_(A, B), vagasV: ehPomnDuplo_(B) ? 3 : null,
         linhas: B.rows.map(function (R) { return { r: R.r, nome: R.nome, sub: R.sub }; })
       });
     });
@@ -35,7 +35,11 @@ function apiBlocos(mesId, tipos) {
   return out;
 }
 
+/** bloco "dois em um": POMN (preta) + Controle de acesso à estrada (vermelha) */
+function ehPomnDuplo_(B) { var t = semAcento_(B.titulo); return t.indexOf('POMN') >= 0 && (t.indexOf('CT ACES') >= 0 || t.indexOf('VERMELHA') >= 0); }
+
 function vagasSugeridas_(A, B) {
+  if (ehPomnDuplo_(B)) return 5; /* dias úteis (escala preta); nos dias vermelhos são 3 (vagasV) */
   if (B.kind === 'par3') return 2;
   if (B.kind === 'par1') return 1;
   var ehCb = semAcento_(B.titulo).indexOf('CB DIA') >= 0;
@@ -75,7 +79,7 @@ function apiServicos(modo, p, aplicar) {
     var pr = {
       dIni: diaDeData_(A, p.de, true), dFim: diaDeData_(A, p.ate, false), folgaH: Number(p.folgaH) || CFG.FOLGA_MIN_H,
       evOutra: !!p.evOutra, evAdj: !!p.evAdj, relaxar: !!p.relaxar, verdes: !!p.verdes, notas: p.notas !== false,
-      blocos: g.blocos.map(function (b) { return { hdr: b.hdr, vagas: Number(b.vagas) || 0 }; })
+      blocos: g.blocos.map(function (b) { return { hdr: b.hdr, vagas: Number(b.vagas) || 0, vagasV: (b.vagasV == null || b.vagasV === '') ? null : Number(b.vagasV) }; })
     };
     txt.push('══ ' + A.nome + ' ══');
     var relAba = { aba: A.nome, escalas: [], fix: 0, verdes: 0, prox: 0, avisos: [], itens: [] };
@@ -116,7 +120,8 @@ function planejarServicos_(A, pr, proxA, antA) {
   /* folga de 48 h = 2 dias livres entre os serviços (serviço dia 14 → primeiro dia possível 17) */
   var gapMin = Math.ceil(pr.folgaH / 24) + 1;
   var vagasDe = {};
-  pr.blocos.forEach(function (b) { vagasDe[b.hdr] = b.vagas; });
+  var vagasVDe = {};
+  pr.blocos.forEach(function (b) { vagasDe[b.hdr] = b.vagas; if (b.vagasV != null) vagasVDe[b.hdr] = b.vagasV; });
   var plano = { esc: [], prox: [], avisos: [], resumo: {}, linhas: [], itens: [] };
 
   var svc = {}, svcB = {}, idx = {};
@@ -215,7 +220,7 @@ function planejarServicos_(A, pr, proxA, antA) {
       if (sel && (!par || ehCabecaPar_(A, B, d))) {
         var exist = 0;
         B.rows.forEach(function (R, ri) { if (V[ri] === 0 && !VERDE[ri]) exist++; });
-        var vd = vagasDiaBloco_(A, B), vagasHoje = vd[d] != null ? vd[d] : vagasDe[B.hdr];
+        var vd = vagasDiaBloco_(A, B), vagasHoje = vd[d] != null ? vd[d] : ((t && vagasVDe[B.hdr] != null) ? vagasVDe[B.hdr] : vagasDe[B.hdr]); /* bloco dois em um: dias vermelhos têm outra quantidade */
         if (exist > vagasHoje) plano.avisos.push(('0' + d).slice(-2) + '/' + ('0' + (A.mes + 1)).slice(-2) + ' ' + B.titulo + ': já há ' + exist + ' serviço(s), acima do título (' + vagasHoje + '); ninguém foi retirado.');
         var need = vagasHoje - exist;
         if (need > 0) {
@@ -1045,7 +1050,7 @@ function htmlServicos_(modo) {
     ' r.blocos.forEach(function(b,k){if(b.tipo!==tp){tp=b.tipo;x+="<div class=gh>"+esc(tp)+(ADD&&k===0?"<span style=\\"float:right\\">militares por dia</span>":"")+"</div>"}\n' +
     '  x+="<div class=esc><label><input type=checkbox id=b"+k+(ADD?" checked":"")+" onchange=cont()><span>"+esc(b.titulo)+"</span>"+\n' +
     '  (b.kind==="par3"||b.kind==="par1"?" <span class=tag>par de 2 dias</span>":"")+(b.kind==="qg"?" <span class=tag>só dias laranja</span>":"")+"</label>"+\n' +
-    '  (ADD?"<span class=vg><input type=number min=0 id=v"+k+" value="+b.vagas+"></span>":"")+"</div>"});\n' +
+    '  (ADD?"<span class=vg>"+(b.vagasV!=null?"<small class=mu>úteis</small>":"")+"<input type=number min=0 id=v"+k+" value="+b.vagas+">"+(b.vagasV!=null?"<small class=mu>vermelhos</small><input type=number min=0 id=w"+k+" value="+b.vagasV+">":"")+"</span>":"")+"</div>"});\n' +
     ' $("blocos").innerHTML=x||"Nenhuma escala encontrada.";cont()}\n' +
     'function cont(){if(!D)return;var n=0;D.blocos.forEach(function(b,k){if($("b"+k).checked)n++});$("nb").textContent="("+n+" de "+D.blocos.length+")"}\n' +
     'function marca(v){D.blocos.forEach(function(b,k){$("b"+k).checked=v});cont()}\n' +
@@ -1068,7 +1073,7 @@ function htmlServicos_(modo) {
     'o.innerHTML=h;o.scrollIntoView&&o.scrollIntoView({block:"nearest"})}\n' +
     'function run(ap){var p={mesId:$("mes").value,de:$("de").value,ate:$("ate").value,blocos:[]};\n' +
     ' if(ADD){p.folgaH=$("folga").value;p.evOutra=$("evOutra").checked;p.evAdj=$("evAdj").checked;p.relaxar=$("relaxar").checked}else{p.verdes=$("verdes").checked;p.notas=$("notas").checked}\n' +
-    ' D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:ADD?$("v"+k).value:0})});\n' +
+    ' D.blocos.forEach(function(b,k){if($("b"+k).checked)p.blocos.push({aba:b.aba,hdr:b.hdr,vagas:ADD?$("v"+k).value:0,vagasV:(ADD&&$("w"+k))?$("w"+k).value:null})});\n' +
     ' if(!p.blocos.length){falha("Marque ao menos uma escala.");return}\n' +
     ' if(ap&&!confirm(ADD?"Aplicar os serviços na planilha?":"Retirar os serviços marcados?"))return;\n' +
     ' var o=$("out");o.style.display="block";o.className="";o.textContent="Processando… (pode levar alguns minutos)";\n' +
