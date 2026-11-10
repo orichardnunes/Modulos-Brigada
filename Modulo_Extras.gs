@@ -138,7 +138,7 @@ var JS_CONF_ = 'google.script.run.withSuccessHandler(function(l){if(!l.length){$
 
 
 var HTML_EFET_ = '<h3 style="margin-top:0">Conferência do efetivo</h3>\n' +
-  '<p class="sub">Cria embaixo de cada escala duas linhas: o efetivo previsto por dia e o escalado (conta os “0”). Confere = verde “OK”; falta ou sobra = vermelho com o número escalado.</p>\n' +
+  '<p class="sub">Cria embaixo de cada escala duas linhas coladas: o efetivo previsto por dia e o escalado (conta os “0”). Confere = verde “OK”; falta ou sobra = vermelho com o número escalado.</p>\n' +
   '<div class="sec">Onde</div>\n' +
   '<div class="bar"><select id="mes" onchange="carrega()"></select><label class="chip"><input type="checkbox" id="tG" checked onchange="carrega()">Grad</label><label class="chip"><input type="checkbox" id="tC" checked onchange="carrega()">Cndt e Praia</label></div>\n' +
   '<div class="sec">Escalas <span class="mu" id="nb"></span></div>\n' +
@@ -156,7 +156,7 @@ var JS_EFET_ = 'var D=[];\n' +
   'function resp(r){var o=$("out"),h="",R=r.rel;o.className="";\n' +
   'h+="<div class=\\"ban okb\\"><b>✅ Conferência criada</b><br><span class=mu>"+R.itens.length+" escala(s)</span></div>";\n' +
   'h+="<table><tr><th>Aba</th><th>Escala</th><th>Previsto</th></tr>";R.itens.forEach(function(x){h+="<tr><td>"+esc(x.aba)+"</td><td><b>"+esc(x.escala)+"</b> "+(x.criado?"<span class=\\"tg ok\\">nova</span>":"<span class=tg>atualizada</span>")+"</td><td><span class=lar>"+x.previsto+"</span></td></tr>"});h+="</table>";\n' +
-  'h+="<p class=mu>Edite o previsto de qualquer dia direto na linha “Efetivo previsto”. Ao importar a Guarnição ou criar o mês, os dias previstos são refeitos.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
+  'h+="<p class=mu>Edite o previsto de qualquer dia direto na primeira das duas linhas (a de números). Ao importar a Guarnição ou criar o mês, os dias previstos são refeitos.</p><button class=p onclick=\\"google.script.host.close()\\">Concluir</button>";\n' +
   'o.innerHTML=h}\n';
 
 /* ============================================================ PAINEL */
@@ -473,12 +473,15 @@ var ROT_PREV_ = 'EFETIVO PREVISTO', ROT_ESC_ = 'EFETIVO ESCALADO';
 
 function mnuConferenciaEfetivo() { mostrarHtml_(CSS_EXTRA_ + HTML_EFET_ + JS_COMUM_ + '<script>' + JS_EFET_ + '</script>', 'Conferência do efetivo', 700, 680); }
 
-/** linhas (0-based) "Efetivo previsto" / "Efetivo escalado" que ficam logo abaixo do bloco, depois de uma linha em branco */
+/** linhas (0-based) do previsto e do escalado: coladas embaixo do bloco (ou depois de uma linha em branco, no modelo antigo); a linha "escalado" tem a fórmula COUNTIF */
 function acharLinhasEfetivo_(A, B) {
-  var ult = B.rows[B.rows.length - 1].r;
-  for (var r = ult + 2; r <= ult + 5 && r < A.vals.length; r++) {
-    if (norm_(A.vals[r][4]).indexOf(ROT_PREV_) === 0) return { prev: r, esc: r + 1 };
+  var ult = B.rows[B.rows.length - 1].r, F1 = colDia_(1);
+  function temConf(r) {
+    if (r >= A.forms.length) return false;
+    for (var d = 1; d <= A.nDias; d++) if (/COUNTIF/i.test(A.forms[r][F1 + d - 1] || '')) return true;
+    return false;
   }
+  for (var o = 1; o <= 4; o++) { if (temConf(ult + o + 1)) return { prev: ult + o, esc: ult + o + 1 }; }
   return null;
 }
 
@@ -512,22 +515,17 @@ function baseEfetivo_(A, B, ex) { /* valor mais frequente já digitado na linha 
 function escreverEfetivo_(A, B, base, mudou) {
   var sh = A.sh, n = A.nDias, ex = acharLinhasEfetivo_(A, B), r2 = B.rows[B.rows.length - 1].r, rowPrev, rowEsc;
   if (ex) { rowPrev = ex.prev + 1; rowEsc = ex.esc + 1; }
-  else { sh.insertRowsAfter(r2 + 2, 3); rowPrev = r2 + 3; rowEsc = r2 + 4; }
+  else { sh.insertRowsAfter(r2 + 1, 2); rowPrev = r2 + 2; rowEsc = r2 + 3; } /* duas linhas coladas embaixo da escala, sem rótulos */
   var F1 = colDia_(1) + 1, prev = previstoDias_(A, B, base, mudou), first = B.rows[0].r + 1, last = r2 + 1, form = [];
   for (var d = 1; d <= n; d++) {
     var L = colLetra_(colDia_(d)), rg = L + first + ':' + L + last;
     form.push(localizarFormula_('=IF(' + L + rowPrev + '="","",IF(COUNTIF(' + rg + ',0)=' + L + rowPrev + ',"OK",COUNTIF(' + rg + ',0)))'));
   }
-  sh.getRange(rowPrev, 5).setValue('Efetivo previsto');
-  sh.getRange(rowEsc, 5).setValue('Efetivo escalado');
   sh.getRange(rowPrev, F1, 1, n).setValues([prev]);
   sh.getRange(rowEsc, F1, 1, n).setFormulas([form]);
-  var rp = sh.getRange(rowPrev, 5, 1, F1 - 5 + n), re = sh.getRange(rowEsc, 5, 1, F1 - 5 + n);
-  rp.setFontSize(8).setFontColor('#5f6368').setHorizontalAlignment('center').setBackground('#ffffff');
-  re.setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center').setBackground('#ffffff').setFontColor('#000000');
-  sh.getRange(rowPrev, 5).setHorizontalAlignment('right');
-  sh.getRange(rowEsc, 5).setHorizontalAlignment('right');
-  sh.getRange(rowPrev, 5, 2, F1 - 5 + n).setBorder(true, true, true, true, true, true, '#999999', SpreadsheetApp.BorderStyle.SOLID);
+  sh.getRange(rowPrev, F1, 1, n).setFontSize(8).setFontColor('#5f6368').setHorizontalAlignment('center').setBackground('#ffffff');
+  sh.getRange(rowEsc, F1, 1, n).setFontSize(9).setFontWeight('bold').setHorizontalAlignment('center').setBackground('#ffffff').setFontColor('#000000');
+  sh.getRange(rowPrev, F1, 2, n).setBorder(true, true, true, true, true, true, '#999999', SpreadsheetApp.BorderStyle.SOLID);
   /* verde "OK" quando confere; vermelho quando falta ou sobra (e há previsto) */
   var real = sh.__real || sh, k = A.k || 0, area = sh.getRange(rowEsc, F1, 1, n), areaR = area.__real || area;
   var topo = colLetra_(colDia_(1)) + rowEsc, fVerde = deslocarFormula_('=' + topo + '="OK"', k), fVerm = deslocarFormula_('=AND(' + topo + '<>"",' + topo + '<>"OK")', k);
