@@ -103,7 +103,7 @@ function PREVIA_CAL(datas, tick) {
     var vermC = C && C.blocos.length ? vermelho_(C, C.blocos[0], dia) : vermG;
     var linha = [serialData_(d), flagResumo_(G, 'CMT GD', dia, 'CMT GD'), flagResumo_(G, 'CB GD', dia, 'CB GD'), flagResumo_(G, 'GD', dia, 'SD GD'),
       flagResumo_(G, 'MOTORISTA A POMN', dia, 'MOTORISTA'), flagResumo_(G, 'OF DIA', dia, 'OF DIA'), vermG, vermC];
-    var p12 = [], p24 = [], ctrl = [], cb = [];
+    var p12 = [], p24 = [], ctrl = [], cb = [], vagasCb = '';
     if (G) {
       G.blocos.forEach(function (B) {
         var t = semAcento_(B.titulo);
@@ -118,11 +118,12 @@ function PREVIA_CAL(datas, tick) {
           resto.forEach(function (nm) { if (p12.length < 2) p12.push(nm); else p24.push(nm); });
         } else if (t === 'CB DIA') {
           zerosValidos_(G, B, dia).forEach(function (z) { cb.push(z.nome); });
+          try { var vdCb = vagasDiaBloco_(G, B); if (vdCb[dia] != null) vagasCb = vdCb[dia]; } catch (e) { vagasCb = ''; }
         }
       });
     }
     function pega(l, n) { var o = []; for (var i = 0; i < n; i++) o.push(l[i] || ''); return o; }
-    linhas.push(linha.concat(pega(p12, 2), pega(p24, 3), pega(ctrl, 3), pega(cb, 4)));
+    linhas.push(linha.concat(pega(p12, 2), pega(p24, 3), pega(ctrl, 3), pega(cb, 4), [vagasCb]));
   });
   return linhas.length ? linhas : [['']];
 }
@@ -202,12 +203,12 @@ function atualizarTabelasInternas_(sh) {
 
 var CABECALHO_CAL_ = ['Data', 'QG: CMT GD (laranja)', 'QG: CB GD (laranja)', 'QG: GD (laranja)', 'QG: Mot POMN (laranja)', 'QG: Of Dia (laranja)', 'Dia vermelho (Grad)',
   'Dia vermelho (Cndt)', 'Portão 12h #1', 'Portão 12h #2', 'Portão 24h #1', 'Portão 24h #2', 'Portão 24h #3', 'Controle #1', 'Controle #2', 'Controle #3',
-  'CB DIA #1 (2ª BO)', 'CB DIA #2 (1ª BO)', 'CB DIA #3 (DMSF)', 'CB DIA #4 (BIA C)'];
+  'CB DIA #1 (mais antigo)', 'CB DIA #2', 'CB DIA #3', 'CB DIA #4', 'CB DIA: vagas do dia'];
 
 /** títulos, formato de data e aviso nas colunas ocultas (L:BE); só apresentação, não altera os dados */
 function formatarAuxPrevia_(sh) {
   var cab = '#e8eaed';
-  sh.getRange(1, 12, 1, 20).setValues([CABECALHO_CAL_]).setFontWeight('bold').setBackground(cab).setWrap(true);
+  sh.getRange(1, 12, 1, CABECALHO_CAL_.length).setValues([CABECALHO_CAL_]).setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange(1, 33, 1, 4).setValues([['Trocas (nesta planilha): data', 'Quem estava na escala', 'Quem assume (*)', 'Escala']]).setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AL1:AN1').setFontWeight('bold').setBackground(cab).setWrap(true);
   sh.getRange('AP1:AS1').setFontWeight('bold').setBackground(cab).setWrap(true);
@@ -316,6 +317,34 @@ function preencherPermanencia_(sh) {
   return true;
 }
 
+/* ============================================================ CB DIA (linhas pela posição na escala: mais antigo = mais acima) */
+function posicaoCbDia_(rotulo) {
+  var t = semAcento_(rotulo);
+  if (/^CB DIA 2\S*\s*BO$/.test(t)) return 1;
+  if (/^CB DIA 1\S*\s*BO$/.test(t)) return 2;
+  if (/^CB DIA BIA C\s*\/\s*DMSF$/.test(t) || /^CB DIA DMSF$/.test(t)) return 3;
+  if (/^CB DIA BIA C$/.test(t)) return 4;
+  return 0;
+}
+
+/** CB DIA 2ª BO = 1º militar do bloco (mais antigo), 1ª BO = 2º, BIA C/DMSF = 3º (o 4º só existe na grade antiga de 4 CB DIA).
+ *  Sem ninguém na posição: PENDENTE se a posição cabe nas vagas do dia (título "N CB DIA"), senão X. */
+function preencherCbDia_(sh) {
+  var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 2).getValues(), n = 0, cols = ['AB', 'AC', 'AD', 'AE'];
+  for (var r = 3; r < lr; r++) {
+    var pos = posicaoCbDia_(v[r][1] || v[r][0]);
+    if (!pos) continue;
+    for (var c = 0; c < 7; c++) {
+      var L = colLetra_(2 + c), K = 'MATCH(' + L + '$2,$L$2:$L$8,0)';
+      var f = '=IFERROR(LET(k,' + K + ',nm,INDEX($' + cols[pos - 1] + '$2:$' + cols[pos - 1] + '$8,k),vg,INDEX($AF$2:$AF$8,k),' +
+        'IF(nm<>"",nm,IF(vg<>"",IF(' + pos + '<=vg,"PENDENTE","X"),IF(INDEX($AB$2:$AB$8,k)="","PENDENTE","X")))),"PENDENTE")';
+      sh.getRange(r + 1, 3 + c).setFormula(localizarFormula_(f));
+    }
+    n++;
+  }
+  return n;
+}
+
 /** Troca as referências às abas CAL/TROCAS/ESCALADOS_CACHE por fórmulas locais. Devolve {alteradas, externas[]}. */
 function migrarPrevia_(sh) {
   var lr = sh.getLastRow(), forms = sh.getRange(1, 1, lr, 9).getFormulas(), alteradas = 0, externas = {};
@@ -344,6 +373,7 @@ function migrarPrevia_(sh) {
   }
   instalarAuxPrevia_(sh);
   try { preencherPermanencia_(sh); } catch (e) { Logger.log('Permanência PNR: ' + e.message); }
+  try { preencherCbDia_(sh); } catch (e) { Logger.log('CB DIA: ' + e.message); }
   return { alteradas: alteradas, externas: Object.keys(externas) };
 }
 

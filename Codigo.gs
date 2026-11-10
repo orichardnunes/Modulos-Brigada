@@ -604,7 +604,7 @@ function mnuVerificarSistema() {
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
     'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
-    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
+    'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'preencherCbDia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
     'mnuQuantitativo', 'apiQuantitativo', 'apiExportarQuantitativo', 'calcularQuantitativo_',
     'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiGatAbas', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
