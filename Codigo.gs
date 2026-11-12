@@ -438,6 +438,8 @@ function classeCel_(A, r, c) {
   var bg = String(A.bgs[r][c]).toLowerCase(), fg = String(A.fgs[r][c]).toLowerCase(), L = A.leg;
   if (bg === L.exame.bg && fg === L.exame.fg) return 'afast';
   if (bg === L.outra.bg) return 'verde';
+  /* serviço de POMN: “0” em azul-claro (12h) ou azul-escuro (24h) é serviço, não afastamento */
+  if ((bg === '#a4c2f4' || bg === '#1c4587') && num_(A.vals[r][c]) === 0) return 'normal';
   /* cores neutras (dia útil, dia vermelho, serviço, Gragoatá, apresentação, cabeçalho) */
   var neutras = [CFG.COR.BRANCO, CFG.COR.VERMELHO, CFG.COR.CINZA_DIA, CFG.COR.CINZA_CAB, L.servico.bg, L.gragoata.bg, L.apres.bg, '#ffffff'];
   if (neutras.indexOf(bg) >= 0) return 'normal';

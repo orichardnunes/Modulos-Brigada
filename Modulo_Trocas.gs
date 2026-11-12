@@ -97,7 +97,9 @@ function cfgTrocas_() {
   return {
     aprov: c.aprov || [], notificar: c.notificar !== false,
     titulo: c.titulo || 'Gestão de Serviços de Escalas', subtitulo: c.subtitulo || 'S/1 - Seção de Pessoal',
-    avisoBI: c.avisoBI != null ? c.avisoBI : 'Atenção para o horário do fechamento do Boletim: Expediente Integral: 13h15 / Expediente Parcial: 09h00. Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
+    biTitulo: c.biTitulo != null ? c.biTitulo : 'Fechamento do Boletim', biIntegral: c.biIntegral != null ? c.biIntegral : '13h15', biParcial: c.biParcial != null ? c.biParcial : '09h00',
+    biNota: c.biNota != null ? c.biNota : 'Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
+    escalaUrl: c.escalaUrl || 'https://docs.google.com/spreadsheets/d/1QeqywNXn8YnlFKvnl7FlzEOUzGfo23UDQj4jK84UqoU/edit?gid=1382688629#gid=1382688629',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
   };
 }
