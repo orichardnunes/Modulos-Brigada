@@ -429,7 +429,8 @@ function decidirTrocaPar_(id, acao, quem, obs) {
   return res;
 }
 
-/** exclusão com registro: some das listas e relatórios; fica na planilha como "Excluída" e na auditoria. Desfaz a nota da escala se estava autorizada. */
+/** exclusão definitiva: apaga a linha da Central (e a outra ponta, se for permuta) e remove a anotação da escala se estava autorizada.
+ *  O que foi apagado fica descrito na auditoria (número, escala, militares, situação anterior, motivo e quem excluiu). */
 function excluirTroca_(id, quem, motivo) {
   motivo = String(motivo || '').trim();
   if (motivo.length < 3) throw new Error('Informe o motivo da exclusão.');
@@ -438,16 +439,14 @@ function excluirTroca_(id, quem, motivo) {
   var l = sh.getRange(r, 1, 1, 16).getValues()[0], d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
   var ids = [id]; if (d && d.par && acharLinhaTroca_(sh, d.par)) ids.push(d.par);
   ids.forEach(function (i) {
-    var rr = acharLinhaTroca_(sh, i), ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
-    if (ll[11] === 'Excluída') return;
+    var rr = acharLinhaTroca_(sh, i);
+    if (!rr) return;
+    var ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
     var nota = '';
-    dd = dd || {}; dd.antes = ll[11]; sh.getRange(rr, 16).setValue(JSON.stringify(dd));
-    if (ll[11] === 'Autorizada' && dd.iso) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
-    sh.getRange(rr, 12).setValue('Excluída');
-    sh.getRange(rr, 13).setValue(quem || '');
-    sh.getRange(rr, 14).setValue(new Date()).setNumberFormat('dd/mm/yyyy HH:mm');
-    sh.getRange(rr, 15).setValue('Excluída: ' + motivo + nota);
-    auditar_(quem, 'Solicitação excluída', fmtNr_(i) + ' · ' + ll[6] + ' · ' + ll[7] + ' ➜ ' + ll[8] + ' · situação anterior: ' + ll[11] + ' · motivo: ' + motivo + nota);
+    if (ll[11] === 'Autorizada' && dd && dd.iso) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
+    var data = ll[4] instanceof Date ? fmtData_(ll[4]) : '';
+    sh.deleteRow(rr);
+    auditar_(quem, 'Solicitação excluída (definitivo)', fmtNr_(i) + ' · ' + data + ' · ' + ll[6] + ' · ' + ll[7] + ' ➜ ' + ll[8] + ' · solicitante: ' + (ll[3] || '-') + ' · situação: ' + ll[11] + ' · motivo: ' + motivo + nota);
   });
   bumpTrocas_();
   return 'Excluída';
@@ -477,36 +476,6 @@ function expirarPendentes_(quem) {
   return n;
 }
 function expirarPendentesTrigger() { try { expirarPendentes_('Sistema'); } catch (e) { Logger.log('Expirar pendentes: ' + e.message); } }
-
-/** desfaz uma exclusão (volta à situação anterior; se estava autorizada, grava a anotação de novo) */
-function restaurarTroca_(id, quem) {
-  var sh = garantirCentral_(), r = acharLinhaTroca_(sh, id);
-  if (!r) throw new Error('Pedido ' + id + ' não encontrado.');
-  var l = sh.getRange(r, 1, 1, 16).getValues()[0];
-  if (l[11] !== 'Excluída') throw new Error('Só solicitações excluídas podem ser restauradas.');
-  var d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
-  var ids = [id];
-  if (d && d.par) { var rp = acharLinhaTroca_(sh, d.par); if (rp && sh.getRange(rp, 12).getValue() === 'Excluída') ids.push(d.par); }
-  var feitos = [], hoje = new Date(); hoje.setHours(0, 0, 0, 0);
-  ids.forEach(function (i) {
-    var rr = acharLinhaTroca_(sh, i), ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
-    var antes = (dd && dd.antes) || 'Pendente';
-    if (antes === 'Pendente' && ll[4] instanceof Date && ll[4] < hoje) antes = 'Expirada';
-    sh.getRange(rr, 12).setValue(antes === 'Autorizada' ? 'Pendente' : antes);
-    sh.getRange(rr, 13).setValue(''); sh.getRange(rr, 14).clearContent();
-    sh.getRange(rr, 15).setValue('Restaurada por ' + quem + ' (estava ' + antes + ')');
-    feitos.push({ rr: rr, id: i, antes: antes });
-  });
-  try {
-    feitos.filter(function (f) { return f.antes === 'Autorizada'; }).forEach(function (f) { decidirTroca_(f.id, 'Autorizar', quem, 'Restaurada após exclusão'); });
-  } catch (e) {
-    feitos.forEach(function (f) { sh.getRange(f.rr, 12).setValue('Excluída'); sh.getRange(f.rr, 15).setValue('Restauração falhou: ' + e.message); });
-    throw new Error('Não foi possível restaurar: ' + e.message);
-  }
-  bumpTrocas_();
-  feitos.forEach(function (f) { auditar_(quem, 'Exclusão desfeita', fmtNr_(f.id) + ' · voltou para: ' + f.antes); });
-  return feitos[0].antes;
-}
 
 /* ---------- autorização pela própria aba (funciona no celular) */
 function aoEditarCentral(e) {
