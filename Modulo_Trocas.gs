@@ -364,6 +364,23 @@ function notificarTroca_(tipo, x, para) {
   } catch (e) { Logger.log('E-mail de troca: ' + e.message); }
 }
 
+/** reescreve o "0" da célula (só se for valor fixo, nunca fórmula): a mudança de valor faz a planilha recalcular tudo que depende dela */
+function reforcarZero_(sh, A, r, c) {
+  try { if (!A.forms[r][c]) sh.getRange(r + 1, c + 1).setValue(0); } catch (e) { Logger.log('Reforço do 0: ' + e.message); }
+}
+
+/** a prévia lê as trocas por script; edição feita por script não dispara gatilho, então agenda (uma vez, agrupando) a atualização das prévias */
+function agendarPrevia_() {
+  try {
+    if (ScriptApp.getProjectTriggers().some(function (t) { return t.getHandlerFunction() === 'atualizarPreviaAposTroca'; })) return;
+    ScriptApp.newTrigger('atualizarPreviaAposTroca').timeBased().after(8000).create();
+  } catch (e) { Logger.log('Agendar prévia: ' + e.message); }
+}
+function atualizarPreviaAposTroca() {
+  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'atualizarPreviaAposTroca') ScriptApp.deleteTrigger(t); });
+  try { atualizarTrocasTrigger(); } catch (e) { Logger.log('Prévia após troca: ' + e.message); }
+}
+
 function gravarNotaTroca_(d, saiNome, entraNome) {
   bumpTrocas_();
   var sh = ss_().getSheetByName(d.aba);
@@ -376,10 +393,12 @@ function gravarNotaTroca_(d, saiNome, entraNome) {
   if (!R || num_(A.vals[R.r][colDia_(dia)]) !== 0) throw new Error(saiNome + ' não está mais com “0” de serviço nesse dia.');
   var nota = entraNome ? entraNome : '';
   sh.getRange(R.r + 1, colDia_(dia) + 1).setNote(nota);
+  reforcarZero_(sh, A, R.r, colDia_(dia));
   if (ehPar_(B)) { /* escala de pares: a anotação vale também para o outro dia do par */
     var d2 = ehCabecaPar_(A, B, dia) ? dia + 1 : dia - 1;
-    if (d2 >= 1 && d2 <= A.nDias && num_(A.vals[R.r][colDia_(d2)]) === 0) sh.getRange(R.r + 1, colDia_(d2) + 1).setNote(nota);
+    if (d2 >= 1 && d2 <= A.nDias && num_(A.vals[R.r][colDia_(d2)]) === 0) { sh.getRange(R.r + 1, colDia_(d2) + 1).setNote(nota); reforcarZero_(sh, A, R.r, colDia_(d2)); }
   }
+  agendarPrevia_();
 }
 
 /** acao: 'Autorizar' | 'Negar' | 'Cancelar' */

@@ -358,6 +358,7 @@ function apiTroca(p, aplicar) {
   if (aplicar) {
     var sh = ss_().getSheetByName(p.mes + ' ' + p.tipo);
     sh.getRange(sai.r + 1, colDia_(info.dia) + 1).setNote(entra.nome);
+    if (typeof reforcarZero_ === 'function') { var Ax = lerAba_(sh); reforcarZero_(sh, Ax, sai.r, colDia_(info.dia)); agendarPrevia_(); }
     SpreadsheetApp.flush();
     if (typeof bumpTrocas_ === 'function') bumpTrocas_();
   }
