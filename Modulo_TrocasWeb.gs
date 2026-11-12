@@ -82,8 +82,8 @@ function itemTrocaWeb_(l) {
   return { id: l[0], rec: l[1] instanceof Date ? fmtData_(l[1]) : '', sol: l[3], data: l[4] instanceof Date ? fmtData_(l[4]) + ' ' + CFG.DIAS[l[4].getDay()] : '', aba: l[5], esc: l[6], sai: l[7], entra: l[8], mot: l[9], alert: l[10], sit: s, por: l[12], obs: l[14] };
 }
 function linhasTrocas_() {
-  var sh = ss_().getSheetByName(CENTRAL_);
-  if (!sh || sh.getLastRow() < 2) return [];
+  var sh = garantirCentral_();
+  if (sh.getLastRow() < 2) return [];
   return sh.getRange(2, 1, sh.getLastRow() - 1, 15).getValues().filter(function (l) { return l[0]; });
 }
 

@@ -34,3 +34,6 @@ Teste primeiro numa **cópia** da planilha.
 
 ## Arquivos do projeto
 Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia) **Modulo_Trocas.gs** (Central de trocas: aba, autorização, tela do módulo) e **Modulo_TrocasWeb.gs** (aplicativo web da Central de trocas, visual do SiRAlt). O `appsscript.json` tem o escopo `script.send_mail` e o bloco `webapp`. Para publicar o aplicativo: Implantar → Nova implantação → App da Web (executar como você; acesso: qualquer pessoa) e defina o código de autorização em Confecção → Central de trocas → Configuração.
+
+
+Os pedidos da Central de trocas ficam numa **planilha separada** (criada na pasta da escala na primeira abertura; pedidos antigos da aba da escala são trazidos e a aba antiga é apagada). Quem decide pelo celular precisa de acesso de edição a ela.

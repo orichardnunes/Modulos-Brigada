@@ -590,7 +590,7 @@ function mnuSobre() {
     '<b>Balanceamento do mês:</b> serviços por militar em cada escala comparados com a média. ' +
     '<b>Conferir prévia:</b> lista as células PENDENTE por linha, com o motivo provável. <b>Exportar prévia (PDF):</b> gera o PDF e salva na pasta da planilha.</p>' +
     '<h2>📥 Central de trocas</h2>' +
-    '<p>O militar pede a troca pelo <b>aplicativo web</b> (celular; visual igual ao SiRAlt): escolhe data, escala, quem sai e quem pega. Cada pedido vira uma linha na aba <b>Central de trocas</b>, com quem está escalado, quem pega e os alertas (afastamento, serviço no dia, folga). ' +
+    '<p>O militar pede a troca pelo <b>aplicativo web</b> (celular; visual igual ao SiRAlt): escolhe data, escala, quem sai e quem pega. Cada pedido vira uma linha na aba <b>Central de trocas</b> de uma <b>planilha própria</b> (criada sozinha na pasta da escala; nada fica na planilha da escala), com quem está escalado, quem pega e os alertas (afastamento, serviço no dia, folga). ' +
     'O S/1 autoriza na aba <b>Autorizar</b> do aplicativo (com o código de autorização), muda a coluna <b>Situação</b> para <b>Autorizar</b>/<b>Negar</b> (funciona no Planilhas do celular) ou usa os botões da tela do módulo. Autorizada, a troca é gravada na anotação do “0” de quem sai e a prévia a lê sozinha. “Cancelar” desfaz. ' +
     'Em Configuração: link do aplicativo, código de autorização, autorizadores (e-mails) e avisos. Para publicar o aplicativo: Apps Script → Implantar → Nova implantação → App da Web (executar como você; acesso: qualquer pessoa).</p>' +
     '<h2>📅 Prévia semanal</h2>' +

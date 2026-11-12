@@ -27,6 +27,8 @@ var HTML_CENTRAL_ = '<style>\n' +
   '<div id="lista">Carregando…</div>\n' +
   '<details id="cfg"><summary>⚙️ Configuração</summary>\n' +
   '<div class="cf"><h4>📱 Aplicativo (celular) <span id="tl"></span></h4><div id="fl"></div></div>\n' +
+  '<div class="cf"><h4>🗂️ Planilha da Central (dados dos pedidos) <span id="tp"></span></h4><div id="fp"></div>\n' +
+  '<input type="text" id="plan" placeholder="para usar outra planilha, cole o link ou o ID aqui (opcional)" style="margin-top:6px"></div>\n' +
   '<div class="cf"><h4>🔑 Código de acesso da Administração - S/1 <span id="pl2"></span></h4>\n' +
   '<input type="password" id="pin" placeholder="digite um novo código (mín. 4 caracteres) para definir ou trocar" autocomplete="new-password">\n' +
   '<div class="mu" style="margin-top:4px">Quem tiver o código decide os pedidos pelo aplicativo. Fica guardado apenas o hash.</div></div>\n' +
@@ -45,6 +47,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   '$("resumo").innerHTML=h;\n' +
   'if(r.cfg.url){$("tl").innerHTML="<span class=\\"tg ok\\">publicado</span>";$("fl").innerHTML="<div class=lk2><a target=_blank href=\\""+esc(r.cfg.url)+"\\">"+esc(r.cfg.url)+"</a></div><div><button onclick=\\"copiar(ST.cfg.url)\\">Copiar link</button><button onclick=\\"window.open(ST.cfg.url)\\">Abrir</button></div><div class=mu>Envie este link aos militares. Depois de mudar o código, publique uma nova versão em Implantar → Gerenciar implantações.</div>"}\n' +
   'else{$("tl").innerHTML="<span class=\\"tg al\\">não publicado</span>";$("fl").innerHTML="<div class=mu>No Apps Script: <b>Implantar → Nova implantação → App da Web</b> (executar como você; acesso: qualquer pessoa com login Google). O link aparece aqui depois de salvar.</div>"}\n' +
+  'if(r.cfg.planilha){$("tp").innerHTML="<span class=\\"tg ok\\">separada da escala</span>";$("fp").innerHTML="<div class=lk2><a target=_blank href=\\""+esc(r.cfg.planilha)+"\\">"+esc(r.cfg.planilha)+"</a></div><div class=mu>Quem for decidir pelo celular (aba Situação) precisa de acesso de edição a ela. A escala não recebe mais essa aba.</div>"}else{$("tp").innerHTML="<span class=\\"tg al\\">erro</span>";$("fp").innerHTML="<div class=mu>"+esc(r.cfg.erro||"")+"</div>"}\n' +
   '$("pl2").innerHTML=r.cfg.pin?"<span class=\\"tg ok\\">definido</span>":"<span class=\\"tg al\\">sem código</span>";\n' +
   '$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
   'if(!r.cfg.pin||!r.cfg.url)$("cfg").open=true;\n' +
@@ -61,7 +64,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'function dec(id,a){var ob=$("o"+id)?$("o"+id).value:"";if(a==="Cancelar"&&!confirm("Cancelar a troca "+id+"? A anotação da escala será removida."))return;\n' +
   'var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
   'google.script.run.withSuccessHandler(function(s){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocaDecidir(id,a,ob)}\n' +
-  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.className="ok";o.textContent="Configuração salva.";$("pin").value="";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
+  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.className="ok";o.textContent="Configuração salva.";$("pin").value="";$("plan").value="";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({planilha:$("plan").value,pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
@@ -73,11 +76,31 @@ function cfgTrocas_() {
 }
 function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify({ aprov: c.aprov, notificar: c.notificar })); }
 
-/** aba "Central de trocas" (cria se não existir) */
+/** planilha própria da Central de trocas (fora da planilha da escala): abre a guardada ou cria uma nova na pasta da escala */
+function centralSS_() {
+  var p = PropertiesService.getDocumentProperties(), id = p.getProperty('TROCAS_SS');
+  if (id) {
+    try { return SpreadsheetApp.openById(id); }
+    catch (e) { throw new Error('Não consegui abrir a planilha da Central de trocas. Ela foi apagada ou você perdeu o acesso? Informe outra em Configuração.'); }
+  }
+  var novo = SpreadsheetApp.create('Central de trocas — 21º GAC');
+  try {
+    var f = DriveApp.getFileById(novo.getId()), pais = DriveApp.getFileById(ss_().getId()).getParents();
+    if (pais.hasNext()) { pais.next().addFile(f); DriveApp.getRootFolder().removeFile(f); }
+  } catch (e) { Logger.log('Pasta da Central: ' + e.message); }
+  p.setProperty('TROCAS_SS', novo.getId());
+  return novo;
+}
+
+/** aba "Central de trocas" na planilha própria (cria se não existir; traz os pedidos que ficaram na planilha da escala) */
 function garantirCentral_() {
-  var ss = ss_(), sh = ss.getSheetByName(CENTRAL_);
+  var ss = centralSS_(), sh = ss.getSheetByName(CENTRAL_);
   if (sh) return sh;
-  sh = ss.insertSheet(CENTRAL_);
+  var uma = ss.getSheets();
+  if (uma.length === 1 && uma[0].getLastRow() === 0) { sh = uma[0]; sh.setName(CENTRAL_); } else sh = ss.insertSheet(CENTRAL_);
+  var antiga = null;
+  try { antiga = ss_().__real.getSheetByName(CENTRAL_); } catch (e) { antiga = null; }
+  if (antiga && antiga.getSheetId() === sh.getSheetId() && ss.getId() === ss_().getId()) antiga = null;
   var cab = ['ID', 'Recebido em', 'Origem', 'Solicitante', 'Data', 'Aba', 'Escala', 'Quem sai', 'Quem entra', 'Motivo', 'Alertas', 'Situação', 'Decidido por', 'Decidido em', 'Observação', 'dados'];
   sh.getRange(1, 1, 1, cab.length).setValues([cab]).setFontWeight('bold').setBackground('#e8eaed').setWrap(true);
   sh.setFrozenRows(1);
@@ -90,6 +113,15 @@ function garantirCentral_() {
   ].map(function (r) { return SpreadsheetApp.newConditionalFormatRule().setRanges([rg]).whenTextEqualTo(r[0]).setBackground(r[1]).setFontColor(r[2]).build(); });
   sh.setConditionalFormatRules(regras);
   sh.getRange(1, 12).setNote('Mude para Autorizar ou Negar (funciona também no Planilhas do celular). Cancelar desfaz uma troca já autorizada.');
+  if (antiga && antiga.getLastRow() > 1) {
+    var vv = antiga.getRange(2, 1, antiga.getLastRow() - 1, 16).getValues();
+    sh.getRange(2, 1, vv.length, 16).setValues(vv);
+    sh.getRange(2, 2, vv.length, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+    sh.getRange(2, 5, vv.length, 1).setNumberFormat('dd/mm/yyyy');
+    sh.getRange(2, 14, vv.length, 1).setNumberFormat('dd/mm/yyyy HH:mm');
+    sh.getRange(2, 1, vv.length, 15).setWrap(true).setVerticalAlignment('top');
+  }
+  if (antiga) { try { ss_().__real.deleteSheet(antiga); } catch (e) { Logger.log('Aba antiga da Central: ' + e.message); } }
   return sh;
 }
 
@@ -230,14 +262,21 @@ function aoEditarCentral(e) {
 function instalarGatilhosTrocas_() {
   var tr = ScriptApp.getProjectTriggers();
   function tem(f) { return tr.some(function (t) { return t.getHandlerFunction() === f; }); }
-  if (!tem('aoEditarCentral')) ScriptApp.newTrigger('aoEditarCentral').forSpreadsheet(ss_().getId()).onEdit().create();
+  var cid = centralSS_().getId(), tem2 = false;
+  tr.forEach(function (t) {
+    if (t.getHandlerFunction() !== 'aoEditarCentral') return;
+    var src = ''; try { src = t.getTriggerSourceId(); } catch (e) { src = ''; }
+    if (src === cid) tem2 = true; else ScriptApp.deleteTrigger(t); /* o gatilho antigo era da planilha da escala */
+  });
+  if (!tem2) ScriptApp.newTrigger('aoEditarCentral').forSpreadsheet(cid).onEdit().create();
   tr.forEach(function (t) { if (['verificarComentariosTrocas', 'aoEnviarTroca', 'atualizarListasTrocasTrigger'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t); }); /* versões anteriores (comentários e formulário) */
 }
 
 function mnuCentralTrocas() { mostrarHtml_(CSS_EXTRA_ + HTML_CENTRAL_ + JS_COMUM_ + '<script>' + JS_CENTRAL_ + '</script>', 'Central de trocas', 760, 700); }
 
 function apiTrocasEstado(filtro) {
-  var c = cfgTrocas_(), sh = ss_().getSheetByName(CENTRAL_), out = { cfg: { url: urlAppTrocas_(), pin: !!PropertiesService.getDocumentProperties().getProperty('TROCAS_PIN'), aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
+  var c = cfgTrocas_(), sh = null, out = { cfg: { planilha: '', url: urlAppTrocas_(), pin: !!PropertiesService.getDocumentProperties().getProperty('TROCAS_PIN'), aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
+  try { sh = garantirCentral_(); out.cfg.planilha = sh.getParent().getUrl(); } catch (e) { out.cfg.erro = e.message; }
   if (!sh) return out;
   var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 15).getValues();
   for (var i = v.length - 1; i >= 1; i--) {
@@ -264,6 +303,11 @@ function apiTrocasSalvarCfg(p) {
   c.aprov = String(p.aprov || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
   salvarCfgTrocas_(c);
   if (p.pin) definirPinTrocas_(p.pin);
+  var m = String(p.planilha || '').match(/[-\w]{25,}/);
+  if (m && m[0] !== PropertiesService.getDocumentProperties().getProperty('TROCAS_SS')) {
+    try { SpreadsheetApp.openById(m[0]); } catch (e) { throw new Error('Não consegui abrir essa planilha (confira o link e se você tem acesso de edição).'); }
+    PropertiesService.getDocumentProperties().setProperty('TROCAS_SS', m[0]);
+  }
   garantirCentral_();
   instalarGatilhosTrocas_();
   return apiTrocasEstado('pendentes').cfg;
