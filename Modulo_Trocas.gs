@@ -68,6 +68,28 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
+var TROCAS_MILITARES_ID = '1RAXj_4RHxQkr65eZYRedCj-Wmjkx1q4R-4Te6FR_t7A'; /* planilha do SiRAlt, aba "Militares": Graduação | Nº | Nome | Subunidade | Ativo */
+
+/** cadastro de militares (qualquer um pode entrar numa troca); guarda 10 min em cache */
+function cadastroMilitares_() {
+  var cache = CacheService.getScriptCache(), c = null;
+  try { c = cache.get('TROCAS_MIL'); } catch (e) { c = null; }
+  if (c) return JSON.parse(c);
+  var lista = [];
+  var aba = SpreadsheetApp.openById(TROCAS_MILITARES_ID).getSheetByName('Militares');
+  if (!aba) throw new Error('A planilha de militares não tem a aba "Militares".');
+  if (aba.getLastRow() > 1) {
+    aba.getRange(2, 1, Math.min(aba.getLastRow() - 1, 2000), 5).getValues().forEach(function (r) {
+      var nome = String(r[2] || '').replace(/\s+/g, ' ').trim(), grad = String(r[0] || '').replace(/\s+/g, ' ').trim(), at = String(r[4] || '').trim().toLowerCase();
+      if (!nome || ['não', 'nao', 'n', 'inativo'].indexOf(at) >= 0) return;
+      lista.push({ full: (grad + ' ' + nome).toUpperCase(), nome: nome, sub: String(r[3] || '').trim() });
+    });
+  }
+  try { cache.put('TROCAS_MIL', JSON.stringify(lista), 600); } catch (e) { /* lista grande demais para o cache: segue sem */ }
+  return lista;
+}
+function cadastroMilitaresSeguro_() { try { return cadastroMilitares_(); } catch (e) { Logger.log('Cadastro de militares: ' + e.message); return []; } }
+function infoTroca_(mes, tipo, hdr, iso) { return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_()); }
 var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida'];
 
 function cfgTrocas_() {
@@ -153,13 +175,13 @@ function registrarTroca_(p) {
     if (dt < h0) throw new Error('A data do serviço já passou.');
     var mesId = CFG.MESES[dt.getMonth()], b = apiBlocos(mesId, [p.tipo]).blocos.filter(function (x) { return x.titulo === p.titulo; })[0];
     if (!b) throw new Error('Escala "' + p.titulo + '" não encontrada em ' + mesId + ' ' + p.tipo + '.');
-    var info = apiTrocaInfo(mesId, p.tipo, b.hdr, p.iso), ks = norm_(p.sai), ke = norm_(p.entra);
+    var info = infoTroca_(mesId, p.tipo, b.hdr, p.iso), ks = norm_(p.sai), ke = norm_(p.entra);
     aba = info.aba;
     var sai = info.sai.filter(function (x) { return norm_(x.nome) === ks; })[0];
     if (ks === ke) throw new Error('Quem sai e quem entra são o mesmo militar.');
     if (!sai) throw new Error(p.sai + ' não tem “0” de serviço em ' + info.data + ' nessa escala.');
     var ent = info.cands.filter(function (x) { return norm_(x.nome) === ke; })[0];
-    if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não faz parte dela.');
+    if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não consta no cadastro de militares.');
     alertas = ent.flags.join('; ');
     dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba };
     var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 16).getValues();
@@ -218,7 +240,7 @@ function decidirTroca_(id, acao, quem, obs) {
   if (acao === 'Autorizar') {
     if (sit !== 'Pendente' && sit !== 'Autorizar') throw new Error('Só pedidos pendentes podem ser autorizados (situação: ' + sit + ').');
     if (!d) throw new Error('Pedido sem dados válidos.');
-    var info = apiTrocaInfo(d.mes, d.tipo, d.hdr, d.iso), ke = norm_(l[8]);
+    var info = infoTroca_(d.mes, d.tipo, d.hdr, d.iso), ke = norm_(l[8]);
     var ent = info.cands.filter(function (c) { return norm_(c.nome) === ke; })[0];
     if (!ent) throw new Error(l[8] + ' já não pode entrar (está de serviço nesse dia nessa escala).');
     gravarNotaTroca_(d, l[7], l[8]);

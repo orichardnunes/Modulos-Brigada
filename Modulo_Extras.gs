@@ -268,7 +268,8 @@ function servicosPorMilitar_(A) {
   return svc;
 }
 
-function apiTrocaInfo(mesId, tipo, hdr, iso) {
+/** extras (opcional): militares de fora da escala que também podem entrar [{full, nome, sub}] */
+function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   var sh = ss_().getSheetByName(mesId + ' ' + tipo);
   if (!sh) throw new Error('Aba "' + mesId + ' ' + tipo + '" não encontrada.');
   var A = lerAba_(sh), B = null;
@@ -279,16 +280,9 @@ function apiTrocaInfo(mesId, tipo, hdr, iso) {
   if (dt.getMonth() !== A.mes || dt.getFullYear() !== A.ano) throw new Error('Escolha uma data dentro de ' + A.nome + '.');
   var d = dt.getDate(), c = colDia_(d), notas = sh.getRange(1, 1, A.vals.length, A.vals[0].length).getNotes();
   var svc = servicosPorMilitar_(A), gapMin = Math.ceil(CFG.FOLGA_MIN_H / 24) + 1, sai = [], cands = [];
-  B.rows.forEach(function (R) {
-    if (!participa_(A, B, R, d)) return;
-    var v = num_(A.vals[R.r][c]), cl = classeCel_(A, R.r, c), nome = R.nome.replace(/\s+/g, ' ').trim();
-    if (v === 0) {
-      if (cl !== 'afast' && cl !== 'verde') sai.push({ r: R.r, nome: nome, sub: R.sub, nota: String(notas[R.r][c] || '') });
-      return;
-    }
+  function avaliarServ_(lista) { /* avisos (não bloqueiam) de serviço no dia, vizinho e folga */
     var fl = [], md = Infinity, outra = '';
-    if (cl === 'afast') fl.push('afastado nesse dia');
-    (svc[R.key] || []).forEach(function (x) {
+    lista.forEach(function (x) {
       if (x.v) return;
       var dist = Math.abs(x.d - d);
       if (dist === 0) outra = x.e;
@@ -296,10 +290,35 @@ function apiTrocaInfo(mesId, tipo, hdr, iso) {
     });
     if (outra) fl.push('já está de serviço no dia (' + outra + ')');
     else if (md === 1) fl.push('serviço no dia anterior/seguinte');
-    else if (md < gapMin) fl.push('folga de ' + ((md - 1) * 24) + ' h (mínimo ' + CFG.FOLGA_MIN_H + ' h)');
-    cands.push({ r: R.r, nome: nome, sub: R.sub, folga: v, flags: fl, ok: !fl.length });
+    else if (md < gapMin) fl.push('folga de ' + ((md - 1) * 24) + ' h');
+    return fl;
+  }
+  B.rows.forEach(function (R) {
+    if (!participa_(A, B, R, d)) return;
+    var v = num_(A.vals[R.r][c]), cl = classeCel_(A, R.r, c), nome = R.nome.replace(/\s+/g, ' ').trim();
+    if (v === 0) {
+      if (cl !== 'verde') sai.push({ r: R.r, nome: nome, sub: R.sub, nota: String(notas[R.r][c] || '') });
+      return;
+    }
+    var fl = avaliarServ_(svc[R.key] || []);
+    if (cl === 'afast') fl.unshift('fora da escala');
+    cands.push({ r: R.r, nome: nome, sub: R.sub, folga: v, flags: fl, ok: !fl.length, key: R.key });
   });
+  var jaNaLista = cands.map(function (x) { return x.key; }).concat(sai.map(function (x) { return norm_(x.nome); }));
+  var chavesSvc = Object.keys(svc), extrasOk = [];
+  (extras || []).forEach(function (m) {
+    var kf = norm_(m.full), kn = norm_(m.nome);
+    var achou = jaNaLista.some(function (k) { return k === kf || k.slice(-(kn.length + 1)) === ' ' + kn; });
+    if (achou) return; /* já aparece (o posto no cadastro pode diferir do da planilha) */
+    var lista = [];
+    chavesSvc.forEach(function (k) { if (k === kf || k.slice(-(kn.length + 1)) === ' ' + kn) lista = lista.concat(svc[k]); });
+    var f = avaliarServ_(lista);
+    f.unshift('fora da escala');
+    extrasOk.push({ r: -1, nome: m.full, sub: m.sub || '', folga: null, flags: f, ok: false, fora: true });
+  });
+  extrasOk.sort(function (a, b) { return a.nome < b.nome ? -1 : 1; });
   cands.sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || (b.folga == null ? -1 : b.folga) - (a.folga == null ? -1 : a.folga); });
+  cands = cands.concat(extrasOk);
   return { aba: A.nome, titulo: B.titulo, dia: d, data: fmtData_(dt), sai: sai, cands: cands, sugeridos: cands.filter(function (x) { return x.ok; }).slice(0, 5) };
 }
 
