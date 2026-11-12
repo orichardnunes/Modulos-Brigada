@@ -90,7 +90,7 @@ function cadastroMilitares_() {
 }
 function cadastroMilitaresSeguro_() { try { return cadastroMilitares_(); } catch (e) { Logger.log('Cadastro de militares: ' + e.message); return []; } }
 function infoTroca_(mes, tipo, hdr, iso) { return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_()); }
-var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida'];
+var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida', 'Excluída'];
 
 function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
@@ -156,7 +156,7 @@ function garantirCentral_() {
   var vd = SpreadsheetApp.newDataValidation().requireValueInList(SIT_, true).setAllowInvalid(false).build();
   sh.getRange(2, 12, 1000, 1).setDataValidation(vd);
   var rg = sh.getRange(2, 12, 1000, 1), regras = [
-    ['Pendente', '#fef7e0', '#b06000'], ['Autorizada', '#e6f4ea', '#137333'], ['Negada', '#fce8e6', '#b00020'], ['Inválida', '#f1f3f4', '#5f6368'], ['Cancelada', '#f1f3f4', '#5f6368']
+    ['Pendente', '#fef7e0', '#b06000'], ['Autorizada', '#e6f4ea', '#137333'], ['Negada', '#fce8e6', '#b00020'], ['Inválida', '#f1f3f4', '#5f6368'], ['Cancelada', '#f1f3f4', '#5f6368'], ['Excluída', '#f1f3f4', '#9aa0a6']
   ].map(function (r) { return SpreadsheetApp.newConditionalFormatRule().setRanges([rg]).whenTextEqualTo(r[0]).setBackground(r[1]).setFontColor(r[2]).build(); });
   sh.setConditionalFormatRules(regras);
   sh.getRange(1, 12).setNote('Mude para Autorizar ou Negar (funciona também no Planilhas do celular). Cancelar desfaz uma troca já autorizada.');
@@ -193,40 +193,106 @@ function contextoTrocas_(mesId) {
   return { chaves: op.militares, escalas: esc };
 }
 
-/** p: {origem, solicitante, iso, tipo, titulo, sai, entra, motivo} -> {id, situacao, obs} */
-function registrarTroca_(p) {
-  var sh = garantirCentral_(), id = proximoIdTroca_(), agora = new Date(), situ = 'Pendente', obs = '', alertas = '', dados = {}, aba = '', data = null;
+var GRAD_RX_ = /^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/;
+function semGrad_(s) { return norm_(s).replace(GRAD_RX_, ''); }
+function mesmoMil_(a, b) { var x = norm_(a), y = norm_(b); if (!x || !y) return false; return x === y || semGrad_(x) === semGrad_(y); }
+
+/** "13h15" / "9:00" -> minutos desde 00:00 (ou null) */
+function minutosHora_(txt) { var m = /(\d{1,2})\s*[h:]\s*(\d{2})?/i.exec(String(txt || '')); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; }
+
+/** texto do aviso quando a solicitação é feita depois do fechamento do BI para serviço de amanhã (ou antes); '' se estiver no prazo */
+function fechamentoBI_(dtServico) {
+  var c = cfgTrocas_(), agora = new Date(), amanha = new Date(); amanha.setHours(0, 0, 0, 0); amanha.setDate(amanha.getDate() + 1);
+  if (dtServico > amanha) return '';
+  var min = agora.getHours() * 60 + agora.getMinutes(), integ = minutosHora_(c.biIntegral), parc = minutosHora_(c.biParcial);
+  if (integ != null && min >= integ) return 'após o fechamento do BI (expediente integral ' + c.biIntegral + ')';
+  if (parc != null && min >= parc) return 'após o fechamento do BI do expediente parcial (' + c.biParcial + ')';
+  return '';
+}
+
+/** conflitos com outros pedidos pendentes/autorizados no mesmo dia (alertas; não bloqueiam) */
+function conflitosTroca_(iso, sai, entra, linhas, ignorarId) {
+  var out = [];
+  (linhas || []).forEach(function (l) {
+    if (!l[0] || String(l[0]) === String(ignorarId || '') || (l[11] !== 'Pendente' && l[11] !== 'Autorizada')) return;
+    var d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
+    if (!d || d.iso !== iso) return;
+    var rot = fmtNr_(l[0]).replace(/ \(.*\)$/, '') + ' ' + String(l[11]).toLowerCase();
+    if (mesmoMil_(l[8], entra)) out.push('já é o "pega" na solicitação ' + rot + ' (' + l[6] + ')');
+    else if (mesmoMil_(l[7], entra)) out.push('está passando o serviço na solicitação ' + rot);
+    if (mesmoMil_(l[8], sai) && !mesmoMil_(l[7], entra)) out.push(sai + ' vai pegar o serviço de ' + l[7] + ' na solicitação ' + rot);
+  });
+  return out;
+}
+
+/** valida e monta os dados de uma solicitação, sem gravar. p: {iso, tipo, titulo, sai, entra, motivo} */
+function analisarTroca_(p, linhas, ignorarId) {
+  var r = { erro: '', data: null, aba: '', alertas: '', dados: {}, pos: '' };
   try {
     var dt = parseIso_(p.iso), h0 = new Date(), ant = Math.max(0, cfgTrocas_().antecedencia);
     h0.setHours(0, 0, 0, 0); h0.setDate(h0.getDate() + ant);
-    data = dt;
+    r.data = dt;
     if (dt < h0) throw new Error(ant ? 'O serviço precisa ser pelo menos ' + ant + ' dia(s) à frente: a partir de ' + fmtData_(h0) + '.' : 'A data do serviço já passou.');
     var mesId = CFG.MESES[dt.getMonth()], b = apiBlocos(mesId, [p.tipo]).blocos.filter(function (x) { return x.titulo === p.titulo; })[0];
     if (!b) throw new Error('Escala "' + p.titulo + '" não encontrada em ' + mesId + ' ' + p.tipo + '.');
     var info = infoTroca_(mesId, p.tipo, b.hdr, p.iso), ks = norm_(p.sai), ke = norm_(p.entra);
-    aba = info.aba;
+    r.aba = info.aba;
     var sai = info.sai.filter(function (x) { return norm_(x.nome) === ks; })[0];
     if (ks === ke) throw new Error('Quem sai e quem entra são o mesmo militar.');
     if (!sai) throw new Error(p.sai + ' não tem “0” de serviço em ' + info.data + ' nessa escala.');
     var ent = info.cands.filter(function (x) { return norm_(x.nome) === ke; })[0];
     if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não consta no cadastro de militares.');
     if (ent.cad === false) throw new Error(p.entra + ' não consta no cadastro de militares.');
-    alertas = ent.flags.join('; ');
-    if (sai.nota) alertas = (alertas ? alertas + '; ' : '') + 'já havia troca anotada: ' + String(sai.nota).replace(/\s+/g, ' ').trim().slice(0, 60);
-    dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, membros: (b.linhas || []).map(function (x) { return norm_(x.nome); }) };
-    var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 16).getValues();
-    for (var i = 1; i < v.length; i++) {
-      if (v[i][11] === 'Pendente' && String(v[i][6]) === p.titulo && norm_(v[i][7]) === ks && v[i][15] && JSON.parse(v[i][15]).iso === p.iso) throw new Error('Pedido repetido (já existe ' + v[i][0] + ' pendente).');
+    var al = ent.flags.slice();
+    if (sai.nota) al.push('já havia troca anotada: ' + String(sai.nota).replace(/\s+/g, ' ').trim().slice(0, 60));
+    r.pos = fechamentoBI_(dt);
+    if (r.pos) {
+      al.unshift('pós-fechamento: ' + r.pos);
+      if (!String(p.motivo || '').trim()) throw new Error('Solicitação ' + r.pos + ': informe a justificativa (somente aprovada em caso de extrema necessidade).');
     }
-  } catch (e) { situ = 'Inválida'; obs = e.message; }
-  sh.appendRow([id, agora, p.origem, p.solicitante || '', data || '', aba || (p.tipo || ''), p.titulo || '', p.sai || '', p.entra || '', p.motivo || '', alertas || (situ === 'Pendente' ? 'Sem alertas' : ''), situ, '', '', obs, JSON.stringify(dados)]);
+    conflitosTroca_(p.iso, p.sai, p.entra, linhas, ignorarId).forEach(function (c) { al.push('conflito: ' + c); });
+    r.alertas = al.join('; ');
+    r.dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, membros: (b.linhas || []).map(function (x) { return norm_(x.nome); }) };
+    (linhas || []).forEach(function (l) {
+      if (l[0] && l[11] === 'Pendente' && String(l[6]) === p.titulo && norm_(l[7]) === ks && l[15] && JSON.parse(l[15]).iso === p.iso && String(l[0]) !== String(ignorarId || '')) throw new Error('Pedido repetido (já existe ' + fmtNr_(l[0]) + ' pendente).');
+    });
+  } catch (e) { r.erro = e.message; }
+  return r;
+}
+
+function gravarLinhaTroca_(sh, id, p, a, situ, obs) {
+  var agora = new Date(), dados = a.dados || {};
+  if (p.dadosExtra) Object.keys(p.dadosExtra).forEach(function (k) { dados[k] = p.dadosExtra[k]; });
+  sh.appendRow([id, agora, p.origem, p.solicitante || '', a.data || '', a.aba || (p.tipo || ''), p.titulo || '', p.sai || '', p.entra || '', p.motivo || '', a.alertas || (situ === 'Pendente' ? 'Sem alertas' : ''), situ, '', '', obs, JSON.stringify(dados)]);
   var r = sh.getLastRow();
   sh.getRange(r, 2).setNumberFormat('dd/mm/yyyy HH:mm');
   sh.getRange(r, 5).setNumberFormat('dd/mm/yyyy');
   sh.getRange(r, 1, 1, 15).setWrap(true).setVerticalAlignment('top');
-  if (situ === 'Pendente') notificarTroca_('novo', { id: id, sai: p.sai, entra: p.entra, titulo: p.titulo, data: data, alertas: alertas, motivo: p.motivo, solicitante: p.solicitante });
-  auditar_(p.solicitante || p.origem, 'Solicitação ' + situ.toLowerCase(), fmtNr_(id) + ' · ' + (p.titulo || '') + ' · ' + (data instanceof Date ? fmtData_(data) : '') + ' · ' + (p.sai || '') + ' ➜ ' + (p.entra || '') + (obs ? ' · ' + obs : ''));
+}
+
+/** p: {origem, solicitante, iso, tipo, titulo, sai, entra, motivo} -> {id, nr, situacao, obs} */
+function registrarTroca_(p) {
+  var sh = garantirCentral_(), linhas = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 16).getValues() : [], id = proximoIdTroca_();
+  var a = analisarTroca_(p, linhas), situ = a.erro ? 'Inválida' : 'Pendente', obs = a.erro;
+  gravarLinhaTroca_(sh, id, p, a, situ, obs);
+  if (situ === 'Pendente') notificarTroca_('novo', { id: id, sai: p.sai, entra: p.entra, titulo: p.titulo, data: a.data, alertas: a.alertas, motivo: p.motivo, solicitante: p.solicitante });
+  auditar_(p.solicitante || p.origem, 'Solicitação ' + situ.toLowerCase(), fmtNr_(id) + ' · ' + (p.titulo || '') + ' · ' + (a.data instanceof Date ? fmtData_(a.data) : '') + ' · ' + (p.sai || '') + ' ➜ ' + (p.entra || '') + (obs ? ' · ' + obs : ''));
   return { id: id, nr: fmtNr_(id), situacao: situ, obs: obs };
+}
+
+/** permuta: p1 (ida) e p2 (volta) são autorizadas ou negadas juntas. Nada é gravado se uma das duas for inválida. */
+function registrarPermuta_(p1, p2) {
+  var sh = garantirCentral_(), linhas = sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, 16).getValues() : [];
+  var a1 = analisarTroca_(p1, linhas), a2 = analisarTroca_(p2, linhas);
+  if (a1.erro) throw new Error('Ida: ' + a1.erro);
+  if (a2.erro) throw new Error('Volta: ' + a2.erro);
+  var id1 = proximoIdTroca_(), id2 = proximoIdTroca_();
+  p1.dadosExtra = { par: id2, perna: 1 }; p2.dadosExtra = { par: id1, perna: 2 };
+  gravarLinhaTroca_(sh, id1, p1, a1, 'Pendente', '');
+  gravarLinhaTroca_(sh, id2, p2, a2, 'Pendente', '');
+  notificarTroca_('novo', { id: id1, sai: p1.sai, entra: p1.entra, titulo: p1.titulo + ' (permuta com ' + fmtNr_(id2) + ')', data: a1.data, alertas: [a1.alertas, a2.alertas].filter(Boolean).join(' | '), motivo: p1.motivo, solicitante: p1.solicitante });
+  auditar_(p1.solicitante || p1.origem, 'Permuta solicitada', fmtNr_(id1) + ' + ' + fmtNr_(id2) + ' · ' + p1.sai + ' ⇄ ' + p1.entra);
+  return { id: id1, nr: fmtNr_(id1), id2: id2, nr2: fmtNr_(id2), situacao: 'Pendente', obs: '' };
 }
 
 function emailsTroca_(c) { return (c.aprov || []).filter(function (x) { return /@/.test(x); }); }
@@ -323,9 +389,45 @@ function decidirTroca_(id, acao, quem, obs) {
   if (obs) sh.getRange(r, 15).setValue(obs);
   x.situacao = novo;
   auditar_(quem, novo === 'Autorizada' ? 'Troca autorizada' : (novo === 'Negada' ? 'Troca negada' : 'Troca cancelada'), fmtNr_(id) + ' · ' + l[6] + ' · ' + l[7] + ' ➜ ' + l[8] + (obs ? ' · ' + obs : ''));
-  var email = /@/.test(String(l[3])) ? String(l[3]).replace(/^.*<|>.*$/g, '') : '';
-  if (email) notificarTroca_('decisao', x, email);
-  return novo;
+  return novo; /* sem e-mail de decisão: só as novas solicitações são avisadas */
+}
+
+/** decide uma solicitação; se for permuta (ida/volta), decide as duas juntas e desfaz a primeira se a segunda falhar */
+function decidirTrocaPar_(id, acao, quem, obs) {
+  var sh = garantirCentral_(), r = acharLinhaTroca_(sh, id);
+  if (!r) throw new Error('Pedido ' + id + ' não encontrado.');
+  var d = null; try { d = JSON.parse(sh.getRange(r, 16).getValue() || 'null'); } catch (e) { d = null; }
+  var par = d && d.par && acharLinhaTroca_(sh, d.par) ? d.par : '';
+  var res = decidirTroca_(id, acao, quem, obs);
+  if (!par) return res;
+  try { decidirTroca_(par, acao, quem, obs); }
+  catch (e) {
+    if (acao === 'Autorizar') { try { decidirTroca_(id, 'Cancelar', quem, 'revertida: ' + e.message); } catch (x) { /* mantém o erro original */ } }
+    throw new Error('A permuta não foi aplicada: ' + e.message);
+  }
+  return res;
+}
+
+/** exclusão com registro: some das listas e relatórios; fica na planilha como "Excluída" e na auditoria. Desfaz a nota da escala se estava autorizada. */
+function excluirTroca_(id, quem, motivo) {
+  motivo = String(motivo || '').trim();
+  if (motivo.length < 3) throw new Error('Informe o motivo da exclusão.');
+  var sh = garantirCentral_(), r = acharLinhaTroca_(sh, id);
+  if (!r) throw new Error('Pedido ' + id + ' não encontrado.');
+  var l = sh.getRange(r, 1, 1, 16).getValues()[0], d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
+  var ids = [id]; if (d && d.par && acharLinhaTroca_(sh, d.par)) ids.push(d.par);
+  ids.forEach(function (i) {
+    var rr = acharLinhaTroca_(sh, i), ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
+    if (ll[11] === 'Excluída') return;
+    var nota = '';
+    if (ll[11] === 'Autorizada' && dd) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
+    sh.getRange(rr, 12).setValue('Excluída');
+    sh.getRange(rr, 13).setValue(quem || '');
+    sh.getRange(rr, 14).setValue(new Date()).setNumberFormat('dd/mm/yyyy HH:mm');
+    sh.getRange(rr, 15).setValue('Excluída: ' + motivo + nota);
+    auditar_(quem, 'Solicitação excluída', fmtNr_(i) + ' · ' + ll[6] + ' · ' + ll[7] + ' ➜ ' + ll[8] + ' · situação anterior: ' + ll[11] + ' · motivo: ' + motivo + nota);
+  });
+  return 'Excluída';
 }
 
 /* ---------- autorização pela própria aba (funciona no celular) */
@@ -341,7 +443,7 @@ function aoEditarCentral(e) {
     sh.getRange(r, 12).setValue(antes); sh.getRange(r, 15).setValue('Sem permissão para decidir (' + quem + ').');
     return;
   }
-  try { sh.getRange(r, 15).clearContent(); decidirTroca_(id, v, quem, ''); }
+  try { sh.getRange(r, 15).clearContent(); decidirTrocaPar_(id, v, quem, ''); }
   catch (er) { sh.getRange(r, 12).setValue(antes); sh.getRange(r, 15).setValue('Erro: ' + er.message); }
 }
 
@@ -381,7 +483,7 @@ function apiTrocaDecidir(id, acao, obs) {
   var c = cfgTrocas_(), quem = '';
   try { quem = Session.getActiveUser().getEmail() || ''; } catch (e) { quem = ''; }
   if (c.aprov.length && quem && c.aprov.map(function (m) { return m.toLowerCase(); }).indexOf(quem.toLowerCase()) < 0) throw new Error('Seu e-mail (' + quem + ') não está na lista de autorizadores.');
-  return decidirTroca_(id, acao, quem, obs || '');
+  return decidirTrocaPar_(id, acao, quem, obs || '');
 }
 
 function apiTrocasSalvarCfg(p) {

@@ -39,3 +39,5 @@ Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Pre
 Os pedidos da Central de trocas ficam numa **planilha separada** (criada na pasta da escala na primeira abertura; pedidos antigos da aba da escala são trazidos e a aba antiga é apagada). Quem decide pelo celular precisa de acesso de edição a ela.
 
 Aplicativo da Central de trocas ("Gestão de Serviços de Escalas — S/1"): solicitar (data a partir de d+1), acompanhar por número (numeração diária 001…), 1ª Seção com login por militar e senha própria (pedidos, relatórios, auditoria e configuração para o administrador). Primeira senha do administrador: menu Confecção → Central de trocas → Configuração.
+
+Trocas: exclusão com registro (administrador), permuta (ida/volta decididas juntas), aviso pós-fechamento do BI com justificativa obrigatória, detecção de conflitos, decisão em lote, QR Code/cartaz e exportação CSV/PDF (auditoria e relatório). Só as novas solicitações geram e-mail.
