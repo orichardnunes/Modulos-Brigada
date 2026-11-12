@@ -259,7 +259,7 @@ function emailTroca_(tipo, x) {
     (!novo ? lin('Decisão', '<span style="color:' + corTit + '">' + escH_(x.situacao) + '</span>') + lin('Observação', escH_(x.obs)) : '') +
     '</table></td></tr></table>' +
     (novo ? (al ? '<div style="margin-top:12px;background:#FFE9B5;color:#3B2A00;border-radius:12px;padding:10px 14px;font-size:14px"><b>⚠ Alertas:</b> ' + escH_(al) + '</div>' : '<div style="margin-top:12px;background:#BBF0AE;color:#002201;border-radius:12px;padding:10px 14px;font-size:14px">✔ Sem alertas</div>') : '') +
-    (novo && url ? '<div style="margin-top:18px;text-align:center"><a href="' + escH_(url) + '" style="display:inline-block;background:#3A6A35;color:#FFFFFF;text-decoration:none;font-weight:500;font-size:14px;padding:12px 26px;border-radius:22px">Abrir a 1ª Seção e decidir</a></div>' : '') +
+    (novo && url ? '<div style="margin-top:18px;text-align:center"><a href="' + escH_(url) + '" style="display:inline-block;background:#3A6A35;color:#FFFFFF;text-decoration:none;font-weight:500;font-size:14px;padding:12px 26px;border-radius:22px">Abrir Sistema e verificar</a></div>' : '') +
     '<div style="margin-top:16px;font-size:12px;color:#43483F;line-height:18px">' + (novo ? 'Também é possível decidir pela aba “Central de trocas” da planilha ou pelo menu Módulo Brigada → Confecção → Central de trocas.' : 'Mensagem automática da 1ª Seção.') + '</div>' +
     '</td></tr></table></div>';
   var txt = (novo ? 'Nova solicitação de troca ' : 'Solicitação de troca ' + String(x.situacao || '').toLowerCase() + ' — ') + nr + '\n' + d + ' · ' + x.titulo + '\nPassa: ' + x.sai + '\nPega: ' + x.entra +
