@@ -6,42 +6,62 @@
  * Depende de Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs e Modulo_Extras.gs. Escopo: script.send_mail (avisos).
  */
 
-var HTML_CENTRAL_ = '<h3 style="margin-top:0">Central de trocas</h3>\n' +
+var HTML_CENTRAL_ = '<style>\n' +
+  '.rq{border:1px solid #e0e0e0;border-left:5px solid #1a73e8;border-radius:10px;padding:10px 12px;margin:8px 0;background:#fff}\n' +
+  '.rq.Autorizada{border-left-color:#137333}.rq.Negada,.rq.Inválida{border-left-color:#b00020}.rq.Cancelada{border-left-color:#9aa0a6}.rq.Pendente{border-left-color:#f9ab00}\n' +
+  '.rq .h{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}\n' +
+  '.rq .t{font-weight:600}.rq .es{color:#5f6368;font-size:12px;margin:1px 0 6px}\n' +
+  '.rq .tr{display:flex;align-items:center;gap:10px;flex-wrap:wrap;background:#f8f9fa;border-radius:8px;padding:6px 10px}\n' +
+  '.rq .tr div{flex:1;min-width:120px}.rq .tr small{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.4px;color:#5f6368}.rq .tr .ar{flex:none;min-width:0;color:#5f6368;font-size:18px}\n' +
+  '.rq .ac{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}.rq .ac input{flex:1;min-width:160px}.rq .ac button{margin:0}\n' +
+  '.pl{display:inline-block;border-radius:10px;padding:1px 10px;font-size:11px;font-weight:600;background:#f1f3f4;color:#5f6368}\n' +
+  '.pl.Pendente{background:#fef7e0;color:#b06000}.pl.Autorizada{background:#e6f4ea;color:#137333}.pl.Negada,.pl.Inválida{background:#fce8e6;color:#b00020}\n' +
+  '.cf{border:1px solid #e0e0e0;border-radius:10px;padding:10px 12px;margin:8px 0}.cf h4{margin:0 0 6px;font-size:13px;color:#3c4043;display:flex;align-items:center;gap:8px}\n' +
+  '.cf input[type=text],.cf input[type=password]{width:100%}.cf .lk2{word-break:break-all;font-size:12px}\n' +
+  '.btn-d{color:#b00020}\n' +
+  '</style>\n' +
+  '<h3 style="margin-top:0">📥 Central de trocas</h3>\n' +
   '<p class="sub">Pedidos feitos pelos militares no aplicativo. Autorize ou negue; a troca autorizada é gravada na escala.</p>\n' +
   '<div id="resumo"></div>\n' +
-  '<div class="bar"><label class="chip"><input type="radio" name="f" value="pendentes" checked onchange="carrega()">Pendentes</label><label class="chip"><input type="radio" name="f" value="todas" onchange="carrega()">Todas</label></div>\n' +
+  '<div class="bar"><label class="chip"><input type="radio" name="f" value="pendentes" checked onchange="carrega()">Pendentes</label><label class="chip"><input type="radio" name="f" value="todas" onchange="carrega()">Todas</label><button onclick="carrega()" style="margin:0 0 0 auto">↻ Atualizar</button></div>\n' +
   '<div id="lista">Carregando…</div>\n' +
-  '<details><summary>Configuração</summary>\n' +
-  '<div class="sec">Aplicativo (celular)</div>\n' +
-  '<div id="fl" class="mu"></div>\n' +
-  '<div class="sec">Código de autorização (S/1)</div>\n' +
-  '<div class="bar"><input type="password" id="pin" placeholder="novo código (mín. 4 caracteres)" style="flex:1"><span id="pl" class="mu"></span></div>\n' +
-  '<div class="sec">Autorizadores (e-mails dos avisos)</div>\n' +
-  '<div class="bar"><input type="text" id="aprov" placeholder="e-mails separados por vírgula" style="flex:1"></div>\n' +
-  '<label class="opt"><input type="checkbox" id="not"> Avisar por e-mail os autorizadores a cada novo pedido</label>\n' +
-  '<button class="p" onclick="salvar()">Salvar configuração</button>\n' +
+  '<details id="cfg"><summary>⚙️ Configuração</summary>\n' +
+  '<div class="cf"><h4>📱 Aplicativo (celular) <span id="tl"></span></h4><div id="fl"></div></div>\n' +
+  '<div class="cf"><h4>🔑 Código de acesso da Administração - S/1 <span id="pl2"></span></h4>\n' +
+  '<input type="password" id="pin" placeholder="digite um novo código (mín. 4 caracteres) para definir ou trocar" autocomplete="new-password">\n' +
+  '<div class="mu" style="margin-top:4px">Quem tiver o código decide os pedidos pelo aplicativo. Fica guardado apenas o hash.</div></div>\n' +
+  '<div class="cf"><h4>✉️ Avisos por e-mail</h4>\n' +
+  '<input type="text" id="aprov" placeholder="e-mails dos autorizadores, separados por vírgula">\n' +
+  '<label class="opt" style="margin-top:6px"><input type="checkbox" id="not"> Avisar os autorizadores a cada novo pedido</label></div>\n' +
+  '<div class="stk"><button class="p" onclick="salvar()">Salvar configuração</button></div>\n' +
   '</details>\n' +
   '<div id="out" style="margin-top:8px"></div>\n';
 var JS_CENTRAL_ = 'var ST=null;\n' +
   'function filtro(){return document.querySelector("input[name=f]:checked").value}\n' +
   'function carrega(){google.script.run.withSuccessHandler(pinta).withFailureHandler(falha).apiTrocasEstado(filtro())}\n' +
+  'function copiar(t){var a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();try{document.execCommand("copy");$("out").className="ok";$("out").style.display="block";$("out").textContent="Link copiado."}catch(e){}document.body.removeChild(a)}\n' +
   'function pinta(r){ST=r;var n=r.n,h="";\n' +
-  'h+="<div class=cards><div class=\\"card"+(n.Pendente?" bad":"")+"\\"><b>"+n.Pendente+"</b><span>pendente(s)</span></div><div class=card><b>"+n.Autorizada+"</b><span>autorizada(s)</span></div><div class=card><b>"+n.Negada+"</b><span>negada(s)</span></div></div>";\n' +
+  'h+="<div class=cards><div class=\\"card"+(n.Pendente?" bad":"")+"\\"><b>"+n.Pendente+"</b><span>pendente(s)</span></div><div class=card><b style=\\"color:#137333\\">"+n.Autorizada+"</b><span>autorizada(s)</span></div><div class=card><b style=\\"color:#b00020\\">"+n.Negada+"</b><span>negada(s)</span></div></div>";\n' +
   '$("resumo").innerHTML=h;\n' +
-  '$("fl").innerHTML=r.cfg.url?"Link para os militares: <a target=_blank href=\\""+esc(r.cfg.url)+"\\">"+esc(r.cfg.url)+"</a>":"O aplicativo ainda não foi publicado: no Apps Script, Implantar → Nova implantação → App da Web (executar como você; acesso: qualquer pessoa) e salve; o link aparece aqui.";$("pl").textContent=r.cfg.pin?"código definido":"sem código";\n' +
+  'if(r.cfg.url){$("tl").innerHTML="<span class=\\"tg ok\\">publicado</span>";$("fl").innerHTML="<div class=lk2><a target=_blank href=\\""+esc(r.cfg.url)+"\\">"+esc(r.cfg.url)+"</a></div><div><button onclick=\\"copiar(ST.cfg.url)\\">Copiar link</button><button onclick=\\"window.open(ST.cfg.url)\\">Abrir</button></div><div class=mu>Envie este link aos militares. Depois de mudar o código, publique uma nova versão em Implantar → Gerenciar implantações.</div>"}\n' +
+  'else{$("tl").innerHTML="<span class=\\"tg al\\">não publicado</span>";$("fl").innerHTML="<div class=mu>No Apps Script: <b>Implantar → Nova implantação → App da Web</b> (executar como você; acesso: qualquer pessoa com login Google). O link aparece aqui depois de salvar.</div>"}\n' +
+  '$("pl2").innerHTML=r.cfg.pin?"<span class=\\"tg ok\\">definido</span>":"<span class=\\"tg al\\">sem código</span>";\n' +
   '$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
-  'var l="";if(!r.itens.length)l="<p class=mu>Nenhum pedido"+(filtro()==="pendentes"?" pendente":"")+".</p>";\n' +
+  'if(!r.cfg.pin||!r.cfg.url)$("cfg").open=true;\n' +
+  'var l="";if(!r.itens.length)l="<div class=\\"ban inf\\">Nenhum pedido"+(filtro()==="pendentes"?" pendente":"")+" por aqui.</div>";\n' +
   'r.itens.forEach(function(x){var pend=x.sit==="Pendente";\n' +
-  'l+="<div class=\\"ban "+(pend?"inf":(x.sit==="Autorizada"?"okb":"offb"))+"\\" style=\\"margin:8px 0\\"><b>"+esc(x.id)+"</b> · "+esc(x.data)+" · "+esc(x.esc)+" <span class=mu>"+esc(x.aba)+" · "+esc(x.org)+"</span><br>"+\n' +
-  '"Escalado: <b>"+esc(x.sai)+"</b> → pega: <b>"+esc(x.entra)+"</b>"+(x.sol?"<br><span class=mu>Pedido de "+esc(x.sol)+" em "+esc(x.rec)+"</span>":"")+(x.mot?"<br><span class=mu>Motivo: "+esc(x.mot)+"</span>":"")+\n' +
-  '(x.alert&&x.alert!=="Sem alertas"?"<br><span class=\\"tg al\\">"+esc(x.alert)+"</span>":(pend?"<br><span class=\\"tg ok\\">sem alertas</span>":""))+\n' +
-  '(!pend?"<br><span class=mu>"+esc(x.sit)+(x.por?" por "+esc(x.por):"")+(x.obs?" · "+esc(x.obs):"")+"</span>":"")+\n' +
-  '(pend?"<div style=\\"margin-top:6px\\"><input type=text id=o"+esc(x.id)+" placeholder=\\"observação (opcional)\\" style=\\"width:230px\\"> <button class=p onclick=\\"dec(\'"+esc(x.id)+"\',\'Autorizar\')\\">Autorizar</button><button onclick=\\"dec(\'"+esc(x.id)+"\',\'Negar\')\\" style=\\"color:#b00020\\">Negar</button></div>":(x.sit==="Autorizada"?"<div><button onclick=\\"dec(\'"+esc(x.id)+"\',\'Cancelar\')\\" style=\\"color:#b00020\\">Cancelar troca</button></div>":""))+"</div>"});\n' +
+  'l+="<div class=\\"rq "+esc(x.sit)+"\\"><div class=h><span class=t>"+esc(x.id)+" · "+esc(x.data)+"</span><span class=\\"pl "+esc(x.sit)+"\\">"+esc(x.sit)+"</span></div>"+\n' +
+  '"<div class=es>"+esc(x.esc)+" · "+esc(x.aba)+" · via "+esc(x.org)+"</div>"+\n' +
+  '"<div class=tr><div><small>Escalado (sai)</small><b>"+esc(x.sai)+"</b></div><span class=ar>➜</span><div><small>Vai pegar (entra)</small><b>"+esc(x.entra)+"</b></div></div>"+\n' +
+  '(x.sol||x.mot?"<div class=mu style=\\"margin-top:6px\\">"+(x.sol?"Pedido de "+esc(x.sol)+" em "+esc(x.rec):"")+(x.mot?(x.sol?" · ":"")+"Motivo: "+esc(x.mot):"")+"</div>":"")+\n' +
+  '(x.alert&&x.alert!=="Sem alertas"?"<div style=\\"margin-top:6px\\"><span class=\\"tg al\\">⚠ "+esc(x.alert)+"</span></div>":(pend?"<div style=\\"margin-top:6px\\"><span class=\\"tg ok\\">✔ sem alertas</span></div>":""))+\n' +
+  '(!pend&&(x.por||x.obs)?"<div class=mu style=\\"margin-top:6px\\">"+(x.por?"Decidido por "+esc(x.por):"")+(x.obs?" · "+esc(x.obs):"")+"</div>":"")+\n' +
+  '(pend?"<div class=ac><input type=text id=o"+esc(x.id)+" placeholder=\\"observação (opcional)\\"><button class=p onclick=\\"dec(\\\'"+esc(x.id)+"\\\',\\\'Autorizar\\\')\\">✔ Autorizar</button><button class=btn-d onclick=\\"dec(\\\'"+esc(x.id)+"\\\',\\\'Negar\\\')\\">✖ Negar</button></div>":(x.sit==="Autorizada"?"<div class=ac><button class=btn-d onclick=\\"dec(\\\'"+esc(x.id)+"\\\',\\\'Cancelar\\\')\\">↩ Cancelar troca</button></div>":""))+"</div>"});\n' +
   '$("lista").innerHTML=l}\n' +
   'function dec(id,a){var ob=$("o"+id)?$("o"+id).value:"";if(a==="Cancelar"&&!confirm("Cancelar a troca "+id+"? A anotação da escala será removida."))return;\n' +
   'var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
   'google.script.run.withSuccessHandler(function(s){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocaDecidir(id,a,ob)}\n' +
-  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.textContent="Configuração salva.";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
+  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.className="ok";o.textContent="Configuração salva.";$("pin").value="";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
