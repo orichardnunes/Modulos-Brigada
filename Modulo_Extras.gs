@@ -202,7 +202,7 @@ function mnuPainel() {
   h += '<details open><summary>Serviços de hoje (' + linhasHoje.length + ' escala(s))</summary>' +
     (linhasHoje.length ? '<table><tr><th>Escala</th><th>Militar(es)</th></tr>' + linhasHoje.map(function (x) { return '<tr><td><b>' + esc_(x.t) + '</b></td><td class="mu">' + esc_(x.n) + '</td></tr>'; }).join('') + '</table>' : '<p class="mu">Nenhum “0” de serviço lançado para hoje.</p>') + '</details>';
   var atalhos = [
-    ['Adicionar serviços', 'mnuAdicionarServicos', 'escala automática'], ['Troca de serviço', 'mnuTrocaServico', 'com sugestões'], ['Adicionar afastamento', 'mnuAdicionarAfastamento', 'férias, licença…'],
+    ['Adicionar serviços', 'mnuAdicionarServicos', 'escala automática'], ['Troca de serviço', 'mnuTrocaServico', 'com sugestões'], ['Central de trocas', 'mnuCentralTrocas', 'pedidos e autorização'], ['Adicionar afastamento', 'mnuAdicionarAfastamento', 'férias, licença…'],
     ['Adicionar militar', 'mnuAdicionarMilitar', 'com folga inicial'], ['Remover / transferir', 'mnuMoverMilitar', 'militar ou SU'], ['Retirar serviços', 'mnuRetirarServicos', 'desfaz escalas'],
     ['Atualizar prévia', 'mnuAtualizarPrevia', 'religa fórmulas'], ['Conferir prévia', 'mnuConferirPrevia', 'pendências'], ['Exportar prévia (PDF)', 'mnuExportarPrevia', 'salva no Drive'],
     ['Balanceamento', 'mnuBalanceamento', 'serviços x média'], ['Conferência do efetivo', 'mnuConferenciaEfetivo', 'previsto x escalado'], ['Serviços tirados', 'mnuQuantitativo', 'ranking'], ['Verificação do sistema', 'mnuVerificarSistema', 'abas e funções']

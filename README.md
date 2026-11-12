@@ -33,4 +33,4 @@ Teste primeiro numa **cópia** da planilha.
 
 
 ## Arquivos do projeto
-Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia).
+Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia) e **Modulo_Trocas.gs** (Central de trocas: formulário, comentários, autorização). O `appsscript.json` ganhou os escopos `forms` e `script.send_mail`.
