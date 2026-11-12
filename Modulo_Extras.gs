@@ -319,6 +319,12 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   extrasOk.sort(function (a, b) { return a.nome < b.nome ? -1 : 1; });
   cands.sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || (b.folga == null ? -1 : b.folga) - (a.folga == null ? -1 : a.folga); });
   cands = cands.concat(extrasOk);
+  var SEMGRAD = /^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/;
+  sai.forEach(function (x) { x.notaK = norm_(x.nota); });
+  cands.forEach(function (x) { /* já pegou o serviço de outro por troca anotada no dia */
+    var kf = norm_(x.nome), kn = kf.replace(SEMGRAD, ''), q = sai.filter(function (y) { return y.notaK && (y.notaK.indexOf(kf) >= 0 || (kn.length > 3 && y.notaK.indexOf(kn) >= 0)); })[0];
+    if (q) { x.flags = x.flags.slice(); x.flags.unshift('já pegou o serviço de ' + q.nome); x.ok = false; }
+  });
   return { aba: A.nome, titulo: B.titulo, dia: d, data: fmtData_(dt), sai: sai, cands: cands, sugeridos: cands.filter(function (x) { return x.ok; }).slice(0, 5) };
 }
 
