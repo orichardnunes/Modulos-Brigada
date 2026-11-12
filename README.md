@@ -33,4 +33,4 @@ Teste primeiro numa **cópia** da planilha.
 
 
 ## Arquivos do projeto
-Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia) e **Modulo_Trocas.gs** (Central de trocas: formulário, comentários, autorização). O `appsscript.json` ganhou os escopos `forms` e `script.send_mail`.
+Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs, Modulo_Importar.gs, Modulo_Previa.gs, Modulo_PreviaExt.gs e **Modulo_Extras.gs** (Painel, Troca de serviço, Remover/transferir militar, Balanceamento, Conferir e Exportar prévia) **Modulo_Trocas.gs** (Central de trocas: aba, autorização, tela do módulo) e **Modulo_TrocasWeb.gs** (aplicativo web da Central de trocas, visual do SiRAlt). O `appsscript.json` tem o escopo `script.send_mail` e o bloco `webapp`. Para publicar o aplicativo: Implantar → Nova implantação → App da Web (executar como você; acesso: qualquer pessoa) e defina o código de autorização em Confecção → Central de trocas → Configuração.

@@ -1,22 +1,24 @@
 /**
  * MÓDULO BRIGADA 1.0 — Modulo_Trocas.gs
- * Central de trocas: o militar pede a troca por um Formulário Google (celular);
- * o pedido vira uma linha na aba "Central de trocas"; o S/1 autoriza ou nega (lista na própria aba, que funciona no celular,
- * ou botões na tela do módulo). Autorizada, a troca é gravada como anotação no "0" de quem sai (a prévia já lê isso).
- * Depende de Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs e Modulo_Extras.gs. Escopo novo: forms (e script.send_mail para os avisos).
+ * Central de trocas: o militar pede a troca pelo aplicativo web do módulo (Modulo_TrocasWeb.gs, visual igual ao SiRAlt);
+ * o pedido vira uma linha na aba "Central de trocas"; o S/1 autoriza ou nega no próprio aplicativo (código de autorização),
+ * na lista da aba (funciona no celular) ou na tela do módulo. Autorizada, a troca é gravada como anotação no "0" de quem sai.
+ * Depende de Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs e Modulo_Extras.gs. Escopo: script.send_mail (avisos).
  */
 
 var HTML_CENTRAL_ = '<h3 style="margin-top:0">Central de trocas</h3>\n' +
-  '<p class="sub">Pedidos feitos pelos militares pelo formulário. Autorize ou negue; a troca autorizada é gravada na escala.</p>\n' +
+  '<p class="sub">Pedidos feitos pelos militares no aplicativo. Autorize ou negue; a troca autorizada é gravada na escala.</p>\n' +
   '<div id="resumo"></div>\n' +
   '<div class="bar"><label class="chip"><input type="radio" name="f" value="pendentes" checked onchange="carrega()">Pendentes</label><label class="chip"><input type="radio" name="f" value="todas" onchange="carrega()">Todas</label></div>\n' +
   '<div id="lista">Carregando…</div>\n' +
   '<details><summary>Configuração</summary>\n' +
-  '<div class="sec">Formulário (celular)</div>\n' +
-  '<div class="bar"><button onclick="form()" style="margin:0">Criar / atualizar formulário</button><span id="fl" class="mu"></span></div>\n' +
-  '<div class="sec">Autorizadores</div>\n' +
-  '<div class="bar"><input type="text" id="aprov" placeholder="e-mails separados por vírgula (vazio = qualquer editor)" style="flex:1"></div>\n' +
-  '<label class="opt"><input type="checkbox" id="not"> Avisar por e-mail (novo pedido para os autorizadores; decisão para quem pediu pelo formulário)</label>\n' +
+  '<div class="sec">Aplicativo (celular)</div>\n' +
+  '<div id="fl" class="mu"></div>\n' +
+  '<div class="sec">Código de autorização (S/1)</div>\n' +
+  '<div class="bar"><input type="password" id="pin" placeholder="novo código (mín. 4 caracteres)" style="flex:1"><span id="pl" class="mu"></span></div>\n' +
+  '<div class="sec">Autorizadores (e-mails dos avisos)</div>\n' +
+  '<div class="bar"><input type="text" id="aprov" placeholder="e-mails separados por vírgula" style="flex:1"></div>\n' +
+  '<label class="opt"><input type="checkbox" id="not"> Avisar por e-mail os autorizadores a cada novo pedido</label>\n' +
   '<button class="p" onclick="salvar()">Salvar configuração</button>\n' +
   '</details>\n' +
   '<div id="out" style="margin-top:8px"></div>\n';
@@ -26,7 +28,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'function pinta(r){ST=r;var n=r.n,h="";\n' +
   'h+="<div class=cards><div class=\\"card"+(n.Pendente?" bad":"")+"\\"><b>"+n.Pendente+"</b><span>pendente(s)</span></div><div class=card><b>"+n.Autorizada+"</b><span>autorizada(s)</span></div><div class=card><b>"+n.Negada+"</b><span>negada(s)</span></div></div>";\n' +
   '$("resumo").innerHTML=h;\n' +
-  '$("fl").innerHTML=r.cfg.tem?"Link: <a target=_blank href=\\""+esc(r.cfg.formUrl)+"\\">abrir formulário</a> (envie aos militares)":"Ainda não criado.";\n' +
+  '$("fl").innerHTML=r.cfg.url?"Link para os militares: <a target=_blank href=\\""+esc(r.cfg.url)+"\\">"+esc(r.cfg.url)+"</a>":"O aplicativo ainda não foi publicado: no Apps Script, Implantar → Nova implantação → App da Web (executar como você; acesso: qualquer pessoa) e salve; o link aparece aqui.";$("pl").textContent=r.cfg.pin?"código definido":"sem código";\n' +
   '$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
   'var l="";if(!r.itens.length)l="<p class=mu>Nenhum pedido"+(filtro()==="pendentes"?" pendente":"")+".</p>";\n' +
   'r.itens.forEach(function(x){var pend=x.sit==="Pendente";\n' +
@@ -39,8 +41,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'function dec(id,a){var ob=$("o"+id)?$("o"+id).value:"";if(a==="Cancelar"&&!confirm("Cancelar a troca "+id+"? A anotação da escala será removida."))return;\n' +
   'var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
   'google.script.run.withSuccessHandler(function(s){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocaDecidir(id,a,ob)}\n' +
-  'function form(){var o=$("out");o.style.display="block";o.className="";o.textContent="Criando/atualizando o formulário…";google.script.run.withSuccessHandler(function(){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocasFormulario()}\n' +
-  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.textContent="Configuração salva.";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({notificar:$("not").checked,aprov:$("aprov").value})}\n' +
+  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.textContent="Configuração salva.";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
@@ -48,9 +49,9 @@ var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada'
 
 function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
-  return { formId: c.formId || '', formUrl: c.formUrl || '', itens: c.itens || {}, aprov: c.aprov || [], notificar: c.notificar !== false, };
+  return { aprov: c.aprov || [], notificar: c.notificar !== false };
 }
-function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify(c)); }
+function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify({ aprov: c.aprov, notificar: c.notificar })); }
 
 /** aba "Central de trocas" (cria se não existir) */
 function garantirCentral_() {
@@ -133,7 +134,7 @@ function notificarTroca_(tipo, x, para) {
     if (!dest.length) return;
     var d = x.data instanceof Date ? fmtData_(x.data) : String(x.data || '');
     var corpo = tipo === 'novo' ?
-      'Novo pedido de troca ' + x.id + '\n' + d + ' · ' + x.titulo + '\nSai: ' + x.sai + '\nEntra: ' + x.entra + '\nSolicitante: ' + (x.solicitante || '-') + '\nMotivo: ' + (x.motivo || '-') + '\nAlertas: ' + (x.alertas || 'nenhum') + '\n\nAutorize ou negue na aba "Central de trocas" (ou no menu Módulo Brigada → Confecção → Central de trocas).' :
+      'Novo pedido de troca ' + x.id + '\n' + d + ' · ' + x.titulo + '\nSai: ' + x.sai + '\nEntra: ' + x.entra + '\nSolicitante: ' + (x.solicitante || '-') + '\nMotivo: ' + (x.motivo || '-') + '\nAlertas: ' + (x.alertas || 'nenhum') + '\n\nAutorize ou negue no aplicativo' + (urlAppTrocas_() ? ' (' + urlAppTrocas_() + ')' : '') + ', na aba "Central de trocas" ou no menu Módulo Brigada → Confecção → Central de trocas.' :
       'Sua troca ' + x.id + ' (' + d + ' · ' + x.titulo + ': ' + x.sai + ' → ' + x.entra + ') foi ' + x.situacao.toLowerCase() + '.' + (x.obs ? '\nObservação: ' + x.obs : '');
     MailApp.sendEmail(dest.join(','), (tipo === 'novo' ? '[Trocas] Novo pedido ' : '[Trocas] Troca ') + x.id, corpo);
   } catch (e) { Logger.log('E-mail de troca: ' + e.message); }
@@ -188,68 +189,6 @@ function decidirTroca_(id, acao, quem, obs) {
   return novo;
 }
 
-/* ---------- entrada 1: formulário */
-function opcoesFormTrocas_() {
-  var hoje = new Date(), meses = [hoje.getMonth(), (hoje.getMonth() + 1) % 12], escalas = {}, mil = {};
-  meses.forEach(function (m) {
-    [CFG.TIPO_GRAD, CFG.TIPO_CNDT].forEach(function (t) {
-      var sh = ss_().getSheetByName(CFG.MESES[m] + ' ' + t);
-      if (!sh) return;
-      var A = lerAba_(sh);
-      A.blocos.forEach(function (B) {
-        escalas[B.titulo + ' | ' + t] = true;
-        B.rows.forEach(function (R) { mil[R.nome.replace(/\s+/g, ' ').trim()] = true; });
-      });
-    });
-  });
-  return { escalas: Object.keys(escalas).sort(), mil: Object.keys(mil).sort() };
-}
-
-function criarFormularioTrocas_() {
-  var c = cfgTrocas_();
-  if (c.formId) { try { FormApp.openById(c.formId); return atualizarFormularioTrocas_(); } catch (e) { c.formId = ''; } }
-  var o = opcoesFormTrocas_();
-  if (!o.escalas.length) throw new Error('Nenhuma aba de escala do mês encontrada para montar as listas.');
-  var f = FormApp.create('Troca de serviço — 21º GAC');
-  f.setDescription('Peça a troca do seu serviço. O S/1 recebe o pedido e autoriza ou nega.');
-  f.setCollectEmail(true).setAllowResponseEdits(false).setConfirmationMessage('Pedido enviado. Aguarde a decisão do S/1.');
-  var it = {};
-  it.data = f.addDateItem().setTitle('Data do serviço').setRequired(true).getId();
-  it.escala = f.addListItem().setTitle('Escala').setChoiceValues(o.escalas).setRequired(true).getId();
-  it.sai = f.addListItem().setTitle('Militar escalado (quem sai)').setChoiceValues(o.mil).setRequired(true).getId();
-  it.entra = f.addListItem().setTitle('Militar que vai pegar o serviço (quem entra)').setChoiceValues(o.mil).setRequired(true).getId();
-  it.motivo = f.addParagraphTextItem().setTitle('Motivo (opcional)').getId();
-  c.formId = f.getId(); c.formUrl = f.getPublishedUrl(); c.itens = it;
-  salvarCfgTrocas_(c);
-  ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'aoEnviarTroca') ScriptApp.deleteTrigger(t); });
-  ScriptApp.newTrigger('aoEnviarTroca').forForm(f).onFormSubmit().create();
-  return c;
-}
-
-function atualizarFormularioTrocas_() {
-  var c = cfgTrocas_();
-  if (!c.formId) throw new Error('O formulário ainda não foi criado.');
-  var f = FormApp.openById(c.formId), o = opcoesFormTrocas_();
-  f.getItemById(Number(c.itens.escala)).asListItem().setChoiceValues(o.escalas);
-  f.getItemById(Number(c.itens.sai)).asListItem().setChoiceValues(o.mil);
-  f.getItemById(Number(c.itens.entra)).asListItem().setChoiceValues(o.mil);
-  return c;
-}
-
-function atualizarListasTrocasTrigger() { try { if (cfgTrocas_().formId) atualizarFormularioTrocas_(); } catch (e) { Logger.log('Listas do formulário: ' + e.message); } }
-
-/** gatilho do formulário */
-function aoEnviarTroca(e) {
-  var c = cfgTrocas_(), r = e.response, v = {};
-  r.getItemResponses().forEach(function (ir) { v[ir.getItem().getId()] = ir.getResponse(); });
-  var esc = String(v[c.itens.escala] || ''), k = esc.lastIndexOf(' | ');
-  registrarTroca_({
-    origem: 'Formulário', solicitante: r.getRespondentEmail() || '', iso: String(v[c.itens.data] || ''),
-    titulo: k >= 0 ? esc.slice(0, k) : esc, tipo: k >= 0 ? esc.slice(k + 3) : CFG.TIPO_GRAD,
-    sai: v[c.itens.sai], entra: v[c.itens.entra], motivo: v[c.itens.motivo] || ''
-  });
-}
-
 /* ---------- autorização pela própria aba (funciona no celular) */
 function aoEditarCentral(e) {
   var sh = e.range.getSheet();
@@ -272,14 +211,13 @@ function instalarGatilhosTrocas_() {
   var tr = ScriptApp.getProjectTriggers();
   function tem(f) { return tr.some(function (t) { return t.getHandlerFunction() === f; }); }
   if (!tem('aoEditarCentral')) ScriptApp.newTrigger('aoEditarCentral').forSpreadsheet(ss_().getId()).onEdit().create();
-  if (!tem('atualizarListasTrocasTrigger')) ScriptApp.newTrigger('atualizarListasTrocasTrigger').timeBased().everyDays(1).atHour(4).create();
-  tr.forEach(function (t) { if (t.getHandlerFunction() === 'verificarComentariosTrocas') ScriptApp.deleteTrigger(t); }); /* versão anterior lia comentários */
+  tr.forEach(function (t) { if (['verificarComentariosTrocas', 'aoEnviarTroca', 'atualizarListasTrocasTrigger'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t); }); /* versões anteriores (comentários e formulário) */
 }
 
 function mnuCentralTrocas() { mostrarHtml_(CSS_EXTRA_ + HTML_CENTRAL_ + JS_COMUM_ + '<script>' + JS_CENTRAL_ + '</script>', 'Central de trocas', 760, 700); }
 
 function apiTrocasEstado(filtro) {
-  var c = cfgTrocas_(), sh = ss_().getSheetByName(CENTRAL_), out = { cfg: { formUrl: c.formUrl, tem: !!c.formId, aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
+  var c = cfgTrocas_(), sh = ss_().getSheetByName(CENTRAL_), out = { cfg: { url: urlAppTrocas_(), pin: !!PropertiesService.getDocumentProperties().getProperty('TROCAS_PIN'), aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
   if (!sh) return out;
   var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 15).getValues();
   for (var i = v.length - 1; i >= 1; i--) {
@@ -305,14 +243,8 @@ function apiTrocasSalvarCfg(p) {
   c.notificar = !!p.notificar;
   c.aprov = String(p.aprov || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
   salvarCfgTrocas_(c);
+  if (p.pin) definirPinTrocas_(p.pin);
   garantirCentral_();
   instalarGatilhosTrocas_();
   return apiTrocasEstado('pendentes').cfg;
-}
-
-function apiTrocasFormulario() {
-  garantirCentral_();
-  var c = criarFormularioTrocas_();
-  instalarGatilhosTrocas_();
-  return { formUrl: c.formUrl };
 }
