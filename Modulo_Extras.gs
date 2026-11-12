@@ -247,7 +247,8 @@ function apiBalanceamento(mesId, tipos) {
 function mnuTrocaServico() { mostrarHtml_(CSS_EXTRA_ + HTML_TROCA_ + JS_COMUM_ + '<script>' + JS_TROCA_ + '</script>', 'Troca de serviço', 720, 700); }
 
 /** serviços de cada militar em todas as escalas do mês (meses vizinhos entram como dias fora do mês): key -> [{d, e, v}] */
-function servicosPorMilitar_(A) {
+/** dRef (opcional): dia de interesse; os meses vizinhos só são lidos se o dia estiver perto da virada do mês */
+function servicosPorMilitar_(A, dRef) {
   var svc = {};
   function ler(V, off) {
     V.blocos.forEach(function (VB) {
@@ -262,7 +263,8 @@ function servicosPorMilitar_(A) {
     });
   }
   ler(A, function (x) { return x; });
-  var pa = abaMesVizinho_(A, -1), ps = abaMesVizinho_(A, 1);
+  var margem = Math.ceil(CFG.FOLGA_MIN_H / 24) + 3;
+  var pa = (dRef == null || dRef <= margem) ? abaMesVizinho_(A, -1) : null, ps = (dRef == null || dRef > A.nDias - margem) ? abaMesVizinho_(A, 1) : null;
   try { if (pa) { var Pa = lerAba_(pa); ler(Pa, function (x) { return x - Pa.nDias; }); } } catch (e1) { /* sem mês anterior legível */ }
   try { if (ps) { var Ps = lerAba_(ps); ler(Ps, function (x) { return A.nDias + x; }); } } catch (e2) { /* sem mês seguinte legível */ }
   return svc;
@@ -279,7 +281,7 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   var dt = parseIso_(iso);
   if (dt.getMonth() !== A.mes || dt.getFullYear() !== A.ano) throw new Error('Escolha uma data dentro de ' + A.nome + '.');
   var d = dt.getDate(), c = colDia_(d), notas = sh.getRange(1, 1, A.vals.length, A.vals[0].length).getNotes();
-  var svc = servicosPorMilitar_(A), gapMin = Math.ceil(CFG.FOLGA_MIN_H / 24) + 1, sai = [], cands = [];
+  var svc = servicosPorMilitar_(A, d), gapMin = Math.ceil(CFG.FOLGA_MIN_H / 24) + 1, sai = [], cands = [];
   function avaliarServ_(lista) { /* avisos (não bloqueiam) de serviço no dia, vizinho e folga */
     var fl = [], md = Infinity, outra = '';
     lista.forEach(function (x) {
@@ -357,6 +359,7 @@ function apiTroca(p, aplicar) {
     var sh = ss_().getSheetByName(p.mes + ' ' + p.tipo);
     sh.getRange(sai.r + 1, colDia_(info.dia) + 1).setNote(entra.nome);
     SpreadsheetApp.flush();
+    if (typeof bumpTrocas_ === 'function') bumpTrocas_();
   }
   return { rel: { aplicado: !!aplicar, aba: info.aba, titulo: info.titulo, data: info.data, sai: sai.nome, entra: entra.nome, alertas: entra.flags, notaAnterior: sai.nota } };
 }

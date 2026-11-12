@@ -290,8 +290,20 @@ function lerLegenda_(sh) {
  * bloco = { titulo, hdr, wk, kind, rows:[{r,key,nome,sub}] }   (índices 0-based)
  * kind: 'dia' | 'qg' (só dias laranja) | 'par3' (Condutor: ter-qua, qui-sex, sáb-dom) | 'par1' (Praia: sáb-dom)
  */
+/* memória de leitura por execução: só o aplicativo web liga (ativarMemoLer_); nos menus a planilha muda entre leituras */
+var LER_MEMO_ = null;
+function ativarMemoLer_() { if (!LER_MEMO_) LER_MEMO_ = {}; }
+
 function lerAba_(sh, mes, ano) {
   sh = envolverAba_(sh);
+  var kMemo = LER_MEMO_ ? sh.getName() + '|' + mes + '|' + ano : null;
+  if (kMemo && LER_MEMO_[kMemo]) return LER_MEMO_[kMemo];
+  var A = lerAbaBruta_(sh, mes, ano);
+  if (kMemo) LER_MEMO_[kMemo] = A;
+  return A;
+}
+
+function lerAbaBruta_(sh, mes, ano) {
   var nm = nomeAba_(sh.getName());
   if (!nm) throw new Error('Aba "' + sh.getName() + '" não segue o padrão "<Mês> Grad" / "<Mês> Cndt e Praia".');
   var lr = sh.getLastRow(), lc = Math.max(sh.getLastColumn(), CFG.COL_DIA1 + 1);

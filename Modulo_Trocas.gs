@@ -71,10 +71,12 @@ var CENTRAL_ = 'Central de trocas';
 var TROCAS_MILITARES_ID = '1RAXj_4RHxQkr65eZYRedCj-Wmjkx1q4R-4Te6FR_t7A'; /* planilha do SiRAlt, aba "Militares": Graduação | Nº | Nome | Subunidade | Ativo */
 
 /** cadastro de militares (qualquer um pode entrar numa troca); guarda 10 min em cache */
+var CAD_MEMO_ = null;
 function cadastroMilitares_() {
+  if (CAD_MEMO_) return CAD_MEMO_;
   var cache = CacheService.getScriptCache(), c = null;
   try { c = cache.get('TROCAS_MIL'); } catch (e) { c = null; }
-  if (c) return JSON.parse(c);
+  if (c) { CAD_MEMO_ = JSON.parse(c); return CAD_MEMO_; }
   var lista = [];
   var aba = SpreadsheetApp.openById(TROCAS_MILITARES_ID).getSheetByName('Militares');
   if (!aba) throw new Error('A planilha de militares não tem a aba "Militares".');
@@ -86,15 +88,18 @@ function cadastroMilitares_() {
     });
   }
   try { cache.put('TROCAS_MIL', JSON.stringify(lista), 600); } catch (e) { /* lista grande demais para o cache: segue sem */ }
+  CAD_MEMO_ = lista;
   return lista;
 }
 function cadastroMilitaresSeguro_() { try { return cadastroMilitares_(); } catch (e) { Logger.log('Cadastro de militares: ' + e.message); return []; } }
 function infoTroca_(mes, tipo, hdr, iso) { return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_()); }
 var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida', 'Excluída', 'Expirada'];
 
+var CFG_MEMO_ = null;
 function cfgTrocas_() {
+  if (CFG_MEMO_) return CFG_MEMO_;
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
-  return {
+  CFG_MEMO_ = {
     aprov: c.aprov || [], notificar: c.notificar !== false,
     titulo: c.titulo || 'Gestão de Serviços de Escalas', subtitulo: c.subtitulo || 'S/1 - Seção de Pessoal',
     biTitulo: c.biTitulo != null ? c.biTitulo : 'Fechamento do Boletim', biIntegral: c.biIntegral != null ? c.biIntegral : '13h15', biParcial: c.biParcial != null ? c.biParcial : '09h00',
@@ -104,8 +109,15 @@ function cfgTrocas_() {
     novidades: c.novidades != null ? c.novidades : 'Permuta (troca de mão dupla) na etapa 2.\nAviso do fechamento do BI com contagem regressiva.\nTemas claro, escuro e Tático.\nSolicitações vencidas expiram sozinhas e exclusões podem ser desfeitas.\nBotão Ajuda com tour e glossário.',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
   };
+  return CFG_MEMO_;
 }
-function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify(c)); }
+function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify(c)); CFG_MEMO_ = null; }
+
+/* ---------- versão de dados + cache entre execuções (aplicativo web) */
+function verTrocas_() { try { return CacheService.getScriptCache().get('TV') || '0'; } catch (e) { return '0'; } }
+function bumpTrocas_() { try { CacheService.getScriptCache().put('TV', String(Date.now()), 21600); } catch (e) { /* sem cache: segue */ } }
+function cacheGet_(k) { try { var s = CacheService.getScriptCache().get(k); return s ? JSON.parse(s) : null; } catch (e) { return null; } }
+function cachePut_(k, v, ttl) { try { var s = JSON.stringify(v); if (s.length < 90000) CacheService.getScriptCache().put(k, s, ttl || 60); } catch (e) { /* grande demais ou sem cache */ } }
 
 /** número do dia: AAAAMMDD-001; recomeça em 001 a cada dia */
 function fmtNr_(id) { var m = /^(\d{4})(\d{2})(\d{2})-(\d{3})$/.exec(String(id)); return m ? 'Nr ' + m[4] + ' (' + m[3] + '/' + m[2] + '/' + m[1] + ')' : String(id); }
@@ -126,10 +138,12 @@ function auditar_(quem, acao, detalhe) {
 }
 
 /** planilha própria da Central de trocas (fora da planilha da escala): abre a guardada ou cria uma nova na pasta da escala */
+var CENTRAL_MEMO_ = null, CENTRAL_SH_ = null;
 function centralSS_() {
+  if (CENTRAL_MEMO_) return CENTRAL_MEMO_;
   var p = PropertiesService.getDocumentProperties(), id = p.getProperty('TROCAS_SS');
   if (id) {
-    try { return SpreadsheetApp.openById(id); }
+    try { CENTRAL_MEMO_ = SpreadsheetApp.openById(id); return CENTRAL_MEMO_; }
     catch (e) { throw new Error('Não consegui abrir a planilha da Central de trocas. Ela foi apagada ou você perdeu o acesso? Informe outra em Configuração.'); }
   }
   var novo = SpreadsheetApp.create('Central de trocas — 21º GAC');
@@ -138,13 +152,15 @@ function centralSS_() {
     if (pais.hasNext()) { pais.next().addFile(f); DriveApp.getRootFolder().removeFile(f); }
   } catch (e) { Logger.log('Pasta da Central: ' + e.message); }
   p.setProperty('TROCAS_SS', novo.getId());
+  CENTRAL_MEMO_ = novo;
   return novo;
 }
 
 /** aba "Central de trocas" na planilha própria (cria se não existir; traz os pedidos que ficaram na planilha da escala) */
 function garantirCentral_() {
+  if (CENTRAL_SH_) return CENTRAL_SH_;
   var ss = centralSS_(), sh = ss.getSheetByName(CENTRAL_);
-  if (sh) return sh;
+  if (sh) { CENTRAL_SH_ = sh; return sh; }
   var uma = ss.getSheets();
   if (uma.length === 1 && uma[0].getLastRow() === 0) { sh = uma[0]; sh.setName(CENTRAL_); } else sh = ss.insertSheet(CENTRAL_);
   var antiga = null;
@@ -263,6 +279,7 @@ function analisarTroca_(p, linhas, ignorarId) {
 }
 
 function gravarLinhaTroca_(sh, id, p, a, situ, obs) {
+  bumpTrocas_();
   var agora = new Date(), dados = a.dados || {};
   if (p.dadosExtra) Object.keys(p.dadosExtra).forEach(function (k) { dados[k] = p.dadosExtra[k]; });
   sh.appendRow([id, agora, p.origem, p.solicitante || '', a.data || '', a.aba || (p.tipo || ''), p.titulo || '', p.sai || '', p.entra || '', p.motivo || '', a.alertas || (situ === 'Pendente' ? 'Sem alertas' : ''), situ, '', '', obs, JSON.stringify(dados)]);
@@ -347,6 +364,7 @@ function notificarTroca_(tipo, x, para) {
 }
 
 function gravarNotaTroca_(d, saiNome, entraNome) {
+  bumpTrocas_();
   var sh = ss_().getSheetByName(d.aba);
   if (!sh) throw new Error('Aba "' + d.aba + '" não encontrada.');
   var A = lerAba_(sh), B = null;
@@ -391,6 +409,7 @@ function decidirTroca_(id, acao, quem, obs) {
   if (obs) sh.getRange(r, 15).setValue(obs);
   x.situacao = novo;
   auditar_(quem, novo === 'Autorizada' ? 'Troca autorizada' : (novo === 'Negada' ? 'Troca negada' : 'Troca cancelada'), fmtNr_(id) + ' · ' + l[6] + ' · ' + l[7] + ' ➜ ' + l[8] + (obs ? ' · ' + obs : ''));
+  bumpTrocas_();
   return novo; /* sem e-mail de decisão: só as novas solicitações são avisadas */
 }
 
@@ -430,6 +449,7 @@ function excluirTroca_(id, quem, motivo) {
     sh.getRange(rr, 15).setValue('Excluída: ' + motivo + nota);
     auditar_(quem, 'Solicitação excluída', fmtNr_(i) + ' · ' + ll[6] + ' · ' + ll[7] + ' ➜ ' + ll[8] + ' · situação anterior: ' + ll[11] + ' · motivo: ' + motivo + nota);
   });
+  bumpTrocas_();
   return 'Excluída';
 }
 
@@ -453,6 +473,7 @@ function expirarPendentes_(quem) {
     auditar_(quem || 'Sistema', 'Solicitação expirada', fmtNr_(l[0]) + ' · ' + l[6] + ' · ' + l[7] + ' ➜ ' + l[8]);
     n++;
   });
+  if (n) bumpTrocas_();
   return n;
 }
 function expirarPendentesTrigger() { try { expirarPendentes_('Sistema'); } catch (e) { Logger.log('Expirar pendentes: ' + e.message); } }
@@ -482,6 +503,7 @@ function restaurarTroca_(id, quem) {
     feitos.forEach(function (f) { sh.getRange(f.rr, 12).setValue('Excluída'); sh.getRange(f.rr, 15).setValue('Restauração falhou: ' + e.message); });
     throw new Error('Não foi possível restaurar: ' + e.message);
   }
+  bumpTrocas_();
   feitos.forEach(function (f) { auditar_(quem, 'Exclusão desfeita', fmtNr_(f.id) + ' · voltou para: ' + f.antes); });
   return feitos[0].antes;
 }
@@ -553,6 +575,7 @@ function apiTrocasSalvarCfg(p) {
   if (m && m[0] !== PropertiesService.getDocumentProperties().getProperty('TROCAS_SS')) {
     try { SpreadsheetApp.openById(m[0]); } catch (e) { throw new Error('Não consegui abrir essa planilha (confira o link e se você tem acesso de edição).'); }
     PropertiesService.getDocumentProperties().setProperty('TROCAS_SS', m[0]);
+    CENTRAL_MEMO_ = null; CENTRAL_SH_ = null;
   }
   garantirCentral_();
   instalarGatilhosTrocas_();
