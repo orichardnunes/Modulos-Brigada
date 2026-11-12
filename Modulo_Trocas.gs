@@ -105,6 +105,7 @@ function cfgTrocas_() {
     biTitulo: c.biTitulo != null ? c.biTitulo : 'Fechamento do Boletim', biIntegral: c.biIntegral != null ? c.biIntegral : '13h15', biParcial: c.biParcial != null ? c.biParcial : '09h00',
     biNota: c.biNota != null ? c.biNota : 'Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
     escalaUrl: c.escalaUrl || 'https://docs.google.com/spreadsheets/d/1QeqywNXn8YnlFKvnl7FlzEOUzGfo23UDQj4jK84UqoU/edit?gid=1382688629#gid=1382688629',
+    avisos: c.avisos || [],
     expirarAuto: c.expirarAuto !== false, novidadesVer: Number(c.novidadesVer || 1),
     novidades: c.novidades != null ? c.novidades : 'Permuta (troca de mão dupla) na etapa 2.\nAviso do fechamento do BI com contagem regressiva.\nTemas claro, escuro e Tático.\nSolicitações vencidas expiram sozinhas e exclusões podem ser desfeitas.\nBotão Ajuda com tour e glossário.',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
