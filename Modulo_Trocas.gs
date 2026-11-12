@@ -1,21 +1,19 @@
 /**
  * MÓDULO BRIGADA 1.0 — Modulo_Trocas.gs
- * Central de trocas: o militar pede a troca por um Formulário Google (celular) ou por um comentário "TROCA ..." na planilha;
+ * Central de trocas: o militar pede a troca por um Formulário Google (celular);
  * o pedido vira uma linha na aba "Central de trocas"; o S/1 autoriza ou nega (lista na própria aba, que funciona no celular,
  * ou botões na tela do módulo). Autorizada, a troca é gravada como anotação no "0" de quem sai (a prévia já lê isso).
- * Depende de Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs e Modulo_Extras.gs. Escopos novos: forms e script.send_mail.
+ * Depende de Codigo.gs, Modulo_Escala.gs, Modulo_Auditagem.gs e Modulo_Extras.gs. Escopo novo: forms (e script.send_mail para os avisos).
  */
 
 var HTML_CENTRAL_ = '<h3 style="margin-top:0">Central de trocas</h3>\n' +
-  '<p class="sub">Pedidos feitos pelos militares (formulário ou comentário “TROCA …”). Autorize ou negue; a troca autorizada é gravada na escala.</p>\n' +
+  '<p class="sub">Pedidos feitos pelos militares pelo formulário. Autorize ou negue; a troca autorizada é gravada na escala.</p>\n' +
   '<div id="resumo"></div>\n' +
   '<div class="bar"><label class="chip"><input type="radio" name="f" value="pendentes" checked onchange="carrega()">Pendentes</label><label class="chip"><input type="radio" name="f" value="todas" onchange="carrega()">Todas</label></div>\n' +
   '<div id="lista">Carregando…</div>\n' +
   '<details><summary>Configuração</summary>\n' +
   '<div class="sec">Formulário (celular)</div>\n' +
   '<div class="bar"><button onclick="form()" style="margin:0">Criar / atualizar formulário</button><span id="fl" class="mu"></span></div>\n' +
-  '<div class="sec">Comentários</div>\n' +
-  '<label class="opt"><input type="checkbox" id="com"> Ler comentários da planilha que começam com <b>TROCA</b> (a cada 5 min). Formato: <span class="mu">TROCA 15/11 CB DIA: SAI SD EP FULANO ENTRA SD EP BELTRANO</span></label>\n' +
   '<div class="sec">Autorizadores</div>\n' +
   '<div class="bar"><input type="text" id="aprov" placeholder="e-mails separados por vírgula (vazio = qualquer editor)" style="flex:1"></div>\n' +
   '<label class="opt"><input type="checkbox" id="not"> Avisar por e-mail (novo pedido para os autorizadores; decisão para quem pediu pelo formulário)</label>\n' +
@@ -29,7 +27,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'h+="<div class=cards><div class=\\"card"+(n.Pendente?" bad":"")+"\\"><b>"+n.Pendente+"</b><span>pendente(s)</span></div><div class=card><b>"+n.Autorizada+"</b><span>autorizada(s)</span></div><div class=card><b>"+n.Negada+"</b><span>negada(s)</span></div></div>";\n' +
   '$("resumo").innerHTML=h;\n' +
   '$("fl").innerHTML=r.cfg.tem?"Link: <a target=_blank href=\\""+esc(r.cfg.formUrl)+"\\">abrir formulário</a> (envie aos militares)":"Ainda não criado.";\n' +
-  '$("com").checked=r.cfg.comentarios;$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
+  '$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
   'var l="";if(!r.itens.length)l="<p class=mu>Nenhum pedido"+(filtro()==="pendentes"?" pendente":"")+".</p>";\n' +
   'r.itens.forEach(function(x){var pend=x.sit==="Pendente";\n' +
   'l+="<div class=\\"ban "+(pend?"inf":(x.sit==="Autorizada"?"okb":"offb"))+"\\" style=\\"margin:8px 0\\"><b>"+esc(x.id)+"</b> · "+esc(x.data)+" · "+esc(x.esc)+" <span class=mu>"+esc(x.aba)+" · "+esc(x.org)+"</span><br>"+\n' +
@@ -42,7 +40,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
   'google.script.run.withSuccessHandler(function(s){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocaDecidir(id,a,ob)}\n' +
   'function form(){var o=$("out");o.style.display="block";o.className="";o.textContent="Criando/atualizando o formulário…";google.script.run.withSuccessHandler(function(){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocasFormulario()}\n' +
-  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.textContent="Configuração salva.";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({comentarios:$("com").checked,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
+  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.textContent="Configuração salva.";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({notificar:$("not").checked,aprov:$("aprov").value})}\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
@@ -50,7 +48,7 @@ var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada'
 
 function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
-  return { formId: c.formId || '', formUrl: c.formUrl || '', itens: c.itens || {}, comentarios: !!c.comentarios, aprov: c.aprov || [], notificar: c.notificar !== false, vistos: c.vistos || [] };
+  return { formId: c.formId || '', formUrl: c.formUrl || '', itens: c.itens || {}, aprov: c.aprov || [], notificar: c.notificar !== false, };
 }
 function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify(c)); }
 
@@ -93,7 +91,7 @@ function contextoTrocas_(mesId) {
   return { chaves: op.militares, escalas: esc };
 }
 
-/** p: {origem, solicitante, iso, tipo, titulo, sai, entra, motivo, comentarioId} -> {id, situacao, obs} */
+/** p: {origem, solicitante, iso, tipo, titulo, sai, entra, motivo} -> {id, situacao, obs} */
 function registrarTroca_(p) {
   var sh = garantirCentral_(), id = proximoIdTroca_(), agora = new Date(), situ = 'Pendente', obs = '', alertas = '', dados = {}, aba = '', data = null;
   try {
@@ -110,7 +108,7 @@ function registrarTroca_(p) {
     var ent = info.cands.filter(function (x) { return norm_(x.nome) === ke; })[0];
     if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não faz parte dela.');
     alertas = ent.flags.join('; ');
-    dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, com: p.comentarioId || '' };
+    dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba };
     var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 16).getValues();
     for (var i = 1; i < v.length; i++) {
       if (v[i][11] === 'Pendente' && String(v[i][6]) === p.titulo && norm_(v[i][7]) === ks && v[i][15] && JSON.parse(v[i][15]).iso === p.iso) throw new Error('Pedido repetido (já existe ' + v[i][0] + ' pendente).');
@@ -139,15 +137,6 @@ function notificarTroca_(tipo, x, para) {
       'Sua troca ' + x.id + ' (' + d + ' · ' + x.titulo + ': ' + x.sai + ' → ' + x.entra + ') foi ' + x.situacao.toLowerCase() + '.' + (x.obs ? '\nObservação: ' + x.obs : '');
     MailApp.sendEmail(dest.join(','), (tipo === 'novo' ? '[Trocas] Novo pedido ' : '[Trocas] Troca ') + x.id, corpo);
   } catch (e) { Logger.log('E-mail de troca: ' + e.message); }
-}
-
-/** responde ao comentário de origem (Drive API) */
-function responderComentario_(comentarioId, texto) {
-  if (!comentarioId) return;
-  try {
-    buscarUrl_('https://www.googleapis.com/drive/v3/files/' + ss_().getId() + '/comments/' + comentarioId + '/replies?fields=id',
-      { method: 'post', contentType: 'application/json', payload: JSON.stringify({ content: texto }), headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-  } catch (e) { Logger.log('Resposta ao comentário: ' + e.message); }
 }
 
 function gravarNotaTroca_(d, saiNome, entraNome) {
@@ -196,7 +185,6 @@ function decidirTroca_(id, acao, quem, obs) {
   x.situacao = novo;
   var email = /@/.test(String(l[3])) ? String(l[3]).replace(/^.*<|>.*$/g, '') : '';
   if (email) notificarTroca_('decisao', x, email);
-  if (d && d.com) responderComentario_(d.com, 'Troca ' + id + ': ' + novo.toLowerCase() + (obs ? ' (' + obs + ')' : '') + '.');
   return novo;
 }
 
@@ -262,79 +250,6 @@ function aoEnviarTroca(e) {
   });
 }
 
-/* ---------- entrada 2: comentário "TROCA dd/mm [escala]: SAI nome ENTRA nome" */
-function parseComentarioTroca_(texto) {
-  var t = String(texto).replace(/\s+/g, ' ').trim();
-  if (!/^TROCA\b/i.test(t)) return null;
-  var m = /\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/.exec(t);
-  if (!m) return { erro: 'Informe a data, por exemplo: TROCA 15/11 CB DIA: SAI SD EP FULANO ENTRA SD EP BELTRANO.' };
-  var hoje = new Date(), ano = m[3] ? Number(m[3]) : hoje.getFullYear();
-  if (ano < 100) ano += 2000;
-  if (!m[3] && Number(m[2]) - 1 < hoje.getMonth() - 6) ano++;
-  var iso = ano + '-' + ('0' + m[2]).slice(-2) + '-' + ('0' + m[1]).slice(-2);
-  var resto = t.replace(/^TROCA\s*/i, '').replace(m[0], ' ');
-  var ms = /\bSAI\b[:\s-]*(.+?)(?=\bENTRA\b|$)/i.exec(resto), me = /\bENTRA\b[:\s-]*(.+)$/i.exec(resto);
-  if (!ms || !me) return { erro: 'Use o formato: TROCA 15/11 CB DIA: SAI SD EP FULANO ENTRA SD EP BELTRANO (a escala é opcional).' };
-  var limpa = function (x) { return String(x).replace(/[\/,;.]+\s*$/g, '').trim(); };
-  var antes = resto.slice(0, resto.search(/\bSAI\b/i)).replace(/[:\-]/g, ' ');
-  return { iso: iso, sai: limpa(ms[1]), entra: limpa(me[1]), escalaTxt: antes, motivo: '' };
-}
-
-/** acha tipo e escala: pelo texto ou, se ausente, pela escala em que quem sai tem “0” no dia */
-function resolverPedidoComentario_(pc, autor) {
-  var dt = parseIso_(pc.iso), mesId = CFG.MESES[dt.getMonth()], ctx = contextoTrocas_(mesId);
-  var sai = resolverNomeNota_(pc.sai, ctx.chaves), entra = resolverNomeNota_(pc.entra, ctx.chaves);
-  if (!sai) return { erro: 'Não identifiquei um único militar em “' + pc.sai + '” (quem sai). Escreva graduação e nome, como na escala.' };
-  if (!entra) return { erro: 'Não identifiquei um único militar em “' + pc.entra + '” (quem entra). Escreva graduação e nome, como na escala.' };
-  var alvo = semAcento_(pc.escalaTxt), esc = null;
-  ctx.escalas.forEach(function (e) {
-    var tt = semAcento_(e.titulo);
-    if (tt && alvo.indexOf(tt) >= 0 && (!esc || tt.length > semAcento_(esc.titulo).length)) esc = e;
-  });
-  if (!esc) {
-    var achados = [];
-    [CFG.TIPO_GRAD, CFG.TIPO_CNDT].forEach(function (t) {
-      var sh = ss_().getSheetByName(mesId + ' ' + t);
-      if (!sh) return;
-      var A = lerAba_(sh), d = dt.getDate();
-      A.blocos.forEach(function (B) {
-        B.rows.forEach(function (R) {
-          if (R.key !== sai.key || !participa_(A, B, R, d) || num_(A.vals[R.r][colDia_(d)]) !== 0) return;
-          var cl = classeCel_(A, R.r, colDia_(d));
-          if (cl !== 'afast' && cl !== 'verde') achados.push({ titulo: B.titulo, tipo: t });
-        });
-      });
-    });
-    if (achados.length === 1) esc = achados[0];
-    else return { erro: achados.length ? 'Quem sai está em mais de uma escala nesse dia; escreva o nome da escala no comentário.' : sai.nome + ' não tem “0” de serviço nesse dia.' };
-  }
-  return { iso: pc.iso, tipo: esc.tipo, titulo: esc.titulo, sai: sai.nome.replace(/\s+/g, ' ').trim(), entra: entra.nome.replace(/\s+/g, ' ').trim(), motivo: pc.motivo || '' };
-}
-
-/** gatilho (a cada 5 min): lê os comentários novos da planilha que começam com TROCA */
-function verificarComentariosTrocas() {
-  var c = cfgTrocas_();
-  if (!c.comentarios) return 0;
-  var url = 'https://www.googleapis.com/drive/v3/files/' + ss_().getId() + '/comments?pageSize=100&includeDeleted=false&fields=' +
-    encodeURIComponent('comments(id,content,author(displayName,emailAddress),resolved,createdTime)');
-  var resp = buscarUrl_(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
-  if (resp.getResponseCode() !== 200) throw new Error('Não foi possível ler os comentários (HTTP ' + resp.getResponseCode() + ').');
-  var lista = JSON.parse(resp.getContentText()).comments || [], novos = 0, vistos = c.vistos.slice();
-  lista.forEach(function (cm) {
-    if (cm.resolved || vistos.indexOf(cm.id) >= 0 || !/^\s*TROCA\b/i.test(cm.content || '')) return;
-    vistos.push(cm.id);
-    var autor = (cm.author && (cm.author.emailAddress || cm.author.displayName)) || '';
-    var pc = parseComentarioTroca_(cm.content), rp = pc && !pc.erro ? resolverPedidoComentario_(pc, autor) : pc;
-    if (!rp || rp.erro) { responderComentario_(cm.id, 'Pedido de troca não registrado: ' + ((rp && rp.erro) || 'formato inválido') + ' Use: TROCA 15/11 CB DIA: SAI SD EP FULANO ENTRA SD EP BELTRANO'); return; }
-    rp.origem = 'Comentário'; rp.solicitante = autor; rp.comentarioId = cm.id;
-    var r = registrarTroca_(rp);
-    novos++;
-    responderComentario_(cm.id, r.situacao === 'Pendente' ? 'Pedido ' + r.id + ' registrado na Central de trocas. Aguarde a decisão do S/1.' : 'Pedido ' + r.id + ' não pôde ser registrado: ' + r.obs);
-  });
-  c = cfgTrocas_(); c.vistos = vistos.slice(-300); salvarCfgTrocas_(c);
-  return novos;
-}
-
 /* ---------- autorização pela própria aba (funciona no celular) */
 function aoEditarCentral(e) {
   var sh = e.range.getSheet();
@@ -354,18 +269,17 @@ function aoEditarCentral(e) {
 
 /* ---------- instalação e tela */
 function instalarGatilhosTrocas_() {
-  var tr = ScriptApp.getProjectTriggers(), c = cfgTrocas_();
+  var tr = ScriptApp.getProjectTriggers();
   function tem(f) { return tr.some(function (t) { return t.getHandlerFunction() === f; }); }
   if (!tem('aoEditarCentral')) ScriptApp.newTrigger('aoEditarCentral').forSpreadsheet(ss_().getId()).onEdit().create();
   if (!tem('atualizarListasTrocasTrigger')) ScriptApp.newTrigger('atualizarListasTrocasTrigger').timeBased().everyDays(1).atHour(4).create();
-  tr.forEach(function (t) { if (t.getHandlerFunction() === 'verificarComentariosTrocas' && !c.comentarios) ScriptApp.deleteTrigger(t); });
-  if (c.comentarios && !tem('verificarComentariosTrocas')) ScriptApp.newTrigger('verificarComentariosTrocas').timeBased().everyMinutes(5).create();
+  tr.forEach(function (t) { if (t.getHandlerFunction() === 'verificarComentariosTrocas') ScriptApp.deleteTrigger(t); }); /* versão anterior lia comentários */
 }
 
 function mnuCentralTrocas() { mostrarHtml_(CSS_EXTRA_ + HTML_CENTRAL_ + JS_COMUM_ + '<script>' + JS_CENTRAL_ + '</script>', 'Central de trocas', 760, 700); }
 
 function apiTrocasEstado(filtro) {
-  var c = cfgTrocas_(), sh = ss_().getSheetByName(CENTRAL_), out = { cfg: { formUrl: c.formUrl, tem: !!c.formId, comentarios: c.comentarios, aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
+  var c = cfgTrocas_(), sh = ss_().getSheetByName(CENTRAL_), out = { cfg: { formUrl: c.formUrl, tem: !!c.formId, aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
   if (!sh) return out;
   var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 15).getValues();
   for (var i = v.length - 1; i >= 1; i--) {
@@ -388,7 +302,7 @@ function apiTrocaDecidir(id, acao, obs) {
 
 function apiTrocasSalvarCfg(p) {
   var c = cfgTrocas_();
-  c.comentarios = !!p.comentarios; c.notificar = !!p.notificar;
+  c.notificar = !!p.notificar;
   c.aprov = String(p.aprov || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
   salvarCfgTrocas_(c);
   garantirCentral_();

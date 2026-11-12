@@ -590,9 +590,9 @@ function mnuSobre() {
     '<b>Balanceamento do mês:</b> serviços por militar em cada escala comparados com a média. ' +
     '<b>Conferir prévia:</b> lista as células PENDENTE por linha, com o motivo provável. <b>Exportar prévia (PDF):</b> gera o PDF e salva na pasta da planilha.</p>' +
     '<h2>📥 Central de trocas</h2>' +
-    '<p>O militar pede a troca por um <b>formulário</b> (celular) ou por um <b>comentário</b> na planilha: “TROCA 15/11 CB DIA: SAI SD EP FULANO ENTRA SD EP BELTRANO”. Cada pedido vira uma linha na aba <b>Central de trocas</b>, com quem está escalado, quem pega e os alertas (afastamento, serviço no dia, folga). ' +
+    '<p>O militar pede a troca por um <b>formulário</b> (celular). Cada pedido vira uma linha na aba <b>Central de trocas</b>, com quem está escalado, quem pega e os alertas (afastamento, serviço no dia, folga). ' +
     'O S/1 muda a coluna <b>Situação</b> para <b>Autorizar</b> ou <b>Negar</b> (funciona no Planilhas do celular) ou usa os botões da tela do módulo. Autorizada, a troca é gravada na anotação do “0” de quem sai e a prévia a lê sozinha. “Cancelar” desfaz. ' +
-    'Em Configuração: criar o formulário, ligar a leitura de comentários, definir autorizadores (e-mails) e avisos por e-mail.</p>' +
+    'Em Configuração: criar o formulário, definir autorizadores (e-mails) e avisos por e-mail.</p>' +
     '<h2>📅 Prévia semanal</h2>' +
     '<p><b>Adicionar prévia:</b> escolha a semana na lista (quarta a terça; a sugerida vem marcada); o módulo copia “Prévia - Modelo”, ajusta as datas, pinta de vermelho as colunas de sábado, domingo e feriado (conforme a aba do mês) e usa “PARADA DIÁRIA 7h” nesses dias e 8h nos demais. ' +
     '<b>Atualizar prévia:</b> religa as fórmulas à planilha (sem abas de cache) e ativa o recálculo a cada minuto. ' +
@@ -608,7 +608,7 @@ function mnuVerificarSistema() {
   var esperadas = [
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
-    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuConferenciaEfetivo', 'apiEfetivoInfo', 'apiEfetivoAplicar', 'recalcPrevisto_', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuCentralTrocas', 'apiTrocasEstado', 'apiTrocaDecidir', 'apiTrocasSalvarCfg', 'apiTrocasFormulario', 'aoEnviarTroca', 'aoEditarCentral', 'verificarComentariosTrocas', 'registrarTroca_', 'decidirTroca_', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
+    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuConferenciaEfetivo', 'apiEfetivoInfo', 'apiEfetivoAplicar', 'recalcPrevisto_', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuCentralTrocas', 'apiTrocasEstado', 'apiTrocaDecidir', 'apiTrocasSalvarCfg', 'apiTrocasFormulario', 'aoEnviarTroca', 'aoEditarCentral', 'registrarTroca_', 'decidirTroca_', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'preencherCbDia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
