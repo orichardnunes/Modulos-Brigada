@@ -231,17 +231,50 @@ function registrarTroca_(p) {
 
 function emailsTroca_(c) { return (c.aprov || []).filter(function (x) { return /@/.test(x); }); }
 
+function escH_(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+
+/** e-mail no estilo do aplicativo (verde, cartão, botão); sempre com versão em texto simples */
+function emailTroca_(tipo, x) {
+  var cfg = cfgTrocas_(), url = urlAppTrocas_(), d = x.data instanceof Date ? fmtData_(x.data) + ' ' + CFG.DIAS[x.data.getDay()] : String(x.data || '');
+  var novo = tipo === 'novo', nr = fmtNr_(x.id);
+  var corTit = novo ? '#3A6A35' : (x.situacao === 'Autorizada' ? '#3A6A35' : (x.situacao === 'Negada' ? '#BA1A1A' : '#5f6368'));
+  var tit = novo ? 'Nova solicitação de troca' : 'Solicitação de troca ' + String(x.situacao || '').toLowerCase();
+  function lin(r, v) { return v ? '<tr><td style="padding:6px 0;width:118px;color:#43483F;font-size:13px;vertical-align:top">' + r + '</td><td style="padding:6px 0;color:#191D17;font-size:15px;font-weight:500">' + v + '</td></tr>' : ''; }
+  var al = x.alertas && x.alertas !== 'Sem alertas' ? x.alertas : '';
+  var html = '<div style="background:#F8FAF0;padding:20px 12px;font-family:Roboto,Arial,sans-serif">' +
+    '<table role="presentation" width="100%" style="max-width:560px;margin:0 auto;border-collapse:collapse">' +
+    '<tr><td style="background:#ECEFE5;border:1px solid #C3C8BB;border-radius:16px 16px 0 0;padding:14px 18px"><span style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;background:#BBF0AE;color:#002201;font-size:18px;vertical-align:middle">⇄</span>' +
+    '<span style="display:inline-block;vertical-align:middle;margin-left:10px"><span style="font-size:16px;color:#191D17;display:block;line-height:20px">Gestão de Serviços de Escalas</span><span style="font-size:12px;color:#43483F;font-weight:500">' + escH_(cfg.subtitulo) + '</span></span></td></tr>' +
+    '<tr><td style="background:#F2F5EB;border:1px solid #C3C8BB;border-top:0;border-radius:0 0 16px 16px;padding:18px">' +
+    '<div style="font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:' + corTit + ';font-weight:700">' + tit + '</div>' +
+    '<div style="font-size:20px;color:#191D17;margin:4px 0 14px">Solicitação de Troca ' + escH_(nr) + '</div>' +
+    '<table role="presentation" width="100%" style="border-collapse:collapse;background:#FFFFFF;border:1px solid #C3C8BB;border-radius:12px"><tr><td style="padding:10px 16px">' +
+    '<table role="presentation" width="100%" style="border-collapse:collapse">' +
+    lin('Serviço', escH_(d)) + lin('Escala', escH_(x.titulo)) +
+    '<tr><td colspan="2" style="padding:6px 0"><table role="presentation" width="100%" style="border-collapse:collapse;background:#F2F5EB;border-radius:10px"><tr>' +
+    '<td style="padding:8px 12px;width:46%"><div style="font-size:10px;letter-spacing:.5px;color:#43483F;text-transform:uppercase">Passa</div><div style="font-size:15px;font-weight:500;color:#191D17">' + escH_(x.sai) + '</div></td>' +
+    '<td style="text-align:center;color:#3A6A35;font-size:20px;width:8%">➜</td>' +
+    '<td style="padding:8px 12px;width:46%"><div style="font-size:10px;letter-spacing:.5px;color:#43483F;text-transform:uppercase">Pega</div><div style="font-size:15px;font-weight:500;color:#191D17">' + escH_(x.entra) + '</div></td></tr></table></td></tr>' +
+    (novo ? lin('Solicitante', escH_(x.solicitante || '—')) + lin('Motivo', escH_(x.motivo || '—')) : '') +
+    (!novo ? lin('Decisão', '<span style="color:' + corTit + '">' + escH_(x.situacao) + '</span>') + lin('Observação', escH_(x.obs)) : '') +
+    '</table></td></tr></table>' +
+    (novo ? (al ? '<div style="margin-top:12px;background:#FFE9B5;color:#3B2A00;border-radius:12px;padding:10px 14px;font-size:14px"><b>⚠ Alertas:</b> ' + escH_(al) + '</div>' : '<div style="margin-top:12px;background:#BBF0AE;color:#002201;border-radius:12px;padding:10px 14px;font-size:14px">✔ Sem alertas</div>') : '') +
+    (novo && url ? '<div style="margin-top:18px;text-align:center"><a href="' + escH_(url) + '" style="display:inline-block;background:#3A6A35;color:#FFFFFF;text-decoration:none;font-weight:500;font-size:14px;padding:12px 26px;border-radius:22px">Abrir a 1ª Seção e decidir</a></div>' : '') +
+    '<div style="margin-top:16px;font-size:12px;color:#43483F;line-height:18px">' + (novo ? 'Também é possível decidir pela aba “Central de trocas” da planilha ou pelo menu Módulo Brigada → Confecção → Central de trocas.' : 'Mensagem automática da 1ª Seção.') + '</div>' +
+    '</td></tr></table></div>';
+  var txt = (novo ? 'Nova solicitação de troca ' : 'Solicitação de troca ' + String(x.situacao || '').toLowerCase() + ' — ') + nr + '\n' + d + ' · ' + x.titulo + '\nPassa: ' + x.sai + '\nPega: ' + x.entra +
+    (novo ? '\nSolicitante: ' + (x.solicitante || '-') + '\nMotivo: ' + (x.motivo || '-') + '\nAlertas: ' + (al || 'nenhum') + (url ? '\n\nDecidir: ' + url : '') : (x.obs ? '\nObservação: ' + x.obs : ''));
+  return { assunto: (novo ? '[Trocas] Nova solicitação ' : '[Trocas] Solicitação ' + String(x.situacao || '').toLowerCase() + ' ') + nr + ' · ' + x.titulo, html: html, txt: txt };
+}
+
 function notificarTroca_(tipo, x, para) {
   var c = cfgTrocas_();
   try {
     if (!c.notificar) return;
     var dest = para ? [para] : emailsTroca_(c);
     if (!dest.length) return;
-    var d = x.data instanceof Date ? fmtData_(x.data) : String(x.data || '');
-    var corpo = tipo === 'novo' ?
-      'Novo pedido de troca ' + x.id + '\n' + d + ' · ' + x.titulo + '\nSai: ' + x.sai + '\nEntra: ' + x.entra + '\nSolicitante: ' + (x.solicitante || '-') + '\nMotivo: ' + (x.motivo || '-') + '\nAlertas: ' + (x.alertas || 'nenhum') + '\n\nAutorize ou negue no aplicativo' + (urlAppTrocas_() ? ' (' + urlAppTrocas_() + ')' : '') + ', na aba "Central de trocas" ou no menu Módulo Brigada → Confecção → Central de trocas.' :
-      'Sua troca ' + x.id + ' (' + d + ' · ' + x.titulo + ': ' + x.sai + ' → ' + x.entra + ') foi ' + x.situacao.toLowerCase() + '.' + (x.obs ? '\nObservação: ' + x.obs : '');
-    MailApp.sendEmail(dest.join(','), (tipo === 'novo' ? '[Trocas] Novo pedido ' : '[Trocas] Troca ') + x.id, corpo);
+    var m = emailTroca_(tipo, x);
+    MailApp.sendEmail({ to: dest.join(','), subject: m.assunto, body: m.txt, htmlBody: m.html, name: 'Gestão de Serviços de Escalas' });
   } catch (e) { Logger.log('E-mail de troca: ' + e.message); }
 }
 
