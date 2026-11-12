@@ -183,6 +183,7 @@ function registrarTroca_(p) {
     var ent = info.cands.filter(function (x) { return norm_(x.nome) === ke; })[0];
     if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não consta no cadastro de militares.');
     alertas = ent.flags.join('; ');
+    if (sai.nota) alertas = (alertas ? alertas + '; ' : '') + 'já havia troca anotada: ' + String(sai.nota).replace(/\s+/g, ' ').trim().slice(0, 60);
     dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba };
     var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 16).getValues();
     for (var i = 1; i < v.length; i++) {
