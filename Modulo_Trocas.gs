@@ -29,9 +29,9 @@ var HTML_CENTRAL_ = '<style>\n' +
   '<div class="cf"><h4>📱 Aplicativo (celular) <span id="tl"></span></h4><div id="fl"></div></div>\n' +
   '<div class="cf"><h4>🗂️ Planilha da Central (dados dos pedidos) <span id="tp"></span></h4><div id="fp"></div>\n' +
   '<input type="text" id="plan" placeholder="para usar outra planilha, cole o link ou o ID aqui (opcional)" style="margin-top:6px"></div>\n' +
-  '<div class="cf"><h4>🔑 Código de acesso da Administração - S/1 <span id="pl2"></span></h4>\n' +
-  '<input type="password" id="pin" placeholder="digite um novo código (mín. 4 caracteres) para definir ou trocar" autocomplete="new-password">\n' +
-  '<div class="mu" style="margin-top:4px">Quem tiver o código decide os pedidos pelo aplicativo. Fica guardado apenas o hash.</div></div>\n' +
+  '<div class="cf"><h4>🔑 Acesso da 1ª Seção (bootstrap) <span id="pl2"></span></h4>\n' +
+  '<select id="am" style="width:100%;margin-bottom:6px"></select><input type="password" id="pin" placeholder="senha deste militar (mín. 4 caracteres)" autocomplete="new-password">\n' +
+  '<label class="opt" style="margin-top:6px"><input type="checkbox" id="aadm"> Administrador (configura, vê relatórios e auditoria no aplicativo)</label><div class="mu" style="margin-top:4px">Cada militar da 1ª Seção entra no aplicativo com a própria senha. Aqui você define a primeira senha (do administrador); depois tudo pode ser feito na área de Administração do aplicativo. Fica guardado apenas o hash.</div></div>\n' +
   '<div class="cf"><h4>✉️ Avisos por e-mail</h4>\n' +
   '<input type="text" id="aprov" placeholder="e-mails dos autorizadores, separados por vírgula">\n' +
   '<label class="opt" style="margin-top:6px"><input type="checkbox" id="not"> Avisar os autorizadores a cada novo pedido</label></div>\n' +
@@ -48,7 +48,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'if(r.cfg.url){$("tl").innerHTML="<span class=\\"tg ok\\">publicado</span>";$("fl").innerHTML="<div class=lk2><a target=_blank href=\\""+esc(r.cfg.url)+"\\">"+esc(r.cfg.url)+"</a></div><div><button onclick=\\"copiar(ST.cfg.url)\\">Copiar link</button><button onclick=\\"window.open(ST.cfg.url)\\">Abrir</button></div><div class=mu>Envie este link aos militares. Depois de mudar o código, publique uma nova versão em Implantar → Gerenciar implantações.</div>"}\n' +
   'else{$("tl").innerHTML="<span class=\\"tg al\\">não publicado</span>";$("fl").innerHTML="<div class=mu>No Apps Script: <b>Implantar → Nova implantação → App da Web</b> (executar como você; acesso: qualquer pessoa com login Google). O link aparece aqui depois de salvar.</div>"}\n' +
   'if(r.cfg.planilha){$("tp").innerHTML="<span class=\\"tg ok\\">separada da escala</span>";$("fp").innerHTML="<div class=lk2><a target=_blank href=\\""+esc(r.cfg.planilha)+"\\">"+esc(r.cfg.planilha)+"</a></div><div class=mu>Quem for decidir pelo celular (aba Situação) precisa de acesso de edição a ela. A escala não recebe mais essa aba.</div>"}else{$("tp").innerHTML="<span class=\\"tg al\\">erro</span>";$("fp").innerHTML="<div class=mu>"+esc(r.cfg.erro||"")+"</div>"}\n' +
-  '$("pl2").innerHTML=r.cfg.pin?"<span class=\\"tg ok\\">definido</span>":"<span class=\\"tg al\\">sem código</span>";\n' +
+  '$("pl2").innerHTML=r.cfg.comSenha+" de "+r.cfg.membros.length+" com senha";if(!$("am").options.length)$("am").innerHTML=r.cfg.membros.map(function(m){return "<option>"+esc(m)+"</option>"}).join("");\n' +
   '$("aprov").value=r.cfg.aprov;$("not").checked=r.cfg.notificar;\n' +
   'if(!r.cfg.pin||!r.cfg.url)$("cfg").open=true;\n' +
   'var l="";if(!r.itens.length)l="<div class=\\"ban inf\\">Nenhum pedido"+(filtro()==="pendentes"?" pendente":"")+" por aqui.</div>";\n' +
@@ -64,7 +64,7 @@ var JS_CENTRAL_ = 'var ST=null;\n' +
   'function dec(id,a){var ob=$("o"+id)?$("o"+id).value:"";if(a==="Cancelar"&&!confirm("Cancelar a troca "+id+"? A anotação da escala será removida."))return;\n' +
   'var o=$("out");o.style.display="block";o.className="";o.textContent="Processando…";\n' +
   'google.script.run.withSuccessHandler(function(s){o.textContent="";carrega()}).withFailureHandler(falha).apiTrocaDecidir(id,a,ob)}\n' +
-  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.className="ok";o.textContent="Configuração salva.";$("pin").value="";$("plan").value="";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({planilha:$("plan").value,pin:$("pin").value,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
+  'function salvar(){var o=$("out");o.style.display="block";o.className="";o.textContent="Salvando…";google.script.run.withSuccessHandler(function(){o.className="ok";o.textContent="Configuração salva.";$("pin").value="";$("plan").value="";carrega()}).withFailureHandler(falha).apiTrocasSalvarCfg({planilha:$("plan").value,acesso:$("pin").value?{nome:$("am").value,senha:$("pin").value,admin:$("aadm").checked}:null,notificar:$("not").checked,aprov:$("aprov").value})}\n' +
   'carrega();\n';
 
 var CENTRAL_ = 'Central de trocas';
@@ -94,9 +94,32 @@ var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada'
 
 function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
-  return { aprov: c.aprov || [], notificar: c.notificar !== false };
+  return {
+    aprov: c.aprov || [], notificar: c.notificar !== false,
+    titulo: c.titulo || 'Gestão de Serviços de Escalas', subtitulo: c.subtitulo || 'S/1 - Seção de Pessoal',
+    avisoBI: c.avisoBI != null ? c.avisoBI : 'Atenção para o horário do fechamento do Boletim: Expediente Integral: 13h15 / Expediente Parcial: 09h00. Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
+    antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
+  };
 }
-function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify({ aprov: c.aprov, notificar: c.notificar })); }
+function salvarCfgTrocas_(c) { PropertiesService.getDocumentProperties().setProperty('TROCAS_CFG', JSON.stringify(c)); }
+
+/** número do dia: AAAAMMDD-001; recomeça em 001 a cada dia */
+function fmtNr_(id) { var m = /^(\d{4})(\d{2})(\d{2})-(\d{3})$/.exec(String(id)); return m ? 'Nr ' + m[4] + ' (' + m[3] + '/' + m[2] + '/' + m[1] + ')' : String(id); }
+function nrCurto_(id) { var m = /-(\d{3})$/.exec(String(id)); return m ? m[1] : String(id); }
+
+/** registro de auditoria (aba "Auditoria" da planilha da Central) */
+function auditar_(quem, acao, detalhe) {
+  try {
+    var ss = centralSS_(), sh = ss.getSheetByName('Auditoria');
+    if (!sh) {
+      sh = ss.insertSheet('Auditoria');
+      sh.getRange(1, 1, 1, 4).setValues([['Data/hora', 'Usuário', 'Ação', 'Detalhe']]).setFontWeight('bold').setBackground('#e8eaed');
+      sh.setFrozenRows(1); sh.setColumnWidth(1, 130); sh.setColumnWidth(2, 190); sh.setColumnWidth(3, 190); sh.setColumnWidth(4, 520);
+    }
+    sh.appendRow([new Date(), String(quem || ''), String(acao || ''), String(detalhe || '').slice(0, 900)]);
+    sh.getRange(sh.getLastRow(), 1).setNumberFormat('dd/mm/yyyy HH:mm:ss');
+  } catch (e) { Logger.log('Auditoria: ' + e.message); }
+}
 
 /** planilha própria da Central de trocas (fora da planilha da escala): abre a guardada ou cria uma nova na pasta da escala */
 function centralSS_() {
@@ -148,9 +171,11 @@ function garantirCentral_() {
 }
 
 function proximoIdTroca_() {
-  var p = PropertiesService.getDocumentProperties(), n = Number(p.getProperty('TROCAS_SEQ') || 0) + 1;
-  p.setProperty('TROCAS_SEQ', String(n));
-  return 'T-' + ('000' + n).slice(-4);
+  var p = PropertiesService.getDocumentProperties(), hoje = isoData_(new Date()).replace(/-/g, ''), o = JSON.parse(p.getProperty('TROCAS_SEQD') || '{}');
+  if (o.d !== hoje) o = { d: hoje, n: 0 };
+  o.n++;
+  p.setProperty('TROCAS_SEQD', JSON.stringify(o));
+  return hoje + '-' + ('000' + o.n).slice(-3);
 }
 
 function acharLinhaTroca_(sh, id) {
@@ -170,9 +195,10 @@ function contextoTrocas_(mesId) {
 function registrarTroca_(p) {
   var sh = garantirCentral_(), id = proximoIdTroca_(), agora = new Date(), situ = 'Pendente', obs = '', alertas = '', dados = {}, aba = '', data = null;
   try {
-    var dt = parseIso_(p.iso), h0 = new Date(); h0.setHours(0, 0, 0, 0);
+    var dt = parseIso_(p.iso), h0 = new Date(), ant = Math.max(0, cfgTrocas_().antecedencia);
+    h0.setHours(0, 0, 0, 0); h0.setDate(h0.getDate() + ant);
     data = dt;
-    if (dt < h0) throw new Error('A data do serviço já passou.');
+    if (dt < h0) throw new Error(ant ? 'O serviço precisa ser pelo menos ' + ant + ' dia(s) à frente: a partir de ' + fmtData_(h0) + '.' : 'A data do serviço já passou.');
     var mesId = CFG.MESES[dt.getMonth()], b = apiBlocos(mesId, [p.tipo]).blocos.filter(function (x) { return x.titulo === p.titulo; })[0];
     if (!b) throw new Error('Escala "' + p.titulo + '" não encontrada em ' + mesId + ' ' + p.tipo + '.');
     var info = infoTroca_(mesId, p.tipo, b.hdr, p.iso), ks = norm_(p.sai), ke = norm_(p.entra);
@@ -182,9 +208,10 @@ function registrarTroca_(p) {
     if (!sai) throw new Error(p.sai + ' não tem “0” de serviço em ' + info.data + ' nessa escala.');
     var ent = info.cands.filter(function (x) { return norm_(x.nome) === ke; })[0];
     if (!ent) throw new Error(p.entra + ' não pode entrar: já está de serviço nessa escala nesse dia ou não consta no cadastro de militares.');
+    if (ent.cad === false) throw new Error(p.entra + ' não consta no cadastro de militares.');
     alertas = ent.flags.join('; ');
     if (sai.nota) alertas = (alertas ? alertas + '; ' : '') + 'já havia troca anotada: ' + String(sai.nota).replace(/\s+/g, ' ').trim().slice(0, 60);
-    dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba };
+    dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, membros: (b.linhas || []).map(function (x) { return norm_(x.nome); }) };
     var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 16).getValues();
     for (var i = 1; i < v.length; i++) {
       if (v[i][11] === 'Pendente' && String(v[i][6]) === p.titulo && norm_(v[i][7]) === ks && v[i][15] && JSON.parse(v[i][15]).iso === p.iso) throw new Error('Pedido repetido (já existe ' + v[i][0] + ' pendente).');
@@ -196,7 +223,8 @@ function registrarTroca_(p) {
   sh.getRange(r, 5).setNumberFormat('dd/mm/yyyy');
   sh.getRange(r, 1, 1, 15).setWrap(true).setVerticalAlignment('top');
   if (situ === 'Pendente') notificarTroca_('novo', { id: id, sai: p.sai, entra: p.entra, titulo: p.titulo, data: data, alertas: alertas, motivo: p.motivo, solicitante: p.solicitante });
-  return { id: id, situacao: situ, obs: obs };
+  auditar_(p.solicitante || p.origem, 'Solicitação ' + situ.toLowerCase(), fmtNr_(id) + ' · ' + (p.titulo || '') + ' · ' + (data instanceof Date ? fmtData_(data) : '') + ' · ' + (p.sai || '') + ' ➜ ' + (p.entra || '') + (obs ? ' · ' + obs : ''));
+  return { id: id, nr: fmtNr_(id), situacao: situ, obs: obs };
 }
 
 function emailsTroca_(c) { return (c.aprov || []).filter(function (x) { return /@/.test(x); }); }
@@ -259,6 +287,7 @@ function decidirTroca_(id, acao, quem, obs) {
   sh.getRange(r, 14).setValue(new Date()).setNumberFormat('dd/mm/yyyy HH:mm');
   if (obs) sh.getRange(r, 15).setValue(obs);
   x.situacao = novo;
+  auditar_(quem, novo === 'Autorizada' ? 'Troca autorizada' : (novo === 'Negada' ? 'Troca negada' : 'Troca cancelada'), fmtNr_(id) + ' · ' + l[6] + ' · ' + l[7] + ' ➜ ' + l[8] + (obs ? ' · ' + obs : ''));
   var email = /@/.test(String(l[3])) ? String(l[3]).replace(/^.*<|>.*$/g, '') : '';
   if (email) notificarTroca_('decisao', x, email);
   return novo;
@@ -298,7 +327,7 @@ function instalarGatilhosTrocas_() {
 function mnuCentralTrocas() { mostrarHtml_(CSS_EXTRA_ + HTML_CENTRAL_ + JS_COMUM_ + '<script>' + JS_CENTRAL_ + '</script>', 'Central de trocas', 760, 700); }
 
 function apiTrocasEstado(filtro) {
-  var c = cfgTrocas_(), sh = null, out = { cfg: { planilha: '', url: urlAppTrocas_(), pin: !!PropertiesService.getDocumentProperties().getProperty('TROCAS_PIN'), aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
+  var c = cfgTrocas_(), sh = null, out = { cfg: { planilha: '', url: urlAppTrocas_(), membros: membrosAdm_().map(function (m) { return m.nome; }), comSenha: membrosAdm_().filter(function (m) { return m.hash; }).length, aprov: c.aprov.join(', '), notificar: c.notificar }, itens: [], n: { Pendente: 0, Autorizada: 0, Negada: 0, outras: 0 } };
   try { sh = garantirCentral_(); out.cfg.planilha = sh.getParent().getUrl(); } catch (e) { out.cfg.erro = e.message; }
   if (!sh) return out;
   var v = sh.getRange(1, 1, Math.max(sh.getLastRow(), 1), 15).getValues();
@@ -325,7 +354,7 @@ function apiTrocasSalvarCfg(p) {
   c.notificar = !!p.notificar;
   c.aprov = String(p.aprov || '').split(/[,;\s]+/).filter(function (x) { return /@/.test(x); });
   salvarCfgTrocas_(c);
-  if (p.pin) definirPinTrocas_(p.pin);
+  if (p.acesso && p.acesso.senha) definirAcesso_(p.acesso.nome, p.acesso.senha, !!p.acesso.admin, 'Menu do módulo');
   var m = String(p.planilha || '').match(/[-\w]{25,}/);
   if (m && m[0] !== PropertiesService.getDocumentProperties().getProperty('TROCAS_SS')) {
     try { SpreadsheetApp.openById(m[0]); } catch (e) { throw new Error('Não consegui abrir essa planilha (confira o link e se você tem acesso de edição).'); }

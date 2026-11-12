@@ -304,6 +304,16 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
     if (cl === 'afast') fl.unshift('fora da escala');
     cands.push({ r: R.r, nome: nome, sub: R.sub, folga: v, flags: fl, ok: !fl.length, key: R.key });
   });
+  /* convenção inversa: a nota está na célula de quem pegou ("de FULANO") em vez de na de quem passou */
+  B.rows.forEach(function (R) {
+    var nt = String(notas[R.r][c] || '').trim();
+    if (!nt || num_(A.vals[R.r][c]) === 0) return;
+    var knt = norm_(nt);
+    sai.forEach(function (y) {
+      var ky = norm_(y.nome);
+      if (!y.nota && (knt.indexOf(ky) >= 0 || knt.indexOf(ky.replace(/^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/, '')) >= 0)) y.nota = R.nome.replace(/\s+/g, ' ').trim() + ' (nota na célula dele)';
+    });
+  });
   var jaNaLista = cands.map(function (x) { return x.key; }).concat(sai.map(function (x) { return norm_(x.nome); }));
   var chavesSvc = Object.keys(svc), extrasOk = [];
   (extras || []).forEach(function (m) {
@@ -318,6 +328,13 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   });
   extrasOk.sort(function (a, b) { return a.nome < b.nome ? -1 : 1; });
   cands.sort(function (a, b) { return (b.ok ? 1 : 0) - (a.ok ? 1 : 0) || (b.folga == null ? -1 : b.folga) - (a.folga == null ? -1 : a.folga); });
+  if (extras && extras.length) {
+    cands.forEach(function (x) {
+      var kf = norm_(x.nome), kn = kf.replace(/^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/, '');
+      x.cad = extras.some(function (m) { var a = norm_(m.full), b = norm_(m.nome); return a === kf || b === kn || kf.slice(-(b.length + 1)) === ' ' + b; });
+    });
+    extrasOk.forEach(function (x) { x.cad = true; });
+  }
   cands = cands.concat(extrasOk);
   var SEMGRAD = /^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/;
   sai.forEach(function (x) { x.notaK = norm_(x.nota); });
