@@ -90,7 +90,7 @@ function cadastroMilitares_() {
 }
 function cadastroMilitaresSeguro_() { try { return cadastroMilitares_(); } catch (e) { Logger.log('Cadastro de militares: ' + e.message); return []; } }
 function infoTroca_(mes, tipo, hdr, iso) { return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_()); }
-var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida', 'Excluída'];
+var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida', 'Excluída', 'Expirada'];
 
 function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
@@ -100,6 +100,8 @@ function cfgTrocas_() {
     biTitulo: c.biTitulo != null ? c.biTitulo : 'Fechamento do Boletim', biIntegral: c.biIntegral != null ? c.biIntegral : '13h15', biParcial: c.biParcial != null ? c.biParcial : '09h00',
     biNota: c.biNota != null ? c.biNota : 'Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
     escalaUrl: c.escalaUrl || 'https://docs.google.com/spreadsheets/d/1QeqywNXn8YnlFKvnl7FlzEOUzGfo23UDQj4jK84UqoU/edit?gid=1382688629#gid=1382688629',
+    expirarAuto: c.expirarAuto !== false, novidadesVer: Number(c.novidadesVer || 1),
+    novidades: c.novidades != null ? c.novidades : 'Permuta (troca de mão dupla) na etapa 2.\nAviso do fechamento do BI com contagem regressiva.\nTemas claro, escuro e Tático.\nSolicitações vencidas expiram sozinhas e exclusões podem ser desfeitas.\nBotão Ajuda com tour e glossário.',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
   };
 }
@@ -156,7 +158,7 @@ function garantirCentral_() {
   var vd = SpreadsheetApp.newDataValidation().requireValueInList(SIT_, true).setAllowInvalid(false).build();
   sh.getRange(2, 12, 1000, 1).setDataValidation(vd);
   var rg = sh.getRange(2, 12, 1000, 1), regras = [
-    ['Pendente', '#fef7e0', '#b06000'], ['Autorizada', '#e6f4ea', '#137333'], ['Negada', '#fce8e6', '#b00020'], ['Inválida', '#f1f3f4', '#5f6368'], ['Cancelada', '#f1f3f4', '#5f6368'], ['Excluída', '#f1f3f4', '#9aa0a6']
+    ['Pendente', '#fef7e0', '#b06000'], ['Autorizada', '#e6f4ea', '#137333'], ['Negada', '#fce8e6', '#b00020'], ['Inválida', '#f1f3f4', '#5f6368'], ['Cancelada', '#f1f3f4', '#5f6368'], ['Excluída', '#f1f3f4', '#9aa0a6'], ['Expirada', '#f1f3f4', '#9aa0a6']
   ].map(function (r) { return SpreadsheetApp.newConditionalFormatRule().setRanges([rg]).whenTextEqualTo(r[0]).setBackground(r[1]).setFontColor(r[2]).build(); });
   sh.setConditionalFormatRules(regras);
   sh.getRange(1, 12).setNote('Mude para Autorizar ou Negar (funciona também no Planilhas do celular). Cancelar desfaz uma troca já autorizada.');
@@ -420,7 +422,8 @@ function excluirTroca_(id, quem, motivo) {
     var rr = acharLinhaTroca_(sh, i), ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
     if (ll[11] === 'Excluída') return;
     var nota = '';
-    if (ll[11] === 'Autorizada' && dd) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
+    dd = dd || {}; dd.antes = ll[11]; sh.getRange(rr, 16).setValue(JSON.stringify(dd));
+    if (ll[11] === 'Autorizada' && dd.iso) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
     sh.getRange(rr, 12).setValue('Excluída');
     sh.getRange(rr, 13).setValue(quem || '');
     sh.getRange(rr, 14).setValue(new Date()).setNumberFormat('dd/mm/yyyy HH:mm');
@@ -428,6 +431,59 @@ function excluirTroca_(id, quem, motivo) {
     auditar_(quem, 'Solicitação excluída', fmtNr_(i) + ' · ' + ll[6] + ' · ' + ll[7] + ' ➜ ' + ll[8] + ' · situação anterior: ' + ll[11] + ' · motivo: ' + motivo + nota);
   });
   return 'Excluída';
+}
+
+/** pendentes cujo serviço já passou viram "Expirada" (permuta: se uma das pontas passou, as duas expiram) */
+function expirarPendentes_(quem) {
+  if (!cfgTrocas_().expirarAuto) return 0;
+  var sh = garantirCentral_();
+  if (sh.getLastRow() < 2) return 0;
+  var v = sh.getRange(2, 1, sh.getLastRow() - 1, 16).getValues(), hoje = new Date(), passou = {}, n = 0;
+  hoje.setHours(0, 0, 0, 0);
+  v.forEach(function (l) { if (l[11] === 'Pendente' && l[4] instanceof Date && l[4] < hoje) passou[l[0]] = true; });
+  v.forEach(function (l, i) {
+    if (l[11] !== 'Pendente') return;
+    var d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
+    if (!(passou[l[0]] || (d && d.par && passou[d.par]))) return;
+    var r = i + 2;
+    sh.getRange(r, 12).setValue('Expirada');
+    sh.getRange(r, 13).setValue('Sistema');
+    sh.getRange(r, 14).setValue(new Date()).setNumberFormat('dd/mm/yyyy HH:mm');
+    sh.getRange(r, 15).setValue('Expirada: o serviço passou sem decisão');
+    auditar_(quem || 'Sistema', 'Solicitação expirada', fmtNr_(l[0]) + ' · ' + l[6] + ' · ' + l[7] + ' ➜ ' + l[8]);
+    n++;
+  });
+  return n;
+}
+function expirarPendentesTrigger() { try { expirarPendentes_('Sistema'); } catch (e) { Logger.log('Expirar pendentes: ' + e.message); } }
+
+/** desfaz uma exclusão (volta à situação anterior; se estava autorizada, grava a anotação de novo) */
+function restaurarTroca_(id, quem) {
+  var sh = garantirCentral_(), r = acharLinhaTroca_(sh, id);
+  if (!r) throw new Error('Pedido ' + id + ' não encontrado.');
+  var l = sh.getRange(r, 1, 1, 16).getValues()[0];
+  if (l[11] !== 'Excluída') throw new Error('Só solicitações excluídas podem ser restauradas.');
+  var d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
+  var ids = [id];
+  if (d && d.par) { var rp = acharLinhaTroca_(sh, d.par); if (rp && sh.getRange(rp, 12).getValue() === 'Excluída') ids.push(d.par); }
+  var feitos = [], hoje = new Date(); hoje.setHours(0, 0, 0, 0);
+  ids.forEach(function (i) {
+    var rr = acharLinhaTroca_(sh, i), ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
+    var antes = (dd && dd.antes) || 'Pendente';
+    if (antes === 'Pendente' && ll[4] instanceof Date && ll[4] < hoje) antes = 'Expirada';
+    sh.getRange(rr, 12).setValue(antes === 'Autorizada' ? 'Pendente' : antes);
+    sh.getRange(rr, 13).setValue(''); sh.getRange(rr, 14).clearContent();
+    sh.getRange(rr, 15).setValue('Restaurada por ' + quem + ' (estava ' + antes + ')');
+    feitos.push({ rr: rr, id: i, antes: antes });
+  });
+  try {
+    feitos.filter(function (f) { return f.antes === 'Autorizada'; }).forEach(function (f) { decidirTroca_(f.id, 'Autorizar', quem, 'Restaurada após exclusão'); });
+  } catch (e) {
+    feitos.forEach(function (f) { sh.getRange(f.rr, 12).setValue('Excluída'); sh.getRange(f.rr, 15).setValue('Restauração falhou: ' + e.message); });
+    throw new Error('Não foi possível restaurar: ' + e.message);
+  }
+  feitos.forEach(function (f) { auditar_(quem, 'Exclusão desfeita', fmtNr_(f.id) + ' · voltou para: ' + f.antes); });
+  return feitos[0].antes;
 }
 
 /* ---------- autorização pela própria aba (funciona no celular) */
@@ -458,6 +514,7 @@ function instalarGatilhosTrocas_() {
     if (src === cid) tem2 = true; else ScriptApp.deleteTrigger(t); /* o gatilho antigo era da planilha da escala */
   });
   if (!tem2) ScriptApp.newTrigger('aoEditarCentral').forSpreadsheet(cid).onEdit().create();
+  if (!tem('expirarPendentesTrigger')) ScriptApp.newTrigger('expirarPendentesTrigger').timeBased().everyDays(1).atHour(1).create();
   tr.forEach(function (t) { if (['verificarComentariosTrocas', 'aoEnviarTroca', 'atualizarListasTrocasTrigger'].indexOf(t.getHandlerFunction()) >= 0) ScriptApp.deleteTrigger(t); }); /* versões anteriores (comentários e formulário) */
 }
 
