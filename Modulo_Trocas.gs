@@ -101,7 +101,7 @@ function cfgTrocas_() {
   var c = JSON.parse(PropertiesService.getDocumentProperties().getProperty('TROCAS_CFG') || 'null') || {};
   CFG_MEMO_ = {
     aprov: c.aprov || [], notificar: c.notificar !== false,
-    titulo: c.titulo || 'Gestão de Serviços de Escalas', subtitulo: c.subtitulo || 'S/1 - Seção de Pessoal',
+    titulo: (c.titulo && c.titulo !== 'Gestão de Serviços de Escalas') ? c.titulo : 'Gestão de Escalas', /* quem salvou a configuração com o título antigo passa a ver o novo */ subtitulo: c.subtitulo || 'S/1 - Seção de Pessoal',
     biTitulo: c.biTitulo != null ? c.biTitulo : 'Fechamento do Boletim', biIntegral: c.biIntegral != null ? c.biIntegral : '13h15', biParcial: c.biParcial != null ? c.biParcial : '09h00',
     biNota: c.biNota != null ? c.biNota : 'Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
     escalaUrl: c.escalaUrl || 'https://docs.google.com/spreadsheets/d/1QeqywNXn8YnlFKvnl7FlzEOUzGfo23UDQj4jK84UqoU/edit?gid=1382688629#gid=1382688629',
@@ -374,7 +374,7 @@ function emailTroca_(tipo, x) {
   var html = '<div style="background:#F8FAF0;padding:20px 12px;font-family:Roboto,Arial,sans-serif">' +
     '<table role="presentation" width="100%" style="max-width:560px;margin:0 auto;border-collapse:collapse">' +
     '<tr><td style="background:#ECEFE5;border:1px solid #C3C8BB;border-radius:16px 16px 0 0;padding:14px 18px"><span style="display:inline-block;width:34px;height:34px;line-height:34px;text-align:center;border-radius:10px;background:#BBF0AE;color:#002201;font-size:18px;vertical-align:middle">⇄</span>' +
-    '<span style="display:inline-block;vertical-align:middle;margin-left:10px"><span style="font-size:16px;color:#191D17;display:block;line-height:20px">Gestão de Serviços de Escalas</span><span style="font-size:12px;color:#43483F;font-weight:500">' + escH_(cfg.subtitulo) + '</span></span></td></tr>' +
+    '<span style="display:inline-block;vertical-align:middle;margin-left:10px"><span style="font-size:16px;color:#191D17;display:block;line-height:20px">Gestão de Escalas</span><span style="font-size:12px;color:#43483F;font-weight:500">' + escH_(cfg.subtitulo) + '</span></span></td></tr>' +
     '<tr><td style="background:#F2F5EB;border:1px solid #C3C8BB;border-top:0;border-radius:0 0 16px 16px;padding:18px">' +
     '<div style="font-size:12px;letter-spacing:.6px;text-transform:uppercase;color:' + corTit + ';font-weight:700">' + tit + '</div>' +
     '<div style="font-size:20px;color:#191D17;margin:4px 0 14px">Solicitação de Troca ' + escH_(nr) + '</div>' +
@@ -404,7 +404,7 @@ function notificarTroca_(tipo, x, para) {
     var dest = para ? [para] : emailsTroca_(c);
     if (!dest.length) return;
     var m = emailTroca_(tipo, x);
-    MailApp.sendEmail({ to: dest.join(','), subject: m.assunto, body: m.txt, htmlBody: m.html, name: 'Gestão de Serviços de Escalas' });
+    MailApp.sendEmail({ to: dest.join(','), subject: m.assunto, body: m.txt, htmlBody: m.html, name: 'Gestão de Escalas' });
   } catch (e) { Logger.log('E-mail de troca: ' + e.message); }
 }
 
