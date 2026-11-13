@@ -351,7 +351,7 @@ function registrarPermuta_(p1, p2) {
   if (a1.erro) throw new Error('Ida: ' + a1.erro);
   if (a2.erro) throw new Error('Volta: ' + a2.erro);
   var id1 = proximoIdTroca_(), id2 = proximoIdTroca_();
-  p1.dadosExtra = { par: id2, perna: 1, ciente: p1.ciente ? 1 : 0, escopo: p1.escopo === 'so' ? 'so' : '' }; p2.dadosExtra = { par: id1, perna: 2, ciente: p1.ciente ? 1 : 0 };
+  p1.dadosExtra = { par: id2, perna: 1, ciente: p1.ciente ? 1 : 0, escopo: p1.escopo === 'so' ? 'so' : '' }; p2.dadosExtra = { par: id1, perna: 2, ciente: p1.ciente ? 1 : 0, escopo: p2.escopo === 'so' ? 'so' : '' };
   gravarLinhaTroca_(sh, id1, p1, a1, 'Pendente', '');
   gravarLinhaTroca_(sh, id2, p2, a2, 'Pendente', '');
   notificarTroca_('novo', { id: id1, sai: p1.sai, entra: p1.entra, titulo: p1.titulo + ' (permuta com ' + fmtNr_(id2) + ')', data: a1.data, alertas: [a1.alertas, a2.alertas].filter(Boolean).join(' | '), motivo: p1.motivo, solicitante: p1.solicitante });
