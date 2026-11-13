@@ -124,12 +124,12 @@ function cachePut_(k, v, ttl) { try { var s = JSON.stringify(v); if (s.length < 
 
 /** número do dia: AAAAMMDD-001; recomeça em 001 a cada dia */
 var MES3_ = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
-/** código mostrado ao usuário: 2 dígitos do dia (01–99, depois 100, 101…) + dia + mês, ex.: 0105NOV; o id interno (AAAAMMDD-NNN) continua único entre anos */
+/** código mostrado ao usuário: sequência do dia (01–99, depois 100, 101…) + dia + mês + ano, ex.: 0113NOV26; o id interno (AAAAMMDD-NNN) continua sendo a chave */
 function codigoTroca_(id) {
   var m = /^(\d{4})(\d{2})(\d{2})-(\d+)$/.exec(String(id));
   if (!m) return String(id);
   var n = Number(m[4]);
-  return (n < 100 ? ('0' + n).slice(-2) : String(n)) + m[3] + MES3_[Number(m[2]) - 1];
+  return (n < 100 ? ('0' + n).slice(-2) : String(n)) + m[3] + MES3_[Number(m[2]) - 1] + m[1].slice(-2);
 }
 function fmtNr_(id) { return codigoTroca_(id); }
 
