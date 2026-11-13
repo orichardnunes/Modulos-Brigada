@@ -106,6 +106,8 @@ function cfgTrocas_() {
     biNota: c.biNota != null ? c.biNota : 'Trocas solicitadas após o fechamento do BI somente serão aprovadas em caso de extrema necessidade.',
     escalaUrl: c.escalaUrl || 'https://docs.google.com/spreadsheets/d/1QeqywNXn8YnlFKvnl7FlzEOUzGfo23UDQj4jK84UqoU/edit?gid=1382688629#gid=1382688629',
     avisos: c.avisos || [],
+    biSemana: (c.biSemana && c.biSemana.length === 7) ? c.biSemana : ['off', 'int', 'int', 'int', 'int', 'par', 'off'], /* índice = dia da semana (0 = domingo): int, par ou off */
+    biExc: c.biExc || [], /* exceções por data: [{iso, tipo}] */
     expirarAuto: c.expirarAuto !== false, novidadesVer: Number(c.novidadesVer || 1),
     novidades: c.novidades != null ? c.novidades : 'Permuta (troca de mão dupla) na etapa 2.\nAviso do fechamento do BI com contagem regressiva.\nTemas claro, escuro e Tático.\nSolicitações vencidas expiram sozinhas e exclusões podem ser desfeitas.\nBotão Ajuda com tour e glossário.',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
@@ -219,14 +221,33 @@ function mesmoMil_(a, b) { var x = norm_(a), y = norm_(b); if (!x || !y) return 
 /** "13h15" / "9:00" -> minutos desde 00:00 (ou null) */
 function minutosHora_(txt) { var m = /(\d{1,2})\s*[h:]\s*(\d{2})?/i.exec(String(txt || '')); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; }
 
-/** texto do aviso quando a solicitação é feita depois do fechamento do BI para serviço de amanhã (ou antes); '' se estiver no prazo */
-function fechamentoBI_(dtServico) {
-  var c = cfgTrocas_(), agora = new Date(), amanha = new Date(); amanha.setHours(0, 0, 0, 0); amanha.setDate(amanha.getDate() + 1);
-  if (dtServico > amanha) return '';
-  var min = agora.getHours() * 60 + agora.getMinutes(), integ = minutosHora_(c.biIntegral), parc = minutosHora_(c.biParcial);
-  if (integ != null && min >= integ) return 'após o fechamento do BI (expediente integral ' + c.biIntegral + ')';
-  if (parc != null && min >= parc) return 'após o fechamento do BI do expediente parcial (' + c.biParcial + ')';
-  return '';
+/** tipo de expediente de uma data: 'int' (integral), 'par' (parcial) ou 'off' (sem expediente); exceção por data tem prioridade sobre o dia da semana */
+function tipoExpediente_(d, c) {
+  var iso = isoData_(d), ex = (c.biExc || []).filter(function (x) { return x.iso === iso; })[0];
+  return ex ? ex.tipo : ((c.biSemana || [])[d.getDay()] || 'off');
+}
+function horaExpediente_(tipo, c) { return tipo === 'int' ? minutosHora_(c.biIntegral) : (tipo === 'par' ? minutosHora_(c.biParcial) : null); }
+function rotuloExp_(tipo, c) { return tipo === 'int' ? 'integral ' + c.biIntegral : (tipo === 'par' ? 'parcial ' + c.biParcial : 'sem expediente'); }
+
+/** prazo de um serviço: fechamento do BI do último dia com expediente ANTES dele (sexta cobre sábado, domingo e segunda) */
+function prazoBI_(dtServico, c) {
+  for (var i = 1; i <= 21; i++) {
+    var d = new Date(dtServico.getFullYear(), dtServico.getMonth(), dtServico.getDate() - i), tp = tipoExpediente_(d, c);
+    if (tp !== 'off' && horaExpediente_(tp, c) != null) return { dia: d, tipo: tp, min: horaExpediente_(tp, c) };
+  }
+  return null;
+}
+
+/** texto do aviso quando a solicitação é feita depois do prazo do BI do serviço; '' se estiver no prazo.
+ *  Em dia sem expediente o pedido segue normal, sem horário. agora (opcional) é só para testes. */
+function fechamentoBI_(dtServico, agora) {
+  var c = cfgTrocas_(), t0 = agora || new Date(), hoje = new Date(t0.getFullYear(), t0.getMonth(), t0.getDate());
+  if (tipoExpediente_(hoje, c) === 'off') return '';
+  var p = prazoBI_(dtServico, c);
+  if (!p || p.dia > hoje) return '';
+  var min = t0.getHours() * 60 + t0.getMinutes();
+  if (p.dia < hoje) return 'após o fechamento do BI de ' + fmtData_(p.dia) + ' (expediente ' + rotuloExp_(p.tipo, c) + ')';
+  return min >= p.min ? 'após o fechamento do BI (expediente ' + rotuloExp_(p.tipo, c) + ')' : '';
 }
 
 /** conflitos com outros pedidos pendentes/autorizados no mesmo dia (alertas; não bloqueiam) */
