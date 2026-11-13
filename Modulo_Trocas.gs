@@ -123,8 +123,15 @@ function cacheGet_(k) { try { var s = CacheService.getScriptCache().get(k); retu
 function cachePut_(k, v, ttl) { try { var s = JSON.stringify(v); if (s.length < 90000) CacheService.getScriptCache().put(k, s, ttl || 60); } catch (e) { /* grande demais ou sem cache */ } }
 
 /** número do dia: AAAAMMDD-001; recomeça em 001 a cada dia */
-function fmtNr_(id) { var m = /^(\d{4})(\d{2})(\d{2})-(\d{3})$/.exec(String(id)); return m ? 'Nr ' + m[4] + ' (' + m[3] + '/' + m[2] + '/' + m[1] + ')' : String(id); }
-function nrCurto_(id) { var m = /-(\d{3})$/.exec(String(id)); return m ? m[1] : String(id); }
+var MES3_ = ['JAN', 'FEV', 'MAR', 'ABR', 'MAI', 'JUN', 'JUL', 'AGO', 'SET', 'OUT', 'NOV', 'DEZ'];
+/** código mostrado ao usuário: 2 dígitos do dia (01–99, depois 100, 101…) + dia + mês, ex.: 0105NOV; o id interno (AAAAMMDD-NNN) continua único entre anos */
+function codigoTroca_(id) {
+  var m = /^(\d{4})(\d{2})(\d{2})-(\d+)$/.exec(String(id));
+  if (!m) return String(id);
+  var n = Number(m[4]);
+  return (n < 100 ? ('0' + n).slice(-2) : String(n)) + m[3] + MES3_[Number(m[2]) - 1];
+}
+function fmtNr_(id) { return codigoTroca_(id); }
 
 /** registro de auditoria (aba "Auditoria" da planilha da Central) */
 function auditar_(quem, acao, detalhe) {
@@ -273,7 +280,7 @@ function conflitosTroca_(iso, sai, entra, linhas, ignorarId) {
     if (!l[0] || String(l[0]) === String(ignorarId || '') || (l[11] !== 'Pendente' && l[11] !== 'Autorizada')) return;
     var d = null; try { d = l[15] ? JSON.parse(l[15]) : null; } catch (e) { d = null; }
     if (!d || d.iso !== iso) return;
-    var rot = fmtNr_(l[0]).replace(/ \(.*\)$/, '') + ' ' + String(l[11]).toLowerCase();
+    var rot = fmtNr_(l[0]) + ' ' + String(l[11]).toLowerCase();
     if (mesmoMil_(l[8], entra)) out.push('já é o "pega" na solicitação ' + rot + ' (' + l[6] + ')');
     else if (mesmoMil_(l[7], entra)) out.push('está passando o serviço na solicitação ' + rot);
     if (mesmoMil_(l[8], sai) && !mesmoMil_(l[7], entra)) out.push(sai + ' vai pegar o serviço de ' + l[7] + ' na solicitação ' + rot);
