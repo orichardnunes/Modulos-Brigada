@@ -344,7 +344,16 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
     var kf = norm_(x.nome), kn = kf.replace(SEMGRAD, ''), q = sai.filter(function (y) { return y.notaK && (y.notaK.indexOf(kf) >= 0 || y.notaK === kn); })[0];
     if (q) { x.flags = x.flags.slice(); x.flags.unshift('já pegou o serviço de ' + q.nome); x.ok = false; }
   });
-  return { aba: A.nome, titulo: B.titulo, dia: d, data: fmtData_(dt), sai: sai, cands: cands, sugeridos: cands.filter(function (x) { return x.ok; }).slice(0, 5) };
+  var parInfo = null; /* serviços seguidos (Condutor de turismo, Supervisor de praia): o outro dia do par */
+  if (ehPar_(B)) {
+    var d2 = ehCabecaPar_(A, B, d) ? d + 1 : d - 1;
+    if (d2 >= 1 && d2 <= A.nDias) {
+      var dt2 = new Date(dt.getFullYear(), dt.getMonth(), d2);
+      sai.forEach(function (x) { x.dois = num_(A.vals[x.r][colDia_(d2)]) === 0; });
+      parInfo = { d: d2, iso: isoData_(dt2), data: fmtData_(dt2) + ' ' + CFG.DIAS[dt2.getDay()] };
+    }
+  }
+  return { par: parInfo, aba: A.nome, titulo: B.titulo, dia: d, data: fmtData_(dt), sai: sai, cands: cands, sugeridos: cands.filter(function (x) { return x.ok; }).slice(0, 5) };
 }
 
 /** p: {mes, tipo, hdr, iso, saiR, entraR, forcar} */
