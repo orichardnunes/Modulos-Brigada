@@ -216,7 +216,23 @@ function contextoTrocas_(mesId) {
 
 var GRAD_RX_ = /^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/;
 function semGrad_(s) { return norm_(s).replace(GRAD_RX_, ''); }
-function mesmoMil_(a, b) { var x = norm_(a), y = norm_(b); if (!x || !y) return false; return x === y || semGrad_(x) === semGrad_(y); }
+function gradeDe_(s) { var m = GRAD_RX_.exec(norm_(s)); return m ? m[1].replace(/\s+/g, '') : ''; }
+/** mesmo militar? nome completo igual; ou mesmo nome sem posto quando um dos lados não traz posto. “R. RAMOS” ≠ “RAMOS” e “SD EP RAMOS” ≠ “SD EV RAMOS”. */
+function mesmoMil_(a, b) {
+  var x = norm_(a), y = norm_(b);
+  if (!x || !y) return false;
+  if (x === y) return true;
+  if (semGrad_(x) !== semGrad_(y)) return false;
+  var ga = gradeDe_(x), gb = gradeDe_(y);
+  return !(ga && gb && ga !== gb);
+}
+/** chaves (nomes normalizados) que correspondem a um militar: exata; senão, a única que bate sem o posto (ambígua = nenhuma) */
+function achaChaves_(chaves, full) {
+  var kf = norm_(full), ex = chaves.filter(function (k) { return k === kf; });
+  if (ex.length) return ex;
+  var sem = chaves.filter(function (k) { return mesmoMil_(k, full); });
+  return sem.length === 1 ? sem : [];
+}
 
 /** "13h15" / "9:00" -> minutos desde 00:00 (ou null) */
 function minutosHora_(txt) { var m = /(\d{1,2})\s*[h:]\s*(\d{2})?/i.exec(String(txt || '')); return m ? Number(m[1]) * 60 + Number(m[2] || 0) : null; }

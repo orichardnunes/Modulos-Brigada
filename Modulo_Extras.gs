@@ -313,17 +313,17 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
     var knt = norm_(nt);
     sai.forEach(function (y) {
       var ky = norm_(y.nome);
-      if (!y.nota && (knt.indexOf(ky) >= 0 || knt.indexOf(ky.replace(/^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/, '')) >= 0)) y.nota = R.nome.replace(/\s+/g, ' ').trim() + ' (nota na célula dele)';
+      if (!y.nota && (knt.indexOf(ky) >= 0 || knt === semGrad_(ky))) y.nota = R.nome.replace(/\s+/g, ' ').trim() + ' (nota na célula dele)';
     });
   });
   var jaNaLista = cands.map(function (x) { return x.key; }).concat(sai.map(function (x) { return norm_(x.nome); }));
   var chavesSvc = Object.keys(svc), extrasOk = [];
   (extras || []).forEach(function (m) {
     var kf = norm_(m.full), kn = norm_(m.nome);
-    var achou = jaNaLista.some(function (k) { return k === kf || k.slice(-(kn.length + 1)) === ' ' + kn; });
+    var achou = jaNaLista.some(function (k) { return mesmoMil_(k, m.full); });
     if (achou) return; /* já aparece (o posto no cadastro pode diferir do da planilha) */
     var lista = [];
-    chavesSvc.forEach(function (k) { if (k === kf || k.slice(-(kn.length + 1)) === ' ' + kn) lista = lista.concat(svc[k]); });
+    achaChaves_(chavesSvc, m.full).forEach(function (k) { lista = lista.concat(svc[k]); });
     var f = avaliarServ_(lista);
     f.unshift('fora da escala');
     extrasOk.push({ r: -1, nome: m.full, sub: m.sub || '', folga: null, flags: f, ok: false, fora: true });
@@ -333,7 +333,7 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   if (extras && extras.length) {
     cands.forEach(function (x) {
       var kf = norm_(x.nome), kn = kf.replace(/^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/, '');
-      x.cad = extras.some(function (m) { var a = norm_(m.full), b = norm_(m.nome); return a === kf || b === kn || kf.slice(-(b.length + 1)) === ' ' + b; });
+      x.cad = extras.some(function (m) { return mesmoMil_(m.full, x.nome); });
     });
     extrasOk.forEach(function (x) { x.cad = true; });
   }
@@ -341,7 +341,7 @@ function apiTrocaInfo(mesId, tipo, hdr, iso, extras) {
   var SEMGRAD = /^(\d+\s*º?\s*SGT|SD\s*EP|SD\s*EV|CB\s*EP|CB|SGT|ST|TEN|CAP)\s+/;
   sai.forEach(function (x) { x.notaK = norm_(x.nota); });
   cands.forEach(function (x) { /* já pegou o serviço de outro por troca anotada no dia */
-    var kf = norm_(x.nome), kn = kf.replace(SEMGRAD, ''), q = sai.filter(function (y) { return y.notaK && (y.notaK.indexOf(kf) >= 0 || (kn.length > 3 && y.notaK.indexOf(kn) >= 0)); })[0];
+    var kf = norm_(x.nome), kn = kf.replace(SEMGRAD, ''), q = sai.filter(function (y) { return y.notaK && (y.notaK.indexOf(kf) >= 0 || y.notaK === kn); })[0];
     if (q) { x.flags = x.flags.slice(); x.flags.unshift('já pegou o serviço de ' + q.nome); x.ok = false; }
   });
   return { aba: A.nome, titulo: B.titulo, dia: d, data: fmtData_(dt), sai: sai, cands: cands, sugeridos: cands.filter(function (x) { return x.ok; }).slice(0, 5) };
