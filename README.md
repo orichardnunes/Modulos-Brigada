@@ -41,3 +41,5 @@ Os pedidos da Central de trocas ficam numa **planilha separada** (criada na past
 Aplicativo da Central de trocas ("Gestão de Serviços de Escalas — S/1"): solicitar (data a partir de d+1), acompanhar por número (numeração diária 001…), 1ª Seção com login por militar e senha própria (pedidos, relatórios, auditoria e configuração para o administrador). Primeira senha do administrador: menu Confecção → Central de trocas → Configuração.
 
 Trocas: exclusão com registro (administrador), permuta (ida/volta decididas juntas), aviso pós-fechamento do BI com justificativa obrigatória, detecção de conflitos, decisão em lote, QR Code/cartaz e exportação CSV/PDF (auditoria e relatório). Só as novas solicitações geram e-mail.
+
+**Modulo_Telas.gs**: telas de consulta e análise do aplicativo (painel do militar com extrato em PDF, calendário em mapa de calor, fila da escala, efetivo, afastamentos, modo TV `?tv=1`, e na Gestão: riscos, rede de trocas, desempenho e mapa de calor das trocas).
