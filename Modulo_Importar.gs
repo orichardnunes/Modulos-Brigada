@@ -13,8 +13,13 @@ var GUARNICAO_MAPA = [
   { rotulo: 'CMT GD QG', chave: 'CMT GD', fonte: 'CMT GD' },
   { rotulo: 'CB GD QG', chave: 'CB GD', fonte: 'CB GD' },
   { rotulo: 'SD GD QG', chave: 'GD', fonte: 'SENTINELA' },
-  { rotulo: 'MOTORISTA À POMN', chave: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' }
+  { rotulo: 'MOTORISTA À POMN', chave: 'MOTORISTA A POMN', fonte: 'MOT AMBULANCIA' },
+  /* opcional: a coluna só existe nas escalas novas da Guarnição; "-----" = sem serviço (a linha-resumo fica sem cor) */
+  { rotulo: 'SUPERVISOR DE PRAIA AO IMBUHY', chave: 'SUPERVISOR DE PRAIA AO IMBUHY', fonte: 'PRAIA DO IMBUHY', opcional: true }
 ];
+
+/** "-----", "—", vazio: nenhum serviço nesse dia */
+function semServicoOm_(txt) { return /^[\s\-–—_.]*$/.test(String(txt == null ? '' : txt)); }
 
 /* ============================================================ MENU */
 function destinoImportacao_() {
@@ -88,14 +93,14 @@ function lerGuarnicaoDrive_(url, mes, ano) {
     if (colTipo < 0 && u.indexOf('PRETA') >= 0) colTipo = j;
   });
   var faltam = [];
-  colFonte.forEach(function (c, k) { if (c < 0) faltam.push(GUARNICAO_MAPA[k].fonte); });
+  colFonte.forEach(function (c, k) { if (c < 0 && !GUARNICAO_MAPA[k].opcional) faltam.push(GUARNICAO_MAPA[k].fonte); });
   if (faltam.length) throw new Error('Colunas não encontradas na Guarnição: ' + faltam.join(', ') + '.');
   var linhas = [];
   for (var x = hdr + 1; x < vals.length; x++) {
     var d = dataParaDMA_(vals[x][colData]);
     if (!d) continue;
     var tipo = /VERM/i.test(String(vals[x][colTipo])) ? 'VERM' : 'PRETA';
-    linhas.push({ dia: d.dia, mes: d.mes, ano: d.ano, tipo: tipo, cols: colFonte.map(function (c) { return String(vals[x][c]).trim(); }) });
+    linhas.push({ dia: d.dia, mes: d.mes, ano: d.ano, tipo: tipo, cols: colFonte.map(function (c) { return c < 0 ? '' : String(vals[x][c]).trim(); }) });
   }
   return { linhas: linhas, fonte: alvo.getName() };
 }
@@ -143,15 +148,17 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
   var plano = [], texto = [], relEsc = [];
   GUARNICAO_MAPA.forEach(function (m, k) {
     var S = resumoPorRotulo[m.chave];
-    if (!S) { avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
-    var laranja = [], azul = [];
+    if (m.opcional && !dias.some(function (dd) { return porDia[dd].cols[k] != null && String(porDia[dd].cols[k]) !== ''; })) return; /* fonte sem essa coluna (ex.: importação por documento) */
+    if (!S) { if (!m.opcional) avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
+    var laranja = [], azul = [], sem = [];
     dias.forEach(function (dd) {
       var om = (porDia[dd].cols[k] || '');
+      if (m.opcional && semServicoOm_(om)) { sem.push(dd); plano.push({ r: S.r, d: dd, cor: null }); return; }
       if (ehProprio_(om)) laranja.push(dd); else azul.push(dd);
       plano.push({ r: S.r, d: dd, cor: ehProprio_(om) ? CFG.COR.LARANJA : CFG.COR.AZUL });
     });
-    relEsc.push({ rotulo: m.rotulo, gac: laranja, outra: azul.length });
-    texto.push('▸ ' + m.rotulo + ': 21º GAC em ' + laranja.length + ' dia(s)' + (laranja.length ? ' (' + laranja.join(', ') + ')' : '') + ' · outra unidade em ' + azul.length + '.');
+    relEsc.push({ rotulo: m.rotulo, gac: laranja, outra: azul.length, sem: sem.length });
+    texto.push('▸ ' + m.rotulo + ': 21º GAC em ' + laranja.length + ' dia(s)' + (laranja.length ? ' (' + laranja.join(', ') + ')' : '') + ' · outra unidade em ' + azul.length + (sem.length ? ' · sem serviço em ' + sem.length : '') + '.');
   });
 
   /* tipo do dia (PRETA/VERM) x aba */
@@ -179,9 +186,10 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
     if (diverge.length && opcoes.tipos !== 'refazer' && opcoes.tipos !== 'manter') {
       throw new Error('Há dias com tipo divergente. Escolha "refazer fórmulas" ou "manter os tipos atuais" e aplique de novo.');
     }
-    var porCor = {};
-    plano.forEach(function (p) { (porCor[p.cor] = porCor[p.cor] || []).push(a1_(p.r, colDia_(p.d))); });
+    var porCor = {}, semCor = [];
+    plano.forEach(function (p) { if (p.cor == null) semCor.push(a1_(p.r, colDia_(p.d))); else (porCor[p.cor] = porCor[p.cor] || []).push(a1_(p.r, colDia_(p.d))); });
     Object.keys(porCor).forEach(function (cor) { sh.getRangeList(porCor[cor]).setBackground(cor).setFontColor(CFG.COR.BRANCO); });
+    if (semCor.length) sh.getRangeList(semCor).setBackground(CFG.COR.BRANCO).setFontColor(CFG.COR.BRANCO); /* sem serviço: fundo limpo */
     if (A.topo != null) {
       var topo = dias.map(function (dd) { return a1_(A.topo, colDia_(dd)); });
       sh.getRangeList(topo).setBackground(CFG.COR.AZUL).setFontColor(CFG.COR.BRANCO);

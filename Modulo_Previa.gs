@@ -15,6 +15,8 @@ var PREVIA_LOC = {
   ESC: { B: 'T', C: 'U', D: 'V', E: 'W', F: 'X', G: 'Y', H: 'Z', I: 'AA', J: 'AB', K: 'AC', L: 'AD', M: 'AE' },
   TRC: { A: 'AG', B: 'AH', C: 'AI' }
 };
+/* supervisor de praia ao Imbuhy: linha-resumo do topo da aba Grad (vinda da Guarnição) e linha própria na prévia, acima de PERMANÊNCIA PNR BRB */
+var IMBUHY_CHAVE_ = 'SUPERVISOR DE PRAIA AO IMBUHY', IMBUHY_ROTULO_ = 'SUPERVISOR DE PRAIA IMBUHY', PREVIA_IMB_ = [];
 var PREVIA_COR = { PORTAO12: '#a4c2f4', PORTAO24: '#1c4587', CAB_NORMAL: '#cccccc', CAB_VERMELHO: '#cc0000' };
 
 /* ============================================================ FUNÇÕES PERSONALIZADAS */
@@ -95,6 +97,7 @@ function zerosValidos_(A, B, dia, filtroCor) { /* [{R, nome, bg}] na ordem do bl
  */
 function PREVIA_CAL(datas, tick) {
   var ctx = { abas: {} }, linhas = [];
+  PREVIA_IMB_ = [];
   achatar_(datas).forEach(function (d) {
     if (!(d instanceof Date)) return;
     var dia = d.getDate(), G = carregarAbaPrevia_(ctx, d, CFG.TIPO_GRAD), C = carregarAbaPrevia_(ctx, d, CFG.TIPO_CNDT);
@@ -103,6 +106,7 @@ function PREVIA_CAL(datas, tick) {
     var vermC = C && C.blocos.length ? vermelho_(C, C.blocos[0], dia) : vermG;
     var linha = [serialData_(d), flagResumo_(G, 'CMT GD', dia, 'CMT GD'), flagResumo_(G, 'CB GD', dia, 'CB GD'), flagResumo_(G, 'GD', dia, 'SD GD'),
       flagResumo_(G, 'MOTORISTA A POMN', dia, 'MOTORISTA'), flagResumo_(G, 'OF DIA', dia, 'OF DIA'), vermG, vermC];
+    PREVIA_IMB_.push([serialData_(d), flagResumo_(G, IMBUHY_CHAVE_, dia, null)]); /* laranja na linha-resumo = serviço do 21º GAC na praia do Imbuhy */
     var p12 = [], p24 = [], ctrl = [], cb = [], vagasCb = '';
     if (G) {
       G.blocos.forEach(function (B) {
@@ -198,6 +202,10 @@ function atualizarTabelasInternas_(sh) {
   sh.getRange('AG2:AJ300').clearContent();
   sh.getRange(2, 33, trc.length, 4).setValues(trc);
   sh.getRange('BC2:BE8').setValues(layoutPrevia_(datas));
+  if (sh.getMaxColumns() < 60) { sh.insertColumnsAfter(sh.getMaxColumns(), 60 - sh.getMaxColumns()); sh.hideColumns(58, 3); }
+  sh.getRange('BG1:BH1').setValues([['Imbuhy: data', 'Serviço do 21º GAC (laranja)']]).setFontWeight('bold').setBackground('#e8eaed').setWrap(true);
+  sh.getRange('BG2:BG8').setNumberFormat('dd/mm/yyyy');
+  if (PREVIA_IMB_.length) sh.getRange(2, 59, PREVIA_IMB_.length, 2).setValues(PREVIA_IMB_);
   carimboPrevia_(sh);
 }
 
@@ -220,10 +228,10 @@ function formatarAuxPrevia_(sh) {
 }
 
 function instalarAuxPrevia_(sh) {
-  var precisa = 57 - sh.getMaxColumns();
+  var precisa = 60 - sh.getMaxColumns();
   if (precisa > 0) sh.insertColumnsAfter(sh.getMaxColumns(), precisa);
-  sh.getRange(1, 10, sh.getMaxRows(), 48).clearContent(); /* limpa colunas auxiliares (J:BE), inclusive restos de versões antigas */
-  sh.hideColumns(12, 46);
+  sh.getRange(1, 10, sh.getMaxRows(), 51).clearContent(); /* limpa colunas auxiliares (J:BH), inclusive restos de versões antigas */
+  sh.hideColumns(12, 49);
   atualizarTabelasInternas_(sh);
   formatarAuxPrevia_(sh);
 }
@@ -372,6 +380,7 @@ function migrarPrevia_(sh) {
     }
   }
   instalarAuxPrevia_(sh);
+  try { garantirLinhaImbuhy_(sh); } catch (e) { Logger.log('Linha do Imbuhy: ' + e.message); }
   try { preencherPermanencia_(sh); } catch (e) { Logger.log('Permanência PNR: ' + e.message); }
   try { preencherCbDia_(sh); } catch (e) { Logger.log('CB DIA: ' + e.message); }
   return { alteradas: alteradas, externas: Object.keys(externas) };
@@ -782,4 +791,28 @@ function mnuGatilhoPrevia() {
     'function salvar(){$("out").textContent="";google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiSalvarGatPrevia(document.querySelector("input[name=dow]:checked").value,$("hora").value)}' +
     'function ativar(v){$("out").textContent="";google.script.run.withSuccessHandler(pinta).withFailureHandler(fal).apiAtivarGatPrevia(v)}</script>';
   mostrarHtml_(h, 'Gatilho da prévia', 500, 560);
+}
+
+/** linha "SUPERVISOR DE PRAIA IMBUHY" acima de PERMANÊNCIA PNR BRB: PENDENTE nos dias de serviço do 21º GAC (laranja na linha-resumo da aba Grad) e X nos demais.
+ *  Enquanto não existir a grade da escala, só o flag decide. Cria a linha se ainda não existir; sempre refaz as fórmulas. */
+function garantirLinhaImbuhy_(sh) {
+  var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 2).getValues(), rPnr = 0, rImb = 0;
+  for (var r = 0; r < lr; r++) {
+    var a = semAcento_(String(v[r][0] || v[r][1] || '')).replace(/\s+/g, ' ').trim();
+    if (!rPnr && /^PERMANENCIA PNR/.test(a)) rPnr = r + 1;
+    if (!rImb && a === IMBUHY_ROTULO_) rImb = r + 1;
+  }
+  if (!rImb) {
+    if (!rPnr) return false; /* prévia sem a linha de permanência: não há onde ancorar */
+    sh.insertRowBefore(rPnr);
+    rImb = rPnr;
+    sh.getRange(rImb, 1, 1, 9).clearContent();
+    sh.getRange(rImb, 1).setValue(IMBUHY_ROTULO_);
+  }
+  for (var c = 0; c < 7; c++) {
+    var L = colLetra_(2 + c);
+    var f = '=IFERROR(IF(INDEX($BH$2:$BH$8,MATCH(' + L + '$2,$BG$2:$BG$8,0)),"PENDENTE","X"),"X")';
+    sh.getRange(rImb, 3 + c).setFormula(localizarFormula_(f));
+  }
+  return true;
 }

@@ -514,6 +514,7 @@ function apiConferirPrevia(nome) {
     else if (/\$A[L-N]\$/.test(f1)) motivo = 'Of Dia (arquivo externo): sem “0” de serviço nesse dia na aba do mês, ou cor de legenda não reconhecida. Use “Atualizar prévia”.';
     else if (/\$A[UVW]\$/.test(f1)) motivo = 'Atendimento (arquivo externo): sem “0” no bloco do dia ou aba do mês não encontrada. Use “Atualizar prévia”.';
     else if (/\$(AY|AZ|BA)\$/.test(f1)) motivo = 'Motorista (arquivo da garagem): sem “0” ou nome na célula do dia, ou aba do mês não encontrada. Use “Atualizar prévia”.';
+    else if (/\$BH\$/.test(f1)) motivo = 'Supervisor de praia do Imbuhy: serviço do 21º GAC (laranja na linha-resumo da aba Grad) ainda sem a grade da escala. Fica PENDENTE até a grade existir.';
     else if (/INDIRECT/i.test(f1)) motivo = 'Escala da própria planilha: nenhum militar com “0” nesse dia na aba ' + mesesTxt + ' (Grad ou Cndt e Praia), ou o bloco não foi encontrado.';
     else motivo = 'Confira a fórmula da célula ou rode “Atualizar prévia”.';
     var m = rot[r + 1];
