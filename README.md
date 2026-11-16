@@ -51,3 +51,6 @@ Também na aba Escalas: adicionar militar, parada diária, prévia automática, 
 
 ## Supervisor de praia ao Imbuhy
 Linha-resumo **SUPERVISOR DE PRAIA AO IMBUHY** no topo da aba Grad, preenchida na importação da Guarnição pela coluna “PERMANÊNCIA À PRAIA DO IMBUHY” (laranja = 21º GAC, azul = outra unidade, “-----” = sem serviço para nenhuma OM, também azul; a coluna é opcional nas escalas antigas). Na prévia, a linha **SUPERVISOR DE PRAIA AO IMBUHY** fica acima de PERMANÊNCIA PNR BRB (criada por “Atualizar prévia”): **PENDENTE** nos dias laranja e **X** nos demais, até existir a grade da escala. Flag guardado nas colunas auxiliares BG:BH da prévia.
+
+## Trocas nas escalas dos arquivos externos
+`Modulo_TrocasExt.gs`: Of Dia, Of Dia QG AD/1, Sgt Dia e Manobreiro entram na Central de trocas e no app (“… (arquivo externo)”). Mesmo procedimento: pedido → autorização → anotação do substituto na célula do “0” do arquivo externo (a prévia lê a anotação e mostra o substituto com “*”). O dono do app precisa ser editor desses arquivos; os candidatos vêm da lista do próprio arquivo (mais o cadastro, como “fora da escala”).

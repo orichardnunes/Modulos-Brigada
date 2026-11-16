@@ -92,7 +92,10 @@ function cadastroMilitares_() {
   return lista;
 }
 function cadastroMilitaresSeguro_() { try { return cadastroMilitares_(); } catch (e) { Logger.log('Cadastro de militares: ' + e.message); return []; } }
-function infoTroca_(mes, tipo, hdr, iso) { return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_()); }
+function infoTroca_(mes, tipo, hdr, iso) {
+  if (tipo === TIPO_EXT_) return infoTrocaExt_(hdr, iso, cadastroMilitaresSeguro_());
+  return apiTrocaInfo(mes, tipo, hdr, iso, cadastroMilitaresSeguro_());
+}
 var SIT_ = ['Pendente', 'Autorizar', 'Negar', 'Cancelar', 'Autorizada', 'Negada', 'Cancelada', 'Inválida', 'Excluída', 'Expirada'];
 
 var CFG_MEMO_ = null;
@@ -218,6 +221,7 @@ function acharLinhaTroca_(sh, id) {
 function contextoTrocas_(mesId) {
   var tipos = [CFG.TIPO_GRAD, CFG.TIPO_CNDT], op = apiQuantitativoOpcoes([mesId], tipos), esc = [];
   tipos.forEach(function (t) { apiBlocos(mesId, [t]).blocos.forEach(function (b) { esc.push({ titulo: b.titulo, tipo: t, hdr: b.hdr }); }); });
+  blocosExt_().forEach(function (b) { esc.push({ titulo: b.titulo, tipo: TIPO_EXT_, hdr: b.hdr }); });
   return { chaves: op.militares, escalas: esc };
 }
 
@@ -296,7 +300,7 @@ function analisarTroca_(p, linhas, ignorarId) {
     h0.setHours(0, 0, 0, 0); h0.setDate(h0.getDate() + ant);
     r.data = dt;
     if (dt < h0) throw new Error(ant ? 'O serviço precisa ser pelo menos ' + ant + ' dia(s) à frente: a partir de ' + fmtData_(h0) + '.' : 'A data do serviço já passou.');
-    var mesId = CFG.MESES[dt.getMonth()], b = apiBlocos(mesId, [p.tipo]).blocos.filter(function (x) { return x.titulo === p.titulo; })[0];
+    var mesId = CFG.MESES[dt.getMonth()], b = (p.tipo === TIPO_EXT_ ? blocosExt_() : apiBlocos(mesId, [p.tipo]).blocos).filter(function (x) { return x.titulo === p.titulo; })[0];
     if (!b) throw new Error('Escala "' + p.titulo + '" não encontrada em ' + mesId + ' ' + p.tipo + '.');
     var info = infoTroca_(mesId, p.tipo, b.hdr, p.iso), ks = norm_(p.sai), ke = norm_(p.entra);
     r.aba = info.aba;
@@ -315,7 +319,7 @@ function analisarTroca_(p, linhas, ignorarId) {
     }
     conflitosTroca_(p.iso, p.sai, p.entra, linhas, ignorarId).forEach(function (c) { al.push('conflito: ' + c); });
     r.alertas = al.join('; ');
-    r.dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, membros: (b.linhas || []).map(function (x) { return norm_(x.nome); }) };
+    r.dados = { mes: mesId, tipo: p.tipo, hdr: b.hdr, iso: p.iso, aba: info.aba, membros: info.membros || (b.linhas || []).map(function (x) { return norm_(x.nome); }) };
     (linhas || []).forEach(function (l) {
       if (l[0] && l[11] === 'Pendente' && String(l[6]) === p.titulo && norm_(l[7]) === ks && l[15] && JSON.parse(l[15]).iso === p.iso && String(l[0]) !== String(ignorarId || '')) throw new Error('Pedido repetido (já existe ' + fmtNr_(l[0]) + ' pendente).');
     });
@@ -423,9 +427,11 @@ function agendarPrevia_() {
 function atualizarPreviaAposTroca() {
   ScriptApp.getProjectTriggers().forEach(function (t) { if (t.getHandlerFunction() === 'atualizarPreviaAposTroca') ScriptApp.deleteTrigger(t); });
   try { atualizarTrocasTrigger(); } catch (e) { Logger.log('Prévia após troca: ' + e.message); }
+  try { atualizarExternosTrigger(); } catch (e2) { Logger.log('Prévia (externos) após troca: ' + e2.message); }
 }
 
 function gravarNotaTroca_(d, saiNome, entraNome) {
+  if (d.tipo === TIPO_EXT_) return gravarNotaExt_(d, saiNome, entraNome); /* escalas dos arquivos externos */
   bumpTrocas_();
   var sh = ss_().getSheetByName(d.aba);
   if (!sh) throw new Error('Aba "' + d.aba + '" não encontrada.');
