@@ -1,0 +1,15 @@
+{
+  "name": "Gestão de Escalas",
+  "short_name": "Escalas",
+  "description": "Gestão de Escalas — S/1, Seção de Pessoal",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f8faf0",
+  "theme_color": "#3A6A35",
+  "lang": "pt-BR",
+  "icons": [
+    {"src": "icone-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icone-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}
