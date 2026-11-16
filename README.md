@@ -43,3 +43,7 @@ Aplicativo da Central de trocas ("Gestão de Escalas — S/1"): solicitar (data 
 Trocas: exclusão com registro (administrador), permuta (ida/volta decididas juntas), aviso pós-fechamento do BI com justificativa obrigatória, detecção de conflitos, decisão em lote, QR Code/cartaz e exportação CSV/PDF (auditoria e relatório). Só as novas solicitações geram e-mail.
 
 **Modulo_Telas.gs**: telas de consulta e análise do aplicativo (painel do militar com extrato em PDF, calendário em mapa de calor, fila da escala, efetivo, afastamentos, modo TV `?tv=1`, e na Gestão: riscos, rede de trocas, desempenho e mapa de calor das trocas).
+
+
+## 1ª Seção pelo celular (app de gestão)
+Aba **1ª Seção** em Gestão (`Modulo_Secao.gs`): ver a prévia, divergências (arquivos externos lendo outra data, CB DIA fora de ordem, militar duplicado, PENDENTE), atualizar/criar prévia, adicionar/retirar serviço (grava o “0” na grade) e exportar PDF. Tudo registrado na auditoria. Colar `Modulo_Secao.gs`, `Modulo_TrocasWeb.gs`, `Modulo_Previa.gs` e `Codigo.gs` e publicar nova versão do app.

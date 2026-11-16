@@ -526,8 +526,7 @@ function criarPrevia_(ini) {
     ajustarCorpoPrevia_(sh, modelo, vermelhoFlags_(ini));
     /* a nova aba fica à frente das outras prévias */
     var primeira = abasPrevia_().filter(function (s) { return s.getSheetId() !== sh.getSheetId() && !s.isSheetHidden(); })[0];
-    ss.setActiveSheet(sh);
-    ss.moveActiveSheet(primeira ? primeira.getIndex() : ss.getNumSheets());
+    try { ss.setActiveSheet(sh); ss.moveActiveSheet(primeira ? primeira.getIndex() : ss.getNumSheets()); } catch (e) { Logger.log('Posição da aba: ' + e.message); } /* pelo app (sem planilha aberta) isto pode falhar; a prévia continua válida */
     migrarPrevia_(sh);
     var ax = atualizarExternosPrevia_(sh, true);
     avisos = ax.avisos || [];
