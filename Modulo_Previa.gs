@@ -16,7 +16,7 @@ var PREVIA_LOC = {
   TRC: { A: 'AG', B: 'AH', C: 'AI' }
 };
 /* supervisor de praia ao Imbuhy: linha-resumo do topo da aba Grad (vinda da Guarnição) e linha própria na prévia, acima de PERMANÊNCIA PNR BRB */
-var IMBUHY_CHAVE_ = 'SUPERVISOR DE PRAIA AO IMBUHY', IMBUHY_ROTULO_ = 'SUPERVISOR DE PRAIA IMBUHY', PREVIA_IMB_ = [];
+var IMBUHY_CHAVE_ = 'SUPERVISOR DE PRAIA AO IMBUHY', IMBUHY_ROTULO_ = 'SUPERVISOR DE PRAIA AO IMBUHY', IMBUHY_ROTULO_ANTIGO_ = 'SUPERVISOR DE PRAIA IMBUHY', PREVIA_IMB_ = [];
 var PREVIA_COR = { PORTAO12: '#a4c2f4', PORTAO24: '#1c4587', CAB_NORMAL: '#cccccc', CAB_VERMELHO: '#cc0000' };
 
 /* ============================================================ FUNÇÕES PERSONALIZADAS */
@@ -793,14 +793,14 @@ function mnuGatilhoPrevia() {
   mostrarHtml_(h, 'Gatilho da prévia', 500, 560);
 }
 
-/** linha "SUPERVISOR DE PRAIA IMBUHY" acima de PERMANÊNCIA PNR BRB: PENDENTE nos dias de serviço do 21º GAC (laranja na linha-resumo da aba Grad) e X nos demais.
+/** linha "SUPERVISOR DE PRAIA AO IMBUHY" acima de PERMANÊNCIA PNR BRB: PENDENTE nos dias de serviço do 21º GAC (laranja na linha-resumo da aba Grad) e X nos demais.
  *  Enquanto não existir a grade da escala, só o flag decide. Cria a linha se ainda não existir; sempre refaz as fórmulas. */
 function garantirLinhaImbuhy_(sh) {
   var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 2).getValues(), rPnr = 0, rImb = 0;
   for (var r = 0; r < lr; r++) {
     var a = semAcento_(String(v[r][0] || v[r][1] || '')).replace(/\s+/g, ' ').trim();
     if (!rPnr && /^PERMANENCIA PNR/.test(a)) rPnr = r + 1;
-    if (!rImb && a === IMBUHY_ROTULO_) rImb = r + 1;
+    if (!rImb && (a === IMBUHY_ROTULO_ || a === IMBUHY_ROTULO_ANTIGO_)) { rImb = r + 1; if (a !== IMBUHY_ROTULO_) sh.getRange(rImb, 1).setValue(IMBUHY_ROTULO_); }
   }
   if (!rImb) {
     if (!rPnr) return false; /* prévia sem a linha de permanência: não há onde ancorar */
