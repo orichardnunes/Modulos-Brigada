@@ -51,6 +51,11 @@ body{background:var(--s);color:var(--on);font:400 16px/24px var(--font);letter-s
 .sc-ds{display:flex;gap:6px;margin:4px 0 10px}.sc-dy{flex:1;min-width:0;text-align:center;border:1px solid var(--olv);border-radius:12px;padding:6px 0;font:400 11px/14px var(--font);color:var(--onv);background:transparent;position:relative;cursor:pointer}.sc-dy b{display:block;font:500 16px/18px var(--font);color:var(--on)}.sc-dy.on{background:var(--pc);border-color:var(--p);color:var(--onpc)}.sc-dy.on b{color:var(--onpc)}.sc-dy i{position:absolute;right:4px;top:4px;width:7px;height:7px;border-radius:50%;background:#e0a100}
 .sc-fl{display:flex;gap:6px;margin:0 0 8px;overflow-x:auto}.sc-fl button{flex:none;padding:6px 12px;border-radius:16px;border:1px solid var(--olv);background:transparent;color:var(--on);font:500 12px/14px var(--font);cursor:pointer;white-space:nowrap}.sc-fl button.on{background:var(--pc);color:var(--onpc);border-color:var(--p)}
 .sc-gt{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:6px 2px}.sc-gt small{text-transform:none;letter-spacing:0}.sc-bx{border:1px solid var(--olv);border-radius:14px;background:var(--sl);overflow:hidden}.sc-ln{display:flex;justify-content:space-between;gap:10px;padding:9px 12px;border-top:1px solid var(--olv);font-size:13.5px}.sc-ln:first-child{border-top:0}.sc-ln span:first-child{color:var(--onv);font-size:12px;flex:none;max-width:42%;padding-top:1px}.sc-ln span:last-child{font-weight:500;text-align:right}.sc-ln .pen{color:#c77c00}.sc-ln .tr{color:var(--p)}.sc-ln .x{color:var(--olv)}.sc-ln .bad{background:#ffdad6;color:#93000a;border-radius:4px;padding:1px 4px}
+.nx{border:1px solid var(--olv);border-radius:16px;background:var(--s);padding:12px 14px;margin-bottom:10px}.nx .tp{display:flex;justify-content:space-between;align-items:center}.nx .cd{font-size:11px;color:var(--onv)}
+.nx .why{margin:10px 0 12px;padding:9px 12px;border-radius:12px;border:1.5px solid}.nx .why.Negada{background:var(--erc);border-color:var(--er);color:var(--oner)}.nx .why.Expirada{background:var(--wa);border-color:var(--onwa);color:var(--onwa)}.nx .why.Inválida{background:var(--sh);border-color:var(--ol);color:var(--on)}
+.nx .why small{display:block;font:700 11px/14px var(--font);letter-spacing:.7px;text-transform:uppercase;margin-bottom:3px;opacity:.85}.nx .why b{display:block;font:600 14.5px/20px var(--font)}
+.nx .sv{font:500 15px/20px var(--font)}.nx .sv span{color:var(--onv);font-weight:400}.nx .nm,.rq .nm{font:500 14px/20px var(--font);margin-top:4px;overflow-wrap:anywhere}.nx .rg{margin-top:9px;font-size:12px;color:var(--onv);border-top:1px solid var(--olv);padding-top:8px}.nx .rg b{color:var(--on);font-weight:500}
+.rq{border-left:3px solid var(--p);background:var(--bg);border-radius:0 10px 10px 0;padding:9px 11px;margin:7px 0}.rq.au{border-left-color:var(--olv)}.rq .a1{display:flex;justify-content:space-between;align-items:center;gap:6px}.rq .a1 b{font:500 14px/19px var(--font)}.rq small{display:block;color:var(--onv);font-size:11.5px;margin-top:3px}
 .f textarea{min-height:88px;resize:vertical}
 .f select{background-image:linear-gradient(45deg,transparent 50%,var(--onv) 50%),linear-gradient(135deg,var(--onv) 50%,transparent 50%);background-position:calc(100% - 20px) 26px,calc(100% - 14px) 26px;background-size:6px 6px;background-repeat:no-repeat;padding-right:36px}
 .f select option{background:var(--sl);color:var(--on)}
@@ -238,6 +243,7 @@ body{background:var(--s);color:var(--on);font:400 16px/24px var(--font);letter-s
  <div id="lseg"></div>
  <div class="lbl">Últimas 5 solicitações pendentes</div><div id="upL"></div>
  <div class="mu">Para ver as demais, pesquise pelo código.</div></div>
+ <div class="card hide" id="naCard"><div class="ch"><span class="ib" style="background:var(--erc);color:var(--oner)"><span class="icon">report</span></span><div><h2 class="ct">Não autorizadas</h2><div class="cs" id="naSub">Carregando…</div></div></div><div id="naL"></div></div>
  <div class="card" id="resCard"><div class="ch"><span class="ib"><span class="icon">pending_actions</span></span><div><h2 class="ct">Pendentes por escala</h2><div class="cs" id="resSub">Carregando…</div></div></div><div id="resL"></div></div>
 </section>
 
@@ -654,18 +660,31 @@ function ajIni(){if(!S.ini||!lsOk())return;if(String(S.ini.novidadesVer)!==ls('t
 
 /* ---- resumo por escala (Acompanhar) */
 S.rx={};
-function carregaRes(){mostraSkSeg();$('resSub').textContent='Carregando…';run('webResumo',[S.tok||''],function(r){S.res=r;pintaRes()},function(e){$('resL').innerHTML='<div class="mu">'+esc(e.message||e)+'</div>';$('resSub').textContent=''})}
+var MESES3=['JAN','FEV','MAR','ABR','MAI','JUN','JUL','AGO','SET','OUT','NOV','DEZ'],DIAS3=['DOM','SEG','TER','QUA','QUI','SEX','SÁB'];
+function fmtServ(iso){if(!iso)return '';var d=pIso(iso);return ('0'+d.getDate()).slice(-2)+' '+MESES3[d.getMonth()]+' '+String(d.getFullYear()).slice(-2)+' · '+DIAS3[d.getDay()]}
+function carregaRes(){mostraSkSeg();$('resSub').textContent='Carregando…';
+ if(!S.na){$('naCard').classList.remove('hide');$('naSub').textContent='Buscando…';$('naL').innerHTML=spin('Buscando as não autorizadas…','rows')}
+ run('webNaoAut',[],function(r){S.na=r;pintaNA()},function(){$('naCard').classList.add('hide')});
+ run('webResumo',[S.tok||''],function(r){S.res=r;pintaRes()},function(e){$('resL').innerHTML='<div class="mu">'+esc(e.message||e)+'</div>';$('resSub').textContent=''})}
+function pintaNA(){var l=(S.na&&S.na.itens)||[],c=$('naCard');if(!l.length){c.classList.add('hide');return}c.classList.remove('hide');
+ $('naSub').textContent=l.length+' nos últimos 7 dias · veja o motivo';
+ $('naL').innerHTML=l.map(function(x){return '<div class="nx"><div class="tp"><span class="pill '+esc(x.sit)+'">'+esc(x.sit)+'</span><span class="cd">cód. '+esc(x.nr)+'</span></div>'+
+  '<div class="why '+esc(x.sit)+'"><small>Motivo</small><b>'+esc(x.motivo)+'</b></div>'+
+  '<div class="sv">'+esc(x.esc)+' <span>· Serviço de</span> '+esc(fmtServ(x.iso))+'</div><div class="nm">'+esc(x.sai)+' ➜ '+esc(x.entra)+'</div>'+(x.par?'<div style="margin-top:6px"><span class="tg al">⇄ Permuta com '+esc(x.parNr)+'</span></div>':'')+
+  '<div class="rg">Registro feito por <b>'+esc(x.reg)+'</b>'+(x.regEm?' · '+esc(x.regEm):'')+'</div></div>'}).join('')}
+function itemRes(x){var au=x.sit==='Autorizada',adm_=!!x.id;
+ return '<div class="rq'+(au?' au':'')+'"><div class="a1"><b>Serviço de '+esc(fmtServ(x.iso))+'</b><span class="pill '+esc(x.sit)+'">'+esc(x.sit)+'</span></div><div class="nm">'+esc(x.sai)+' ➜ '+esc(x.entra)+'</div>'+(x.par?'<div style="margin-top:4px"><span class="tg al">⇄ Permuta com '+esc(x.parNr)+'</span></div>':'')+
+  '<small>cód. '+esc(x.nr)+' · '+(au&&x.por?'Registro feito por '+esc(x.por)+(x.dec?' · '+esc(x.dec):''):'solicitada em '+esc(x.rec))+'</small>'+
+  (adm_&&x.sol?'<small>Solicitada por '+esc(x.sol)+'</small>':'')+(adm_&&x.mot?'<small>Motivo: '+esc(x.mot)+'</small>':'')+(adm_&&x.alert&&x.alert!=='Sem alertas'?'<div style="margin-top:4px"><span class="tg al">'+esc(x.alert)+'</span></div>':'')+
+  (adm_?'<div id="rv'+esc(x.id)+'"></div><div class="acts" style="margin-top:6px"><button class="btn out sm" onclick="previaPub(\''+esc(x.id)+'\',this)"><span class="icon">visibility</span>Ver como fica</button></div>':'')+'</div>'}
 function pintaRes(){var r=S.res;if(!r)return;pendBadge(r.escalas.reduce(function(n,e){return n+e.pend},0));
  var tp=0,ta=0;r.escalas.forEach(function(e){tp+=e.pend;ta+=e.aut});
  $('resSub').textContent=tp+' pendente'+(tp===1?'':'s')+' · '+ta+' autorizada'+(ta===1?'':'s')+' (serviços de ontem em diante)';
  var ordenados=r.escalas.filter(function(e){return e.pend+e.aut>0}).sort(function(a,b){return (b.pend+b.aut)-(a.pend+a.aut)});
  S.ord=ordenados.map(function(e){return e.titulo});
  var h='';ordenados.forEach(function(e,ix){var t=e.titulo,ab=!!S.rx[t];
-  h+='<div class="rw" onclick="resTog('+ix+')"><span class="nm">'+esc(t)+'</span>'+(e.pend?'<span class="bd p" title="pendentes">'+e.pend+'</span>':'')+(e.aut?'<span class="bd a" title="autorizadas">'+e.aut+'</span>':'')+'<span class="icon">'+(ab?'expand_more':(e.det?'chevron_right':'lock'))+'</span></div>';
-  if(ab){h+='<div style="padding:0 0 8px">';
-   if(!e.det)h+='<div class="ban in" style="margin:0"><span class="icon">lock</span><div>Os detalhes são liberados só para a 1ª Seção. Para consultar uma solicitação, pesquise pelo código.</div></div>';
-   else h+=e.itens.map(function(x){return cardReq(x,'<div id="rv'+esc(x.id)+'"></div><div class="acts"><button class="btn out sm" onclick="previaPub(\''+esc(x.id)+'\',this)"><span class="icon">visibility</span>Ver como fica</button></div>')}).join('');
-   h+='</div>'}});
+  h+='<div class="rw" onclick="resTog('+ix+')"><span class="nm">'+esc(t)+'</span>'+(e.pend?'<span class="bd p" title="pendentes">'+e.pend+'</span>':'')+(e.aut?'<span class="bd a" title="autorizadas">'+e.aut+'</span>':'')+'<span class="icon">'+(ab?'expand_more':'chevron_right')+'</span></div>';
+  if(ab)h+='<div style="padding:0 0 8px">'+e.itens.map(itemRes).join('')+'</div>'});
  $('resL').innerHTML=h||'<div class="empty">Nenhuma solicitação pendente ou autorizada no momento.</div>'}
 function resTog(i){var t=S.ord[i];S.rx[t]=!S.rx[t];pintaRes()}
 function previaPub(id,b){b.disabled=true;run('webPreviaPub',[id,S.tok||''],function(r){b.disabled=false;

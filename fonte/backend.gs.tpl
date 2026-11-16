@@ -374,9 +374,39 @@ function webResumo(tok) {
   return {
     adm: adm,
     escalas: resumoTrocas_().escalas.map(function (o) {
-      return { titulo: o.titulo, pend: o.pend, aut: o.aut, det: adm, itens: adm ? o.itens : [] };
+      /* a relação é aberta a todos; quem não é da 1ª Seção não vê solicitante, motivo, alertas nem o id interno */
+      return { titulo: o.titulo, pend: o.pend, aut: o.aut, det: true, itens: adm ? o.itens : o.itens.map(itemPublico_) };
     })
   };
+}
+
+function itemPublico_(x) {
+  return { nr: x.nr, rec: x.rec, data: x.data, iso: x.iso, esc: x.esc, sai: x.sai, entra: x.entra, sit: x.sit, por: x.por, dec: x.dec, par: x.par ? 1 : 0, parNr: x.parNr || '' };
+}
+
+/** solicitações NÃO autorizadas (negadas, expiradas e inválidas) dos últimos 7 dias, com o motivo — aberto a todos */
+function webNaoAut() {
+  ativarMemoLer_();
+  var k = 'NA|' + verTrocas_(), c = cacheGet_(k);
+  if (c) return c;
+  var lim = new Date(), lista = [];
+  lim.setHours(0, 0, 0, 0); lim.setDate(lim.getDate() - 7);
+  var MOT = { Negada: 'Motivo não informado.', Expirada: 'O serviço passou sem decisão da 1ª Seção.', 'Inválida': 'Pedido inválido.' };
+  linhasTrocas_().forEach(function (l) {
+    var st = l[11];
+    if (!MOT[st]) return;
+    var quando = l[13] instanceof Date ? l[13] : (l[1] instanceof Date ? l[1] : null);
+    if (!quando || quando < lim) return;
+    var it = itemTrocaWeb_(l);
+    lista.push({ t: quando.getTime(), nr: it.nr, iso: it.iso, data: it.data, esc: it.esc, sai: it.sai, entra: it.entra, sit: st,
+      motivo: String(l[14] || '').trim() || MOT[st], reg: String(l[12] || '').trim() || 'Sistema',
+      regEm: quando instanceof Date ? fmtData_(quando) + ' ' + Utilities.formatDate(quando, Session.getScriptTimeZone(), 'HH:mm') : '', par: it.par ? 1 : 0, parNr: it.parNr || '', perna: it.perna });
+  });
+  lista = lista.filter(function (x) { return !(x.perna === 2 && lista.some(function (y) { return y.nr === x.parNr && y.sit === x.sit; })); });
+  lista.sort(function (a, c2) { return c2.t - a.t; });
+  var res = { itens: lista.slice(0, 30).map(function (x) { delete x.t; delete x.perna; return x; }) };
+  cachePut_(k, res, 30);
+  return res;
 }
 
 function webPreviaPub(id, tok) {
