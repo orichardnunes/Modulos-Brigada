@@ -46,4 +46,4 @@ Trocas: exclusão com registro (administrador), permuta (ida/volta decididas jun
 
 
 ## Escalas pelo celular (app de gestão)
-Aba **Escalas** em Gestão (`Modulo_Secao.gs`): ver a prévia, divergências (arquivos externos lendo outra data, CB DIA fora de ordem, militar duplicado, PENDENTE), atualizar/criar prévia, adicionar/retirar serviços (por escala e período, com a mesma lógica do menu da planilha: apiServicos) e exportar PDF. Tudo registrado na auditoria. Colar `Modulo_Secao.gs`, `Modulo_TrocasWeb.gs`, `Modulo_Previa.gs` e `Codigo.gs` e publicar nova versão do app.
+Aba **Escalas** em Gestão (`Modulo_Secao.gs`): ver a prévia, divergências (arquivos externos lendo outra data, CB DIA fora de ordem, militar duplicado, PENDENTE), atualizar/criar prévia, adicionar/retirar serviços (por escala e período, com a mesma lógica do menu da planilha: apiServicos) exportar PDF, adicionar afastamento (apiAfastamento) e remover/transferir militar (apiMover). Tudo registrado na auditoria. Colar `Modulo_Secao.gs`, `Modulo_TrocasWeb.gs`, `Modulo_Previa.gs` e `Codigo.gs` e publicar nova versão do app.

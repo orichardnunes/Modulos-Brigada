@@ -202,12 +202,19 @@ function webSecaoPdf(tok, nome) {
 
 /* ============================================================ ADICIONAR / RETIRAR SERVIÇOS (por escala)
  * Reaproveita a lógica do menu da planilha (apiAbas, apiBlocos e apiServicos, em Modulo_Escala.gs). */
-function webSecaoAbas(tok) { sessao_(tok); var r = apiAbas(); r.folga = CFG.FOLGA_MIN_H; return r; }
+function webSecaoAbas(tok) {
+  sessao_(tok);
+  var r = apiAbas();
+  r.folga = CFG.FOLGA_MIN_H;
+  r.subs = CFG.SUBUNIDADES;
+  r.tiposAfast = Object.keys(TIPOS_AFAST).map(function (k) { return { k: k, l: TIPOS_AFAST[k], c: (CFG.LEGENDA_PADRAO[k] || {}).bg || '#cccccc' }; });
+  return r;
+}
 
-function webSecaoBlocos(tok, mesId, tipos) {
+function webSecaoBlocos(tok, mesId, tipos, comLinhas) {
   sessao_(tok);
   var r = apiBlocos(String(mesId || ''), (tipos || []).filter(function (x) { return x === 'Grad' || x === 'Cndt e Praia'; }));
-  r.blocos.forEach(function (b) { delete b.linhas; });
+  r.blocos.forEach(function (b) { if (comLinhas) b.linhas = b.linhas.map(function (l) { return { nome: l.nome, sub: l.sub }; }); else delete b.linhas; });
   return r;
 }
 
@@ -234,5 +241,48 @@ function webSecaoServicos(tok, modo, p, aplicar) {
       auditar_(m.nome, modo === 'add' ? 'Serviços adicionados (app)' : 'Serviços retirados (app)', rel.abas.map(function (a) { return a.aba; }).join(', ') + ' · ' + p.de + ' a ' + p.ate + ' · escalas: ' + blocos.length + ' · serviços: ' + tot + (falta ? ' · sem militar: ' + falta : ''));
     }
     return { rel: rel };
+  } finally { if (lock) lock.releaseLock(); }
+}
+
+/* ============================================================ AFASTAMENTO E MILITAR (mesma lógica do menu Confecção) */
+/** p: {aba, hdr, keys:[nomes], tipo, de, ate, apres, todas} */
+function webSecaoAfastamento(tok, p, aplicar) {
+  var m = sessao_(tok);
+  p = p || {};
+  var q = { aba: String(p.aba || ''), hdr: Number(p.hdr), keys: (p.keys || []).slice(0, 200).map(function (k) { return String(k); }), tipo: String(p.tipo || ''), de: String(p.de || ''), ate: String(p.ate || ''), apres: String(p.apres || ''), todas: !!p.todas };
+  if (q.de || q.ate) {
+    if (!TIPOS_AFAST[q.tipo]) throw new Error('Escolha o tipo de afastamento.');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(q.de) || !/^\d{4}-\d{2}-\d{2}$/.test(q.ate)) throw new Error('Informe início e término.');
+  }
+  if (q.apres && !/^\d{4}-\d{2}-\d{2}$/.test(q.apres)) throw new Error('Data de apresentação inválida.');
+  var lock = null;
+  if (aplicar) { lock = LockService.getDocumentLock(); lock.waitLock(25000); }
+  try {
+    var r = apiAfastamento(q, !!aplicar);
+    if (aplicar) {
+      bumpTrocas_();
+      agendarPrevia_();
+      auditar_(m.nome, 'Afastamento lançado (app)', q.aba + ' · ' + (r.rel.escala || '') + ' · ' + (r.rel.tipo || 'apresentação') + ' · ' + (r.rel.periodo || r.rel.apres) + ' · militares: ' + q.keys.length);
+    }
+    return { rel: r.rel };
+  } finally { if (lock) lock.releaseLock(); }
+}
+
+/** p: {mes, tipo, nome, hdrs:[], acao:'remover'|'transferir', su, cascata} */
+function webSecaoMover(tok, p, aplicar) {
+  var m = sessao_(tok);
+  p = p || {};
+  var q = { mes: String(p.mes || ''), tipo: String(p.tipo || ''), nome: String(p.nome || ''), hdrs: (p.hdrs || []).slice(0, 60).map(Number), acao: p.acao === 'transferir' ? 'transferir' : 'remover', su: String(p.su || ''), cascata: !!p.cascata };
+  if (q.tipo !== 'Grad' && q.tipo !== 'Cndt e Praia') throw new Error('Tipo de aba inválido.');
+  var lock = null;
+  if (aplicar) { lock = LockService.getDocumentLock(); lock.waitLock(25000); }
+  try {
+    var r = apiMover(q, !!aplicar);
+    if (aplicar) {
+      bumpTrocas_();
+      agendarPrevia_();
+      auditar_(m.nome, q.acao === 'remover' ? 'Militar removido da escala (app)' : 'Militar transferido de SU (app)', q.nome + ' · ' + q.mes + ' ' + q.tipo + (q.acao === 'transferir' ? ' → ' + q.su : '') + ' · linhas: ' + r.rel.itens.length + (q.cascata ? ' · meses seguintes' : ''));
+    }
+    return { rel: r.rel };
   } finally { if (lock) lock.releaseLock(); }
 }
