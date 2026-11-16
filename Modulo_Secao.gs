@@ -386,3 +386,20 @@ function webSecaoVerificar(tok) {
   });
   return { total: funcoesEsperadas_().length, faltam: faltam, abas: abas, versao: CFG.VERSAO };
 }
+
+/** apaga as abas de prévia escolhidas (nunca a "Prévia - Modelo") */
+function webSecaoRemoverPrevias(tok, nomes) {
+  var m = sessao_(tok), lock = LockService.getDocumentLock();
+  nomes = (nomes || []).slice(0, 60).map(String);
+  if (!nomes.length) throw new Error('Marque ao menos uma prévia.');
+  lock.waitLock(25000);
+  try {
+    var ss = ss_(), removidas = [];
+    var validas = abasPrevia_().filter(function (sh) { return !/Modelo/i.test(sh.getName()); }).map(function (sh) { return sh.getName(); });
+    nomes.forEach(function (n) { if (validas.indexOf(n) < 0) throw new Error('"' + n + '" não é uma prévia que possa ser removida.'); });
+    nomes.forEach(function (n) { var sh = ss.getSheetByName(n); if (sh) { ss.deleteSheet(sh); removidas.push(n); } });
+    bumpTrocas_();
+    auditar_(m.nome, 'Prévias removidas (app)', removidas.join('; '));
+    return { removidas: removidas };
+  } finally { lock.releaseLock(); }
+}
