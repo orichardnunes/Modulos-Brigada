@@ -1,6 +1,6 @@
 /**
  * MÓDULO BRIGADA 1.0 — Modulo_Secao.gs
- * 1ª Seção pelo celular (aba "1ª Seção" do app de gestão): ver a prévia, conferir divergências,
+ * Escalas pelo celular (aba "Escalas" do app de gestão): ver a prévia, conferir divergências,
  * atualizar/criar prévia, adicionar/retirar serviço e exportar PDF. Todas as funções exigem sessão da 1ª Seção.
  */
 
@@ -200,67 +200,39 @@ function webSecaoPdf(tok, nome) {
   return r.rel;
 }
 
-/* ============================================================ ADICIONAR / RETIRAR SERVIÇO */
-function servicoPrep_(p) {
-  var acao = p.acao === 'rem' ? 'rem' : 'add', ks = norm_(p.militar);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.iso || ''))) throw new Error('Escolha o dia.');
-  var info = infoTroca_(p.mes, p.tipo, p.hdr, p.iso), alvo = null, avisos = [];
-  if (acao === 'add') {
-    alvo = info.cands.filter(function (x) { return norm_(x.nome) === ks; })[0];
-    if (!alvo) throw new Error(p.militar + ' não pode entrar: já está de serviço nessa escala nesse dia ou não consta no cadastro.');
-    if (alvo.r < 0 || alvo.fora) throw new Error(p.militar + ' não pertence a essa escala (não está no bloco da grade).');
-    (alvo.flags || []).forEach(function (f) { avisos.push(f); });
-  } else {
-    alvo = info.sai.filter(function (x) { return norm_(x.nome) === ks; })[0];
-    if (!alvo) throw new Error(p.militar + ' não tem “0” de serviço nesse dia nessa escala.');
-    if (alvo.nota) avisos.push('há troca anotada nessa célula (' + String(alvo.nota).replace(/\s+/g, ' ').trim().slice(0, 60) + '); a anotação será removida');
-  }
-  return { info: info, alvo: alvo, avisos: avisos, acao: acao };
-}
+/* ============================================================ ADICIONAR / RETIRAR SERVIÇOS (por escala)
+ * Reaproveita a lógica do menu da planilha (apiAbas, apiBlocos e apiServicos, em Modulo_Escala.gs). */
+function webSecaoAbas(tok) { sessao_(tok); var r = apiAbas(); r.folga = CFG.FOLGA_MIN_H; return r; }
 
-/** o que muda na escala do dia, sem gravar */
-function webSecaoServicoPrev(tok, p) {
+function webSecaoBlocos(tok, mesId, tipos) {
   sessao_(tok);
-  ativarMemoLer_();
-  var P = servicoPrep_(p), linhas = [];
-  P.info.sai.forEach(function (x) {
-    var eAlvo = P.acao === 'rem' && x.nome === P.alvo.nome;
-    linhas.push({ nome: x.nome, antes: '0', depois: eAlvo ? 'sai do serviço' : '0', alvo: eAlvo });
-  });
-  if (P.acao === 'add') linhas.push({ nome: P.alvo.nome, antes: P.alvo.folga == null ? '—' : String(P.alvo.folga), depois: '0 (novo)', alvo: true });
-  return { escala: P.info.titulo, data: P.info.data, linhas: linhas, avisos: P.avisos, acao: P.acao, aviso2: P.acao === 'rem' ? 'O rodízio dos dias seguintes não é recalculado: a célula recebe o número do dia anterior + 1.' : '' };
+  var r = apiBlocos(String(mesId || ''), (tipos || []).filter(function (x) { return x === 'Grad' || x === 'Cndt e Praia'; }));
+  r.blocos.forEach(function (b) { delete b.linhas; });
+  return r;
 }
 
-function webSecaoServico(tok, p) {
-  var m = sessao_(tok), motivo = String(p.motivo || '').trim().slice(0, 200), lock = LockService.getDocumentLock();
-  if (motivo.length < 3) throw new Error('Informe o motivo (vai para o histórico).');
-  lock.waitLock(25000);
+/** modo 'add' | 'del'; aplicar=false só verifica (nada é gravado) */
+function webSecaoServicos(tok, modo, p, aplicar) {
+  var m = sessao_(tok);
+  if (modo !== 'add' && modo !== 'del') throw new Error('Ação inválida.');
+  p = p || {};
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(p.de || '')) || !/^\d{4}-\d{2}-\d{2}$/.test(String(p.ate || '')) || p.de > p.ate) throw new Error('Período inválido.');
+  var blocos = (p.blocos || []).slice(0, 60).map(function (b) {
+    return { aba: String(b.aba || ''), hdr: Number(b.hdr), vagas: Math.max(0, Math.min(50, Number(b.vagas) || 0)), vagasV: (b.vagasV == null || b.vagasV === '') ? null : Math.max(0, Math.min(50, Number(b.vagasV) || 0)) };
+  });
+  if (!blocos.length) throw new Error('Marque ao menos uma escala.');
+  var q = { de: p.de, ate: p.ate, blocos: blocos, folgaH: Number(p.folgaH) || CFG.FOLGA_MIN_H, evOutra: !!p.evOutra, evAdj: !!p.evAdj, relaxar: !!p.relaxar, verdes: !!p.verdes, notas: p.notas !== false };
+  var lock = null;
+  if (aplicar) { lock = LockService.getDocumentLock(); lock.waitLock(25000); }
   try {
-    ativarMemoLer_();
-    var P = servicoPrep_(p), sh = ss_().getSheetByName(p.mes + ' ' + p.tipo);
-    if (!sh) throw new Error('Aba "' + p.mes + ' ' + p.tipo + '" não encontrada.');
-    var A = lerAba_(sh), B = null;
-    A.blocos.forEach(function (b) { if (b.hdr === Number(p.hdr)) B = b; });
-    if (!B) throw new Error('Escala não encontrada.');
-    var dia = parseIso_(p.iso).getDate(), r = P.alvo.r, dias = [dia];
-    if (ehPar_(B)) { /* serviços seguidos: o par de dias muda junto */
-      var d2 = ehCabecaPar_(A, B, dia) ? dia + 1 : dia - 1;
-      if (d2 >= 1 && d2 <= A.nDias && (P.acao === 'rem' ? num_(A.vals[r][colDia_(d2)]) === 0 : num_(A.vals[r][colDia_(d2)]) !== 0)) dias.push(d2);
+    var r = apiServicos(modo, q, !!aplicar), rel = r.rel;
+    if (aplicar) {
+      bumpTrocas_();
+      agendarPrevia_();
+      var tot = 0, falta = 0;
+      rel.abas.forEach(function (a) { a.escalas.forEach(function (e) { tot += e.n || 0; falta += e.falta || 0; }); });
+      auditar_(m.nome, modo === 'add' ? 'Serviços adicionados (app)' : 'Serviços retirados (app)', rel.abas.map(function (a) { return a.aba; }).join(', ') + ' · ' + p.de + ' a ' + p.ate + ' · escalas: ' + blocos.length + ' · serviços: ' + tot + (falta ? ' · sem militar: ' + falta : ''));
     }
-    dias.forEach(function (d) {
-      var c = colDia_(d);
-      if (A.forms[r][c]) throw new Error('A célula do dia ' + d + ' tem fórmula; altere direto na planilha.');
-      var rng = sh.getRange(r + 1, c + 1);
-      if (P.acao === 'add') rng.setValue(0);
-      else {
-        var ant = c > colDia_(1) ? num_(A.vals[r][c - 1]) : null;
-        rng.setValue(ant == null || ant === 0 ? 1 : ant + 1);
-        rng.clearNote();
-      }
-    });
-    bumpTrocas_();
-    agendarPrevia_();
-    auditar_(m.nome, P.acao === 'add' ? 'Serviço adicionado (app)' : 'Serviço retirado (app)', P.info.titulo + ' · ' + p.mes + ' dia(s) ' + dias.join('+') + ' · ' + P.alvo.nome + ' · motivo: ' + motivo);
-    return { ok: true, dias: dias, nome: P.alvo.nome, escala: P.info.titulo };
-  } finally { lock.releaseLock(); }
+    return { rel: rel };
+  } finally { if (lock) lock.releaseLock(); }
 }
