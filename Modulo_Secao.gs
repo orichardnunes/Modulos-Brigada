@@ -406,7 +406,7 @@ function webSecaoRemoverPrevias(tok, nomes) {
 
 /** executar uma vez no editor (seletor de funções → definirUrlPublicaGitHub → Executar): os links dos e-mails e da ajuda passam a apontar para a página do GitHub Pages */
 function definirUrlPublicaGitHub() {
-  definirUrlPublica_('https://orichardnunes.github.io/gestao-escalas/');
+  definirUrlPublica_('https://s1-21gac.github.io/gestao-escalas/');
   Logger.log('Endereço público definido: ' + PropertiesService.getDocumentProperties().getProperty('URL_PUBLICA'));
 }
 /** volta os links ao endereço do Apps Script */
