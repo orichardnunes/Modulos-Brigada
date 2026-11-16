@@ -207,6 +207,7 @@ function webSecaoAbas(tok) {
   var r = apiAbas();
   r.folga = CFG.FOLGA_MIN_H;
   r.subs = CFG.SUBUNIDADES;
+  r.grads = CFG.GRADUACOES;
   r.tiposAfast = Object.keys(TIPOS_AFAST).map(function (k) { return { k: k, l: TIPOS_AFAST[k], c: (CFG.LEGENDA_PADRAO[k] || {}).bg || '#cccccc' }; });
   return r;
 }
@@ -285,4 +286,103 @@ function webSecaoMover(tok, p, aplicar) {
     }
     return { rel: r.rel };
   } finally { if (lock) lock.releaseLock(); }
+}
+
+/* ============================================================ DEMAIS FERRAMENTAS DO MENU (mesmas funções da planilha) */
+function webSecaoParadaPrevias(tok) { sessao_(tok); return apiParadaPrevias(); }
+function webSecaoParadaDias(tok, nome) { sessao_(tok); return apiParadaDias(String(nome || '')); }
+function webSecaoParadaSalvar(tok, nome, itens) {
+  var m = sessao_(tok), lock = LockService.getDocumentLock();
+  lock.waitLock(25000);
+  try {
+    var r = apiDefinirParada(String(nome || ''), (itens || []).slice(0, 7).map(function (x) { return { col: Number(x.col), h: Number(x.h), m: Number(x.m) || 0 }; }));
+    bumpTrocas_();
+    auditar_(m.nome, 'Parada diária definida (app)', r.nome + ' · ' + r.itens.map(function (i) { return i.d + ' ' + i.antes + '→' + i.depois; }).join(', '));
+    return r;
+  } finally { lock.releaseLock(); }
+}
+
+function webSecaoGatPrevia(tok) { sessao_(tok); return apiGatPrevia() || null; }
+function webSecaoGatPreviaSalvar(tok, dow, hora) { var m = sessao_(tok, true); var r = apiSalvarGatPrevia(dow, hora); auditar_(m.nome, 'Criação automática da prévia definida (app)', 'dia ' + dow + ' às ' + hora + 'h'); return r; }
+function webSecaoGatPreviaAtivar(tok, ativo) { var m = sessao_(tok, true); var r = apiAtivarGatPrevia(!!ativo); auditar_(m.nome, ativo ? 'Criação automática da prévia ativada (app)' : 'Criação automática da prévia desativada (app)', ''); return r; }
+
+function webSecaoCriarAbas(tok, mm, aaaa) {
+  var m = sessao_(tok), mes = Number(mm), ano = Number(aaaa);
+  if (!(mes >= 1 && mes <= 12) || !(ano >= 2020 && ano <= 2100)) throw new Error('Mês ou ano inválido.');
+  var lock = LockService.getDocumentLock();
+  lock.waitLock(25000);
+  try {
+    INFO_PEND_ = [];
+    var nomes = criarAbasMes_(mes - 1, ano);
+    bumpTrocas_();
+    auditar_(m.nome, 'Abas do mês criadas (app)', nomes.join(', '));
+    return { nomes: nomes, pend: INFO_PEND_.filter(function (x) { return !/^ERRO/.test(x); }), erros: INFO_PEND_.filter(function (x) { return /^ERRO/.test(x); }) };
+  } finally { lock.releaseLock(); }
+}
+function webSecaoGatAbas(tok) { sessao_(tok); return apiGatAbas(); }
+function webSecaoGatAbasSalvar(tok, p) { var m = sessao_(tok, true); var r = apiDefinirGatilho(p || {}); auditar_(m.nome, 'Gatilho de criação das abas definido (app)', r); return r; }
+function webSecaoGatAbasOff(tok) { var m = sessao_(tok, true); var r = apiDesativarGatilho(); auditar_(m.nome, 'Gatilho de criação das abas desativado (app)', ''); return r; }
+
+function webSecaoQuantOpcoes(tok, meses, tipos) { sessao_(tok); var r = apiQuantitativoOpcoes((meses || []).map(String), (tipos || []).map(String)); return { escalas: r.escalas }; }
+function secaoQuantP_(p) {
+  p = p || {};
+  return { meses: (p.meses || []).map(String), tipos: (p.tipos || []).map(String), escalas: (p.escalas || []).map(String), de: /^\d{4}-\d{2}-\d{2}$/.test(p.de || '') ? p.de : '', ate: /^\d{4}-\d{2}-\d{2}$/.test(p.ate || '') ? p.ate : '', futuros: !!p.futuros, trocas: !!p.trocas, keys: [] };
+}
+function webSecaoQuant(tok, p) { sessao_(tok); return apiQuantitativo(secaoQuantP_(p)); }
+function webSecaoQuantExporta(tok, p, formato) {
+  var m = sessao_(tok);
+  var r = apiExportarQuantitativo(secaoQuantP_(p), formato === 'pdf' ? 'pdf' : formato === 'docx' ? 'docx' : 'sheet');
+  auditar_(m.nome, 'Quantitativo exportado (app)', r.nome);
+  return r;
+}
+function webSecaoBalanc(tok, mes, tipos) { sessao_(tok); return apiBalanceamento(String(mes || ''), (tipos || []).map(String)); }
+function webSecaoEfetivoInfo(tok, mes, tipos) { sessao_(tok); return apiEfetivoInfo(String(mes || ''), (tipos || []).map(String)); }
+function webSecaoEfetivoAplicar(tok, p) {
+  var m = sessao_(tok), lock = LockService.getDocumentLock();
+  lock.waitLock(25000);
+  try {
+    var r = apiEfetivoAplicar({ blocos: ((p || {}).blocos || []).slice(0, 80).map(function (b) { return { aba: String(b.aba), hdr: Number(b.hdr), previsto: Number(b.previsto), mudou: !!b.mudou }; }) });
+    bumpTrocas_();
+    auditar_(m.nome, 'Efetivo previsto/escalado lançado (app)', r.rel.itens.map(function (i) { return i.aba + ' ' + i.escala + '=' + i.previsto; }).join(', ').slice(0, 600));
+    return r;
+  } finally { lock.releaseLock(); }
+}
+
+/** p: {aba, nome, grad, sub, inicio, escalas:[{hdr, pos, nunca, ultPreta, ultVerm}]} */
+function webSecaoMilitar(tok, p, aplicar) {
+  var m = sessao_(tok);
+  p = p || {};
+  var q = { aba: String(p.aba || ''), nome: String(p.nome || ''), grad: String(p.grad || ''), sub: String(p.sub || ''), inicio: /^\d{4}-\d{2}-\d{2}$/.test(p.inicio || '') ? p.inicio : '',
+    escalas: (p.escalas || []).slice(0, 60).map(function (e) { return { hdr: Number(e.hdr), pos: (e.pos == null || e.pos === '' || e.pos === 'auto') ? 'auto' : Number(e.pos), nunca: !!e.nunca, ultPreta: String(e.ultPreta || ''), ultVerm: String(e.ultVerm || '') }; }) };
+  var lock = null;
+  if (aplicar) { lock = LockService.getDocumentLock(); lock.waitLock(25000); }
+  try {
+    var r = apiMilitar(q, !!aplicar);
+    if (aplicar) { bumpTrocas_(); agendarPrevia_(); auditar_(m.nome, 'Militar adicionado (app)', r.rel.militar + ' · ' + q.sub + ' · ' + q.aba + ' · escalas: ' + q.escalas.length); }
+    return { rel: r.rel, texto: r.texto };
+  } finally { if (lock) lock.releaseLock(); }
+}
+
+function webSecaoImportar(tok, aba, url, opcoes, aplicar) {
+  var m = sessao_(tok);
+  url = String(url || '').trim();
+  if (url && !/^https:\/\/docs\.google\.com\/spreadsheets\//.test(url)) throw new Error('Informe o link de uma planilha do Google (docs.google.com/spreadsheets).');
+  var lock = null;
+  if (aplicar) { lock = LockService.getDocumentLock(); lock.waitLock(25000); }
+  try {
+    var r = apiImportarDrive(String(aba || ''), url, { tipos: (opcoes && opcoes.tipos === 'refazer') ? 'refazer' : 'manter' }, !!aplicar);
+    if (aplicar) { bumpTrocas_(); agendarPrevia_(); auditar_(m.nome, 'Guarnição importada (app)', aba + ' · fonte: ' + (r.fonte || '')); }
+    return { texto: r.texto, fonte: r.fonte, aplicado: !!aplicar };
+  } finally { if (lock) lock.releaseLock(); }
+}
+
+function webSecaoVerificar(tok) {
+  sessao_(tok);
+  var faltam = funcoesEsperadas_().filter(function (n) { return typeof globalThis[n] !== 'function'; }), abas = [], legenda = null;
+  ss_().getSheets().forEach(function (sh) {
+    var nm = nomeAba_(sh.getName());
+    if (!nm || sh.isSheetHidden()) return;
+    try { var A = lerAba_(sh); abas.push({ nome: A.nome, ano: A.ano, dias: A.nDias, escalas: A.blocos.length }); } catch (e) { abas.push({ nome: sh.getName(), erro: e.message }); }
+  });
+  return { total: funcoesEsperadas_().length, faltam: faltam, abas: abas, versao: CFG.VERSAO };
 }

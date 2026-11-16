@@ -618,11 +618,11 @@ function mnuSobre() {
 }
 
 /* ============================================================ VERIFICAÇÃO DO SISTEMA */
-function mnuVerificarSistema() {
-  var esperadas = [
+function funcoesEsperadas_() {
+  return [
     'onOpen', 'mnuSobre', 'mnuVerificarSistema',
     'mnuAdicionarServicos', 'mnuRetirarServicos', 'mnuAdicionarAfastamento', 'mnuAdicionarMilitar',
-    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuConferenciaEfetivo', 'apiEfetivoInfo', 'apiEfetivoAplicar', 'recalcPrevisto_', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuCentralTrocas', 'apiTrocasEstado', 'apiTrocaDecidir', 'apiTrocasSalvarCfg', 'doGet', 'webSecaoInicio', 'webSecaoPrevia', 'webSecaoDiverg', 'webSecaoAtualizar', 'webSecaoSemanas', 'webSecaoCriar', 'webSecaoPdf', 'webSecaoAbas', 'webSecaoBlocos', 'webSecaoServicos', 'webSecaoAfastamento', 'webSecaoMover', 'webPainelMilitar', 'webCalendario', 'webFila', 'webEfetivo', 'webAfastamentos', 'webExtratoPdf', 'webRiscos', 'webRede', 'webDesempenho', 'webCalorTrocas', 'webUltimasPend', 'atualizarPreviaAposTroca', 'webInicio', 'webDia', 'webSolicitar', 'webAcompanhar', 'webLogin', 'webSair', 'webPendentes', 'webDecidir', 'webPrevia', 'webRelatorio', 'webAuditoria', 'webCfgGet', 'webCfgSalvar', 'aoEditarCentral', 'registrarTroca_', 'decidirTroca_', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
+    'mnuPainel', 'mnuBalanceamento', 'apiBalanceamento', 'mnuConferenciaEfetivo', 'apiEfetivoInfo', 'apiEfetivoAplicar', 'recalcPrevisto_', 'mnuTrocaServico', 'apiTrocaInfo', 'apiTroca', 'mnuCentralTrocas', 'apiTrocasEstado', 'apiTrocaDecidir', 'apiTrocasSalvarCfg', 'doGet', 'webSecaoInicio', 'webSecaoPrevia', 'webSecaoDiverg', 'webSecaoAtualizar', 'webSecaoSemanas', 'webSecaoCriar', 'webSecaoPdf', 'webSecaoAbas', 'webSecaoBlocos', 'webSecaoServicos', 'webSecaoAfastamento', 'webSecaoMover', 'webSecaoParadaPrevias', 'webSecaoParadaDias', 'webSecaoParadaSalvar', 'webSecaoGatPrevia', 'webSecaoGatPreviaSalvar', 'webSecaoGatPreviaAtivar', 'webSecaoCriarAbas', 'webSecaoGatAbas', 'webSecaoGatAbasSalvar', 'webSecaoGatAbasOff', 'webSecaoQuantOpcoes', 'webSecaoQuant', 'webSecaoQuantExporta', 'webSecaoBalanc', 'webSecaoEfetivoInfo', 'webSecaoEfetivoAplicar', 'webSecaoMilitar', 'webSecaoImportar', 'webSecaoVerificar', 'webPainelMilitar', 'webCalendario', 'webFila', 'webEfetivo', 'webAfastamentos', 'webExtratoPdf', 'webRiscos', 'webRede', 'webDesempenho', 'webCalorTrocas', 'webUltimasPend', 'atualizarPreviaAposTroca', 'webInicio', 'webDia', 'webSolicitar', 'webAcompanhar', 'webLogin', 'webSair', 'webPendentes', 'webDecidir', 'webPrevia', 'webRelatorio', 'webAuditoria', 'webCfgGet', 'webCfgSalvar', 'aoEditarCentral', 'registrarTroca_', 'decidirTroca_', 'mnuMoverMilitar', 'apiMover', 'mnuExportarPrevia', 'apiExportarPrevia', 'apiPreviasLista', 'mnuConferirPrevia', 'apiConferirPrevia',
     'apiAbas', 'apiBlocos', 'apiServicos', 'apiAfastamento', 'apiMilitar',
     'mnuAtualizarPrevia', 'mnuAdicionarPrevia', 'mnuDefinirParada', 'mnuGatilhoPrevia', 'gatilhoCriarPrevia', 'apiGatPrevia', 'apiSalvarGatPrevia', 'apiAtivarGatPrevia', 'apiParadaPrevias', 'apiParadaDias', 'apiDefinirParada', 'apiPreviaSemanas', 'apiCriarPrevia', 'atualizarExternosPrevia_', 'preencherPermanencia_', 'preencherCbDia_', 'atualizarExternosTrigger', 'atualizarTrocasTrigger', 'atualizarTabelasOnChange', 'atualizarTabelasInternas_', 'PREVIA_CAL', 'PREVIA_TROCAS',
     'mnuImportarDrive', 'mnuImportarDocumento', 'apiImportarLinhas', 'apiImportarDrive',
@@ -630,6 +630,10 @@ function mnuVerificarSistema() {
     'mnuCriarAbasProximoMes', 'mnuConfigGatilho', 'apiGatAbas', 'apiDesativarGatilho', 'gatilhoCriarAbas', 'apiCriarAbas',
     'lerAba_', 'colunasExtras_', 'envolverAba_', 'propagarAfast_', 'aplicarPendencias_', 'planejarServicos_', 'planejarRetirada_', 'criarAbasMes_'
   ];
+}
+
+function mnuVerificarSistema() {
+  var esperadas = funcoesEsperadas_();
   var faltam = esperadas.filter(function (n) { return typeof globalThis[n] !== 'function'; });
   var meses = mesesDasAbas_(), tabela = [], g = null;
   ss_().getSheets().forEach(function (sh) {
