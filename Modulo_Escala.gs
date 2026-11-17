@@ -914,7 +914,11 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
     });
     if (!M.length) return;
     var rg = novo.getRange(B.rows[0].r + 1, F1, M.length, n);
-    rg.clearNote().setValues(M).setBackgrounds(BG).setFontColors(FG);
+    /* chamadas separadas: encadear depois de clearNote() devolvia o intervalo sem a tradução de colunas e as fórmulas ficavam deslocadas */
+    rg.clearNote();
+    rg.setValues(M);
+    rg.setBackgrounds(BG);
+    rg.setFontColors(FG);
   });
   verificarFormulasNovas_(novo, N, P, kN0, kP0);
 }
