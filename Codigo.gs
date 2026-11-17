@@ -11,7 +11,7 @@ var CFG = {
   VERSAO: '1.0',
   COL_DIA1: 5, /* índice 0-based da coluna F (dia 1) */
   FOLGA_MIN_H: 48, /* intervalo mínimo entre dois serviços (horas) */
-  CB_DIA_PADRAO: 4, /* vagas padrão do bloco "CB DIA" */
+  CB_DIA_PADRAO: 3, /* vagas padrão do bloco "CB DIA" (era 4) */
   HORA_GATILHO: 7,
   MESES: ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'],
   MESES_EXT: ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto',
@@ -102,10 +102,10 @@ function desembrulhar_(x) { return (x && x.__real) ? x.__real : x; }
 function numLetra_(L) { var n = 0; for (var i = 0; i < L.length; i++) n = n * 26 + L.charCodeAt(i) - 64; return n; }
 
 /** nº de colunas inseridas antes dos dias em relação ao padrão (0 = layout padrão) */
-function colunasExtras_(sh) {
+function colunasExtras_(sh, forcar) { /* forcar: relê o layout da aba, ignorando o valor já guardado nesta execução */
   sh = desembrulhar_(sh);
   var id = sh.getSheetId();
-  if (K_ABAS_[id] != null) return K_ABAS_[id];
+  if (!forcar && K_ABAS_[id] != null) return K_ABAS_[id];
   var k = 0;
   try {
     var lr = Math.min(sh.getLastRow(), 80), lc = Math.min(sh.getLastColumn(), 14);
@@ -596,7 +596,7 @@ function mnuSobre() {
     '<h3>Adicionar serviços</h3><p>Escolhe quem cumpre cada serviço e marca o “0” (amarelo). Escolha o mês, as abas e as escalas; defina o período (padrão: de amanhã ao fim do mês) e as vagas por dia. ' +
     'Escolhido = maior folga do tipo do dia; empate = mais moderno. “Folga mínima” (horas) garante o intervalo. Use <b>Verificar</b> (mostra o que será feito) e depois <b>Aplicar</b>. ' +
     'Quem recebe um serviço ganha “0” verde nas outras escalas em que consta no dia. “0” em célula de afastamento (posterior) é refeito. ' +
-    'CB DIA: padrão 4 vagas; se o título do bloco (linha acima do cabeçalho) tiver “2 CB DIA”, vale essa quantidade. Blocos QG AD/1 só têm vaga em dias de cabeçalho laranja.</p>' +
+    'CB DIA: padrão 3 vagas; se o título do bloco (linha acima do cabeçalho) tiver “2 CB DIA”, vale essa quantidade. Blocos QG AD/1 só têm vaga em dias de cabeçalho laranja.</p>' +
     '<p><b>Cndt e Praia — pares de dias:</b> Condutor de turismo = pares ter-qua, qui-sex, sáb-dom (2 por par; segunda não tem serviço). Supervisor de praia = par sáb-dom (1). ' +
     'O “0” é marcado nos dois dias; pelo menos 1 dia livre entre pares; par com dia em branco é pulado; sáb 31 + dom 1º usa a aba do mês seguinte, se existir.</p>' +
     '<h3>Retirar serviços</h3><p>Retira os “0” das escalas marcadas, de hoje em diante; o “0” volta a ser fórmula de folga e a cor volta ao padrão. Opções: retirar também os verdes, preservar cores de afastamento e anotações (marcadas por padrão). Cores de afastamento nunca são apagadas.</p>' +

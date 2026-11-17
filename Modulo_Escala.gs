@@ -833,6 +833,7 @@ function corDiaSemServico_(P, PB, PR, anoAnt, mes, w, t) {
 }
 
 function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
+  var kN0 = colunasExtras_(novo, true), kP0 = colunasExtras_(prev, true); /* layout (colunas extras como DISP/FRI) lido de novo, antes de qualquer alteração: as fórmulas dependem dele */
   var P = lerAba_(prev, undefined, anoAnt);
   var n = new Date(ano, mes + 1, 0).getDate(), diff = n - P.nDias, F1 = colDia_(1) + 1;
   if (diff < 0) novo.deleteColumns(F1 + n, -diff);
@@ -915,6 +916,26 @@ function montarAbaNova_(novo, prev, mes, ano, anoAnt) {
     var rg = novo.getRange(B.rows[0].r + 1, F1, M.length, n);
     rg.clearNote().setValues(M).setBackgrounds(BG).setFontColors(FG);
   });
+  verificarFormulasNovas_(novo, N, P, kN0, kP0);
+}
+
+/** confere se as fórmulas gravadas apontam para as colunas dos dias (da própria aba e da aba anterior); se não, cancela a criação em vez de deixar #VALUE! */
+function verificarFormulasNovas_(novo, N, P, kN, kP) {
+  SpreadsheetApp.flush();
+  var raw = desembrulhar_(novo), F1 = colDia_(1) + 1 + kN, F1P = colDia_(1) + 1 + kP, ruins = [];
+  N.blocos.forEach(function (B) {
+    if (!B.rows.length) return;
+    var fs = raw.getRange(B.rows[0].r + 1, F1, B.rows.length, N.nDias).getFormulas();
+    fs.forEach(function (lin, i) {
+      lin.forEach(function (f, j) {
+        if (!f) return;
+        var m = /^=([A-Z]{1,3})(\d+)(\+1)?$/.exec(f), q = /^='([^']+)'!([A-Z]{1,3})(\d+)\+1$/.exec(f);
+        if (m) { var cn = numLetra_(m[1]); if (cn < F1 || cn >= F1 + N.nDias) ruins.push(B.titulo + ' linha ' + (B.rows[i].r + 1) + ': ' + f); }
+        else if (q) { var cq = numLetra_(q[2]); if (cq < F1P || cq >= F1P + P.nDias) ruins.push(B.titulo + ' linha ' + (B.rows[i].r + 1) + ': ' + f); }
+      });
+    });
+  });
+  if (ruins.length) throw new Error('As fórmulas da aba nova ficaram fora das colunas dos dias (' + ruins.length + ' célula(s); ex.: ' + ruins.slice(0, 2).join(' | ') + '). A criação foi cancelada para não deixar a aba com erros.');
 }
 
 /* ----- gatilho */
