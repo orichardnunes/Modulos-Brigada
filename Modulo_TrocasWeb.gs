@@ -309,6 +309,7 @@ function webExcluir(tok, id, motivo) {
 function previaDados_(l) {
   var d = l[15] ? JSON.parse(l[15]) : null;
   if (!d) throw new Error('Pedido sem dados.');
+  d.hdr = hdrPorTitulo_(d, l[6]);
   var info = infoTroca_(d.mes, d.tipo, d.hdr, d.iso), ks = norm_(l[7]);
   return {
     data: info.data, esc: info.titulo,

@@ -430,6 +430,17 @@ function atualizarPreviaAposTroca() {
   try { atualizarExternosTrigger(); } catch (e2) { Logger.log('Prévia (externos) após troca: ' + e2.message); }
 }
 
+/** o nº da linha do cabeçalho do bloco (hdr) muda quando alguém insere/apaga linhas na aba (ex.: nova linha-resumo no topo): reencontra o bloco pelo título */
+function hdrPorTitulo_(d, titulo) {
+  if (!d || d.tipo === TIPO_EXT_ || !titulo) return d ? d.hdr : null;
+  try {
+    var bl = apiBlocos(d.mes, [d.tipo]).blocos, kt = norm_(titulo);
+    var igual = bl.filter(function (b) { return norm_(b.titulo) === kt; })[0];
+    if (igual) return igual.hdr;
+  } catch (e) { /* mantém o hdr gravado */ }
+  return d.hdr;
+}
+
 function gravarNotaTroca_(d, saiNome, entraNome) {
   if (d.tipo === TIPO_EXT_) return gravarNotaExt_(d, saiNome, entraNome); /* escalas dos arquivos externos */
   bumpTrocas_();
@@ -456,6 +467,7 @@ function decidirTroca_(id, acao, quem, obs) {
   var sh = garantirCentral_(), r = acharLinhaTroca_(sh, id);
   if (!r) throw new Error('Pedido ' + id + ' não encontrado.');
   var l = sh.getRange(r, 1, 1, 16).getValues()[0], sit = l[11], d = l[15] ? JSON.parse(l[15]) : null, novo;
+  if (d) d.hdr = hdrPorTitulo_(d, l[6]);
   var x = { id: id, sai: l[7], entra: l[8], titulo: l[6], data: l[4], obs: obs };
   if (acao === 'Autorizar') {
     if (sit !== 'Pendente' && sit !== 'Autorizar') throw new Error('Só pedidos pendentes podem ser autorizados (situação: ' + sit + ').');
@@ -512,6 +524,7 @@ function excluirTroca_(id, quem, motivo) {
     var rr = acharLinhaTroca_(sh, i);
     if (!rr) return;
     var ll = sh.getRange(rr, 1, 1, 16).getValues()[0], dd = null; try { dd = ll[15] ? JSON.parse(ll[15]) : null; } catch (e) { dd = null; }
+    if (dd) dd.hdr = hdrPorTitulo_(dd, ll[6]);
     var nota = '';
     if (ll[11] === 'Autorizada' && dd && dd.iso) { try { gravarNotaTroca_(dd, ll[7], ''); nota = ' (anotação removida da escala)'; } catch (e) { nota = ' (anotação: ' + e.message + ')'; } }
     var data = ll[4] instanceof Date ? fmtData_(ll[4]) : '';
