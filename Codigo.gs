@@ -323,7 +323,7 @@ function lerAbaBruta_(sh, mes, ano) {
     if (!h.titulo) { if (!A.topo) A.topo = h.r; return; }
     var B = { titulo: h.titulo, hdr: h.r, wk: h.r + 1, rows: [] };
     var tu = semAcento_(h.titulo);
-    B.kind = tu.indexOf('CONDUTOR') >= 0 ? 'par3' : tu.indexOf('IMBUHY') >= 0 ? 'qg' : tu.indexOf('PRAIA') >= 0 ? 'par1' : tu.indexOf('QG AD/1') >= 0 ? 'qg' : 'dia'; /* supervisor de praia ao Imbuhy: um dia só, apenas nos dias laranja (serviço do 21º GAC) */
+    B.kind = tu.indexOf('CONDUTOR') >= 0 ? 'par3' : /IMB[UH]/.test(tu) ? 'qg' : tu.indexOf('PRAIA') >= 0 ? 'par1' : tu.indexOf('QG AD/1') >= 0 ? 'qg' : 'dia'; /* supervisor de praia ao Imbuhy: um dia só, apenas nos dias laranja (serviço do 21º GAC) */
     for (var x = h.r + 2; x < lr; x++) {
       var e = A.vals[x][4];
       if (e === '' || e == null || String(e).trim() === '') break;
@@ -369,7 +369,7 @@ function lerAbaBruta_(sh, mes, ano) {
     }
     if (nLar + nAzul > 0) for (var d3 = 1; d3 <= A.nDias; d3++) B.gac[d3] = String(A.bgs[B.hdr][colDia_(d3)]).toLowerCase() === CFG.COR.LARANJA;
     /* supervisor de praia ao Imbuhy (aba Cndt e Praia): os dias de serviço vêm da linha-resumo da aba Grad do mesmo mês (preenchida pela importação da Guarnição) */
-    if (B.gacRow == null && semAcento_(B.titulo).indexOf('IMBUHY') >= 0) {
+    if (B.gacRow == null && /IMB[UH]/.test(semAcento_(B.titulo))) {
       var gI = gacImbuhyGrad_(A);
       if (gI) { B.gac = gI; B.gacResumo = {}; for (var dI = 1; dI <= A.nDias; dI++) B.gacResumo[dI] = !!gI[dI]; }
     }
@@ -397,6 +397,7 @@ function gacImbuhyGrad_(A) {
 /** chave de uma linha-resumo do topo / título de bloco QG: aceita "OF DIA GRAGOATÁ" (antigo) e "OF DIA QG" (atual); "SD GD" = "GD" */
 function baseResumo_(txt) {
   var b = semAcento_(txt).replace(/\s*QG AD\/1\s*$/, '').replace(/\s*(GRAGOATA|QG)\s*$/, '').trim();
+  if (/PRAIA/.test(b) && /IMB[UH]/.test(b)) return 'SUPERVISOR DE PRAIA AO IMBUHY'; /* aceita “… IMBUHY”, “… AO IMBUHY”, “IMBHUY”, “IMBUÍ” */
   return b === 'SD GD' ? 'GD' : b;
 }
 

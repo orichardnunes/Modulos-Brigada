@@ -109,7 +109,7 @@ function PREVIA_CAL(datas, tick) {
     /* supervisor de praia ao Imbuhy: laranja na linha-resumo (Guarnição) = serviço do 21º GAC; o nome vem do bloco da aba Cndt e Praia (com troca “*”); sem militar = PENDENTE; fora do serviço = X */
     var imbFlag = flagResumo_(G, IMBUHY_CHAVE_, dia, null), imbNomes = [];
     if (C) C.blocos.forEach(function (B) {
-      if (semAcento_(B.titulo).indexOf('IMBUHY') < 0) return;
+      if (!/IMB[UH]/.test(semAcento_(B.titulo))) return;
       zerosValidos_(C, B, dia).forEach(function (z) { imbNomes.push(z.nome); });
       if (B.gac && B.gac[dia]) imbFlag = true;
     });
