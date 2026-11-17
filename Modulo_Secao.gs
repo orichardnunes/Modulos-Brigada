@@ -411,3 +411,10 @@ function definirUrlPublicaGitHub() {
 }
 /** volta os links ao endereço do Apps Script */
 function limparUrlPublica() { definirUrlPublica_(''); Logger.log('Endereço público removido.'); }
+
+/** mostra no registro de execução o endereço que os e-mails de aviso estão usando */
+function mostrarUrlPublica() {
+  var u = PropertiesService.getDocumentProperties().getProperty('URL_PUBLICA');
+  Logger.log('Endereço gravado (URL_PUBLICA): ' + (u || '(vazio — os e-mails usam o endereço do Apps Script)'));
+  Logger.log('Endereço que os e-mails vão usar agora: ' + urlAppTrocas_());
+}
