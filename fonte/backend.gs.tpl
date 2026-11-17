@@ -266,15 +266,22 @@ function webPendentes(tok) {
   try { expirarPendentes_('Sistema'); } catch (e) { Logger.log('Expirar: ' + e.message); }
   var todas = linhasTrocas_().map(itemTrocaWeb_).reverse();
   return {
-    quem: m.nome, admin: !!m.admin,
+    quem: m.nome, admin: !!m.admin, podeCancelar: podeCancelar_(m),
     pend: todas.filter(function (x) { return x.sit === 'Pendente'; }),
     aut: todas.filter(function (x) { return x.sit === 'Autorizada'; }).slice(0, 15)
   };
 }
 
+/** cancelar troca já autorizada: administrador sempre; os demais membros da 1ª Seção só se o administrador ativar na Configuração */
+function podeCancelar_(m) { return !!(m && (m.admin || cfgTrocas_().membrosCancelam)); }
+function exigirCancelar_(m, acao) {
+  if (String(acao) === 'Cancelar' && !podeCancelar_(m)) throw new Error('Cancelar troca autorizada está liberado só para o administrador. Peça a ele para ativar a opção na Configuração.');
+}
+
 function webDecidir(tok, id, acao, obs) {
   ativarMemoLer_();
   var m = sessao_(tok), lock = LockService.getDocumentLock();
+  exigirCancelar_(m, acao);
   lock.waitLock(20000);
   try { return decidirTrocaPar_(String(id), String(acao), m.nome, String(obs || '').slice(0, 200)); }
   finally { lock.releaseLock(); }
@@ -284,6 +291,7 @@ function webDecidir(tok, id, acao, obs) {
 function webDecidirLote(tok, ids, acao, obs) {
   ativarMemoLer_();
   var m = sessao_(tok), lock = LockService.getDocumentLock(), ok = 0, erros = [], feitos = {};
+  exigirCancelar_(m, acao);
   lock.waitLock(30000);
   try {
     (ids || []).slice(0, 60).forEach(function (id) {
@@ -473,7 +481,7 @@ function webCfgGet(tok) {
     blocosExt_().forEach(function (b) { esc[b.titulo] = 1; });
   });
   return {
-    titulo: c.titulo, subtitulo: c.subtitulo, biTitulo: c.biTitulo, biIntegral: c.biIntegral, biParcial: c.biParcial, biNota: c.biNota, biSemana: c.biSemana, biExc: c.biExc, escalaUrl: c.escalaUrl, antecedencia: c.antecedencia, visEscalas: c.visEscalas, notificar: c.notificar, aprov: c.aprov.join(', '), avisos: c.avisos, expirarAuto: c.expirarAuto, novidades: c.novidades,
+    titulo: c.titulo, subtitulo: c.subtitulo, biTitulo: c.biTitulo, biIntegral: c.biIntegral, biParcial: c.biParcial, biNota: c.biNota, biSemana: c.biSemana, biExc: c.biExc, escalaUrl: c.escalaUrl, antecedencia: c.antecedencia, visEscalas: c.visEscalas, notificar: c.notificar, aprov: c.aprov.join(', '), avisos: c.avisos, membrosCancelam: !!c.membrosCancelam, expirarAuto: c.expirarAuto, novidades: c.novidades,
     escalas: Object.keys(esc).sort(),
     membros: membrosAdm_().map(function (m) { return { nome: m.nome, ativo: !!m.ativo, admin: !!m.admin, temSenha: !!m.hash }; }),
     planilha: centralSS_().getUrl(), url: urlAppTrocas_()
@@ -510,6 +518,7 @@ function webCfgSalvar(tok, n) {
     mud.push('Avisos personalizados: ' + avs.length + ' cadastrado(s), ' + avs.filter(function (a) { return a.ativo; }).length + ' ativo(s) — ' + avs.map(function (a) { return (a.ativo ? '' : '[off] ') + (a.titulo || a.texto.slice(0, 30)); }).join(' | '));
     c.avisos = avs;
   }
+  if (!!n.membrosCancelam !== !!c.membrosCancelam) { mud.push('Demais membros da 1ª Seção podem cancelar trocas autorizadas: ' + (n.membrosCancelam ? 'sim' : 'não')); c.membrosCancelam = !!n.membrosCancelam; }
   if (!!n.expirarAuto !== c.expirarAuto) { mud.push('Expirar pendentes automaticamente: ' + (n.expirarAuto ? 'sim' : 'não')); c.expirarAuto = !!n.expirarAuto; }
   var nov = String(n.novidades || '').trim().slice(0, 1200);
   if (nov !== c.novidades) { c.novidades = nov; c.novidadesVer = (c.novidadesVer || 1) + 1; mud.push('Texto de novidades alterado'); }

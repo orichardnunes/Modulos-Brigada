@@ -111,7 +111,7 @@ function cfgTrocas_() {
     avisos: c.avisos || [],
     biSemana: (c.biSemana && c.biSemana.length === 7) ? c.biSemana : ['off', 'int', 'int', 'int', 'int', 'par', 'off'], /* índice = dia da semana (0 = domingo): int, par ou off */
     biExc: c.biExc || [], /* exceções por data: [{iso, tipo}] */
-    expirarAuto: c.expirarAuto !== false, novidadesVer: Number(c.novidadesVer || 1),
+    expirarAuto: c.expirarAuto !== false, membrosCancelam: c.membrosCancelam === true, novidadesVer: Number(c.novidadesVer || 1),
     novidades: c.novidades != null ? c.novidades : 'Permuta (troca de mão dupla) na etapa 2.\nAviso do fechamento do BI com contagem regressiva.\nTemas claro, escuro e Tático.\nSolicitações vencidas expiram sozinhas e exclusões podem ser desfeitas.\nBotão Ajuda com tour e glossário.',
     antecedencia: c.antecedencia != null ? Number(c.antecedencia) : 1, visEscalas: c.visEscalas || []
   };
