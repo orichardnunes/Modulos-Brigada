@@ -323,7 +323,7 @@ function lerAbaBruta_(sh, mes, ano) {
     if (!h.titulo) { if (!A.topo) A.topo = h.r; return; }
     var B = { titulo: h.titulo, hdr: h.r, wk: h.r + 1, rows: [] };
     var tu = semAcento_(h.titulo);
-    B.kind = tu.indexOf('CONDUTOR') >= 0 ? 'par3' : tu.indexOf('PRAIA') >= 0 ? 'par1' : tu.indexOf('QG AD/1') >= 0 ? 'qg' : 'dia';
+    B.kind = tu.indexOf('CONDUTOR') >= 0 ? 'par3' : tu.indexOf('IMBUHY') >= 0 ? 'qg' : tu.indexOf('PRAIA') >= 0 ? 'par1' : tu.indexOf('QG AD/1') >= 0 ? 'qg' : 'dia'; /* supervisor de praia ao Imbuhy: um dia só, apenas nos dias laranja (serviço do 21º GAC) */
     for (var x = h.r + 2; x < lr; x++) {
       var e = A.vals[x][4];
       if (e === '' || e == null || String(e).trim() === '') break;
@@ -368,8 +368,30 @@ function lerAbaBruta_(sh, mes, ano) {
       if (hb === CFG.COR.LARANJA) nLar++; else if (hb === CFG.COR.AZUL) nAzul++;
     }
     if (nLar + nAzul > 0) for (var d3 = 1; d3 <= A.nDias; d3++) B.gac[d3] = String(A.bgs[B.hdr][colDia_(d3)]).toLowerCase() === CFG.COR.LARANJA;
+    /* supervisor de praia ao Imbuhy (aba Cndt e Praia): os dias de serviço vêm da linha-resumo da aba Grad do mesmo mês (preenchida pela importação da Guarnição) */
+    if (B.gacRow == null && semAcento_(B.titulo).indexOf('IMBUHY') >= 0) {
+      var gI = gacImbuhyGrad_(A);
+      if (gI) { B.gac = gI; B.gacResumo = {}; for (var dI = 1; dI <= A.nDias; dI++) B.gacResumo[dI] = !!gI[dI]; }
+    }
   });
   return A;
+}
+
+/** dias laranja da linha-resumo "SUPERVISOR DE PRAIA AO IMBUHY" da aba Grad do mesmo mês: {dia: true/false}; null se a aba/linha não existe ou a Guarnição ainda não foi importada */
+function gacImbuhyGrad_(A) {
+  try {
+    var sh = ss_().getSheetByName(CFG.MESES[A.mes] + ' ' + CFG.TIPO_GRAD);
+    if (!sh) return null;
+    var G = lerAba_(sh, A.mes, A.ano), S = null, out = {}, marcados = 0;
+    G.resumo.forEach(function (x) { if (!S && baseResumo_(x.label) === 'SUPERVISOR DE PRAIA AO IMBUHY') S = x; });
+    if (!S) return null;
+    for (var d = 1; d <= A.nDias; d++) {
+      var bg = String(G.bgs[S.r][colDia_(d)]).toLowerCase();
+      out[d] = bg === CFG.COR.LARANJA;
+      if (bg === CFG.COR.LARANJA || bg === CFG.COR.AZUL) marcados++;
+    }
+    return marcados ? out : null;
+  } catch (e) { return null; }
 }
 
 /** chave de uma linha-resumo do topo / título de bloco QG: aceita "OF DIA GRAGOATÁ" (antigo) e "OF DIA QG" (atual); "SD GD" = "GD" */

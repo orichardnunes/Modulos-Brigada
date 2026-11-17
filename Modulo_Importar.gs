@@ -142,11 +142,12 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
   /* linhas-resumo do topo */
   var resumoPorRotulo = {};
   A.resumo.forEach(function (S) { var k = baseResumo_(S.label); if (!resumoPorRotulo[k]) resumoPorRotulo[k] = S; });
-  var plano = [], texto = [], relEsc = [];
+  var plano = [], texto = [], relEsc = [], imbImportado = false;
   GUARNICAO_MAPA.forEach(function (m, k) {
     var S = resumoPorRotulo[m.chave];
     if (m.opcional && !dias.some(function (dd) { return porDia[dd].cols[k] != null && String(porDia[dd].cols[k]) !== ''; })) return; /* fonte sem essa coluna (ex.: importação por documento) */
     if (!S) { if (!m.opcional) avisos.push('Linha "' + m.rotulo + '" não encontrada no topo da aba (ignorada).'); return; }
+    if (m.opcional) imbImportado = true;
     var laranja = [], azul = [];
     dias.forEach(function (dd) {
       var om = (porDia[dd].cols[k] || '');
@@ -193,6 +194,12 @@ function apiImportarLinhas(destNome, linhas, opcoes, aplicar) {
     if (diverge.length && opcoes.tipos === 'refazer') refazerTipos_(sh, A, diverge);
     var qg = ajustarBlocosQG_(sh);
     qgRel = qg;
+    if (imbImportado) { /* o bloco do supervisor de praia ao Imbuhy fica na aba Cndt e Praia: cabeçalho e fórmulas seguem a linha-resumo importada */
+      try {
+        var shC = ss_().getSheetByName(CFG.MESES[A.mes] + ' ' + CFG.TIPO_CNDT);
+        if (shC && lerAba_(shC, A.mes, A.ano).blocos.some(function (B) { return B.kind === 'qg'; })) texto.push('\nCndt e Praia — ' + ajustarBlocosQG_(shC).texto);
+      } catch (eC) { avisos.push('Cndt e Praia (Imbuhy): ' + eC.message); }
+    }
     texto.push('\n✅ APLICADO' + (qg ? ' — ' + qg.texto : '') + '.');
   } else texto.unshift('🔎 VERIFICAÇÃO (nada foi alterado)\n');
   SpreadsheetApp.flush();
