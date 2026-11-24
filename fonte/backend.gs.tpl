@@ -11,7 +11,9 @@ var HTML_TROCAS_WEB_ = __HTML__;
 
 function doGet(e) {
   var tv = e && e.parameter && e.parameter.tv; /* ?tv=1 abre direto o modo painel (TV) */
-  return HtmlService.createHtmlOutput(tv ? HTML_TROCAS_WEB_.replace('<!--TVFLAG-->', '<script>window.__TV=1;</script>') : HTML_TROCAS_WEB_)
+  var cod = e && e.parameter ? String(e.parameter.c || '') : ''; /* ?c=0113NOV26 abre o Acompanhar com a solicitação pesquisada (link do WhatsApp) */
+  var flags = (tv ? '<script>window.__TV=1;</script>' : '') + (/^[0-9A-Za-z-]{3,20}$/.test(cod) ? '<script>window.__COD="' + cod.toUpperCase() + '";</script>' : '');
+  return HtmlService.createHtmlOutput(flags ? HTML_TROCAS_WEB_.replace('<!--TVFLAG-->', flags) : HTML_TROCAS_WEB_)
     .setTitle('Gestão de Escalas')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no')
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
