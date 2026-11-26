@@ -114,11 +114,12 @@ function PREVIA_CAL(datas, tick) {
       if (B.gac && B.gac[dia]) imbFlag = true;
     });
     PREVIA_IMB_.push([serialData_(d), imbFlag || imbNomes.length > 0, imbNomes.length ? imbNomes.join(' / ') : (imbFlag ? 'PENDENTE' : 'X')]);
-    var p12 = [], p24 = [], ctrl = [], cb = [], vagasCb = '';
+    var p12 = [], p24 = [], ctrl = [], cb = [], vagasCb = '', temPomn = false;
     if (G) {
       G.blocos.forEach(function (B) {
         var t = semAcento_(B.titulo);
         if (t.indexOf('POMN') === 0) {
+          temPomn = true;
           var resto = [];
           zerosValidos_(G, B, dia).forEach(function (z) {
             if (vermG) ctrl.push(z.nome);
@@ -133,6 +134,7 @@ function PREVIA_CAL(datas, tick) {
         }
       });
     }
+    if (G && !temPomn) { p12 = ['X', 'X']; p24 = ['X', 'X', 'X']; ctrl = ['X', 'X', 'X']; } /* o mês não tem a escala de PoMN (portões e controle de acesso): X, e não PENDENTE */
     function pega(l, n) { var o = []; for (var i = 0; i < n; i++) o.push(l[i] || ''); return o; }
     linhas.push(linha.concat(pega(p12, 2), pega(p24, 3), pega(ctrl, 3), pega(cb, 4), [vagasCb]));
   });
@@ -388,6 +390,7 @@ function migrarPrevia_(sh) {
   }
   instalarAuxPrevia_(sh);
   try { garantirLinhaImbuhy_(sh); } catch (e) { Logger.log('Linha do Imbuhy: ' + e.message); }
+  try { garantirSentinelaDesarmado_(sh); } catch (e) { Logger.log('Sentinela desarmado: ' + e.message); }
   try { preencherPermanencia_(sh); } catch (e) { Logger.log('Permanência PNR: ' + e.message); }
   try { preencherCbDia_(sh); } catch (e) { Logger.log('CB DIA: ' + e.message); }
   return { alteradas: alteradas, externas: Object.keys(externas) };
@@ -820,6 +823,35 @@ function garantirLinhaImbuhy_(sh) {
     var L = colLetra_(2 + c);
     var f = '=IFERROR(INDEX($BI$2:$BI$8,MATCH(' + L + '$2,$BG$2:$BG$8,0)),"X")';
     sh.getRange(rImb, 3 + c).setFormula(localizarFormula_(f));
+  }
+  return true;
+}
+
+/** SENTINELA (DESARMADO): se a aba Grad do mês tem o bloco "SD GD QG AD/1 DESARMADO", a linha lê o 1º militar desse bloco; sem o bloco, continua sendo o 4º do bloco "SD GD QG AD/1".
+ *  A escolha é feita dia a dia pela fórmula (a semana pode atravessar a virada do mês), então a prévia acompanha a criação/exclusão da escala sem intervenção. */
+function garantirSentinelaDesarmado_(sh) {
+  var lr = sh.getLastRow(), v = sh.getRange(1, 1, lr, 2).getValues(), r = 0;
+  for (var i = 0; i < lr; i++) if (/^SENTINELA\s*\(DESARMADO\)/.test(semAcento_(String(v[i][1] || '')).replace(/\s+/g, ' ').trim())) { r = i + 1; break; }
+  if (!r) return false;
+  var L = 'SUBSTITUTE(ADDRESS(1,5+k,4),"1","")';
+  for (var c = 0; c < 7; c++) {
+    var col = colLetra_(2 + c);
+    var f = '=IFERROR(LET(d,' + col + '$2,' +
+      'aba,CHOOSE(MONTH(d),"Jan","Fev","Mar","Abr","Mai","Jun","Jul","Ago","Set","Out","Nov","Dez")&" Grad",' +
+      'k,INDEX($BD$2:$BD$8,MATCH(d,$BC$2:$BC$8,0)),letraE,' + L + ',col,DAY(d)+5+k,' +
+      'colE,INDIRECT("\'"&aba&"\'!"&letraE&":"&letraE),' +
+      'ehLaranja,INDEX($O$2:$O$8,MATCH(d,$L$2:$L$8,0)),' +
+      'IF(NOT(ehLaranja),"X",LET(' +
+      'lblD,IFERROR(MATCH("SD GD QG AD/1 DESARMADO",colE,0),0),' +
+      'lbl,IF(lblD>0,lblD,MATCH("SD GD QG AD/1",colE,0)),pos,IF(lblD>0,1,4),' +
+      'faixa,INDIRECT("\'"&aba&"\'!"&letraE&(lbl+2)&":"&letraE&(lbl+61)),' +
+      'fim,IFERROR(MATCH(TRUE,ARRAYFORMULA(faixa=""),0),60)-1,' +
+      'nomes,INDIRECT("\'"&aba&"\'!"&letraE&(lbl+2)&":"&letraE&(lbl+1+fim)),' +
+      'valores,INDIRECT("\'"&aba&"\'!"&ADDRESS(lbl+2,col)&":"&ADDRESS(lbl+1+fim,col)),' +
+      'nomeGrade,IF(COUNTIF(valores,0)<pos,"",INDEX(FILTER(nomes,ISNUMBER(valores)*(valores=0)),pos)),' +
+      'IF(nomeGrade="","PENDENTE",IFERROR(INDEX($AI$2:$AI$407,MATCH(1,ARRAYFORMULA(($AG$2:$AG$407=d)*($AH$2:$AH$407=TRIM(nomeGrade))),0)),nomeGrade)))))' +
+      ',"PENDENTE")';
+    sh.getRange(r, 3 + c).setFormula(localizarFormula_(f));
   }
   return true;
 }

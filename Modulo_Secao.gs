@@ -418,3 +418,32 @@ function mostrarUrlPublica() {
   Logger.log('Endereço gravado (URL_PUBLICA): ' + (u || '(vazio — os e-mails usam o endereço do Apps Script)'));
   Logger.log('Endereço que os e-mails vão usar agora: ' + urlAppTrocas_());
 }
+
+/** escalas (blocos) de cada mês, comparadas com o mês anterior: novas, removidas e o que a prévia e as funções fazem com isso */
+function webSecaoEscalasMes(tok) {
+  sessao_(tok);
+  var ms = mesesDasAbas_(), ini = Math.max(0, ms.length - 4), out = [], ant = {};
+  function chave(t) { return norm_(t); }
+  for (var i = ini; i < ms.length; i++) {
+    var m = ms[i], reg = { mes: m.id, tipos: [], notas: [] }, titulosGrad = [];
+    ['Grad', 'Cndt e Praia'].forEach(function (t) {
+      if (m.tipos.indexOf(t) < 0) return;
+      var bl = apiBlocos(m.id, [t]).blocos, atual = {}, prev = ant[t] || null, novos = {}, removidas = [];
+      bl.forEach(function (b) { atual[chave(b.titulo)] = b.titulo; });
+      if (prev) {
+        Object.keys(atual).forEach(function (k) { if (!prev[k]) novos[k] = true; });
+        Object.keys(prev).forEach(function (k) { if (!atual[k]) removidas.push(prev[k]); });
+      }
+      ant[t] = atual;
+      if (t === 'Grad') titulosGrad = bl.map(function (b) { return semAcento_(b.titulo); });
+      reg.tipos.push({ tipo: t, comparado: !!prev, blocos: bl.map(function (b) { return { titulo: b.titulo, kind: b.kind, n: b.n, novo: !!novos[chave(b.titulo)] }; }), removidas: removidas });
+    });
+    if (titulosGrad.length) {
+      if (!titulosGrad.some(function (x) { return x.indexOf('POMN') === 0; })) reg.notas.push('Sem a escala de PoMN: na prévia, portões (12h/24h) e controle de acesso ficam X, e “Adicionar/Retirar serviços” não lista essa escala.');
+      if (titulosGrad.some(function (x) { return /SD GD QG AD\/1 DESARMADO/.test(x); })) reg.notas.push('Com “SD GD QG AD/1 DESARMADO”: a linha SENTINELA (DESARMADO) da prévia lê o 1º militar desse bloco (nos dias do 21º GAC).');
+      else reg.notas.push('Sem bloco DESARMADO: a linha SENTINELA (DESARMADO) da prévia lê o 4º militar do bloco “SD GD QG AD/1”.');
+    }
+    out.push(reg);
+  }
+  return { meses: out.slice(-3) };
+}
